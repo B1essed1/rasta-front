@@ -72,7 +72,7 @@ h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 46px; padding: 0 22px; border-radius: 999px; font-weight: 600;
-  font-size: 0.9375rem; border: none; transition: all var(--transition);
+  font-size: 15px; letter-spacing: -0.01em; border: none; transition: all var(--transition);
   text-decoration: none; white-space: nowrap; position: relative; overflow: hidden;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -82,8 +82,8 @@ h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
 .btn-ghost:hover:not(:disabled) { border-color: var(--faint); background: var(--paper); }
 .btn-soft { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
 .btn-soft:hover:not(:disabled) { box-shadow: var(--shadow); }
-.btn-sm { height: 38px; padding: 0 16px; font-size: 0.875rem; }
-.btn-lg { height: 54px; padding: 0 28px; font-size: 1rem; }
+.btn-sm { height: 38px; padding: 0 16px; font-size: 14px; }
+.btn-lg { height: 54px; padding: 0 28px; font-size: 16.5px; }
 .btn--block { width: 100%; }
 
 /* Legacy button classes for other pages */
@@ -97,8 +97,8 @@ h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
 .btn--danger:hover:not(:disabled) { background: var(--danger-tint); }
 .btn--saffron { background: var(--saffron); color: #fff; }
 .btn--saffron:hover:not(:disabled) { background: #cc8f2e; }
-.btn--sm { height: 38px; padding: 0 16px; font-size: 0.875rem; }
-.btn--lg { height: 54px; padding: 0 28px; font-size: 1rem; }
+.btn--sm { height: 38px; padding: 0 16px; font-size: 14px; }
+.btn--lg { height: 54px; padding: 0 28px; font-size: 16.5px; }
 
 /* ===== Forms ===== */
 .form-group { margin-bottom: 16px; }
@@ -187,7 +187,8 @@ h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
   border-radius: 999px; padding: 3px; gap: 2px;
 }
 .lang button {
-  padding: 4px 10px; font-size: 0.75rem; font-weight: 600;
+  padding: 5px 11px; font-size: 13px; font-weight: 600;
+  letter-spacing: 0.02em;
   background: transparent; border: none; color: var(--faint);
   border-radius: 999px; transition: all var(--transition); cursor: pointer;
 }
@@ -221,14 +222,15 @@ h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
 }
 .pnav .brand {
   display: flex; align-items: center; gap: 8px;
-  font-size: 1.25rem; font-weight: 700; color: var(--ink);
-  text-decoration: none;
+  font-size: 23px; font-weight: 700; color: var(--ink);
+  letter-spacing: -0.03em; text-decoration: none;
 }
 .pnav-links {
   display: flex; align-items: center; gap: 28px;
 }
 .pnav-links a {
-  font-size: 0.9375rem; color: var(--soft); font-weight: 500;
+  padding: 8px 13px; border-radius: 9px; font-size: 14.5px;
+  color: var(--soft); font-weight: 500;
   transition: color var(--transition); text-decoration: none;
 }
 .pnav-links a:hover { color: var(--ink); }
