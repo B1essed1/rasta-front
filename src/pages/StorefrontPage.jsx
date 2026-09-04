@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import LangPill from '../components/ui/LangPill';
 import EmptyState from '../components/ui/EmptyState';
-import { t, onLangChange, fmtPrice } from '../i18n';
+import { t, onLangChange, fmtPrice, fill } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import { getTheme, applyThemeVars } from '../data/themes';
 import { getPalette, applyPaletteVars } from '../data/palettes';
@@ -53,6 +53,57 @@ function StockBadge({ state, overlay }) {
     <span className={`sf-stock-badge sf-stock-badge--${state}${overlay ? ' sf-stock-badge--overlay' : ''}`}>
       {label}
     </span>
+  );
+}
+
+/* ===== Stars ===== */
+
+function Stars({ value, size, onPick }) {
+  return (
+    <span className={`stars${onPick ? ' pick' : ''}`}>
+      {[1,2,3,4,5].map(k => {
+        const Tag = onPick ? 'button' : 'span';
+        return (
+          <Tag key={k} className={`star${value >= k ? ' on' : ''}`}
+            style={size ? {fontSize: size} : undefined}
+            onClick={onPick ? () => onPick(k) : undefined}
+            type={onPick ? 'button' : undefined}>&#9733;</Tag>
+        );
+      })}
+    </span>
+  );
+}
+
+/* ===== Rating Stats ===== */
+
+function ratingStats(reviews) {
+  if (!reviews.length) return { avg: 0, n: 0, dist: [0,0,0,0,0] };
+  const dist = [0,0,0,0,0];
+  let sum = 0;
+  reviews.forEach(r => { dist[r.rating - 1]++; sum += r.rating; });
+  return { avg: (sum / reviews.length).toFixed(1), n: reviews.length, dist };
+}
+
+/* ===== Review Form ===== */
+
+function ReviewForm({ onSubmit }) {
+  const [rating, setRating] = useState(0);
+  const [text, setText] = useState('');
+  const [name, setName] = useState('');
+  return (
+    <div className="pp-rv-form">
+      <b>{t('rv_write')}</b>
+      <div className="pp-rv-row">
+        <span>{t('rv_your_rating')}</span>
+        <Stars value={rating} size={26} onPick={setRating}/>
+      </div>
+      <input placeholder={t('co_name')} value={name} onChange={e => setName(e.target.value)}/>
+      <textarea rows={3} value={text} onChange={e => setText(e.target.value)} placeholder={t('rv_text_ph')}/>
+      <button className="btn btn-accent btn-sm" disabled={!rating}
+        onClick={() => { onSubmit({ rating, text, name: name || t('rv_anon') }); setRating(0); setText(''); setName(''); }}>
+        {t('rv_send')}
+      </button>
+    </div>
   );
 }
 
@@ -253,18 +304,26 @@ function OrderSuccess({ order, onClose }) {
   );
 }
 
-/* ===== Product Detail ===== */
+/* ===== Product Page ===== */
 
-function ProductDetail({ product, shop, onBack, onAddToBasket }) {
+function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
+  const [galIdx, setGalIdx] = useState(0);
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
+  const [qty, setQty] = useState(1);
+  const [reviews, setReviews] = useState([]);
+
   const name = getProductName(product);
   const desc = getProductDesc(product);
   const hasVariants = product.variants && product.variants.length > 0;
   const state = stockState(product);
+  const bg = toneColor(product);
 
   const selectedVariant = hasVariants && selectedVariantIdx !== null
     ? product.variants[selectedVariantIdx]
     : null;
+
+  const chosen = selectedVariant || (!hasVariants ? { qty: (product.variants || []).reduce((s, v) => s + (v.qty || 0), 0) } : null);
+  const maxQty = chosen ? (chosen.qty || 0) : 0;
 
   const canAdd = hasVariants
     ? selectedVariant && (selectedVariant.qty || 0) > 0
@@ -273,6 +332,15 @@ function ProductDetail({ product, shop, onBack, onAddToBasket }) {
   const isSoldOut = hasVariants
     ? selectedVariant ? (selectedVariant.qty || 0) === 0 : state === 'sold'
     : state === 'sold';
+
+  // Fetch reviews
+  useEffect(() => {
+    if (!shop?.id) return;
+    api.get(`/shops/${shop.id}/reviews`).then(res => {
+      const all = res.data || [];
+      setReviews(all.filter(r => r.productId === product.id));
+    }).catch(() => {});
+  }, [shop?.id, product.id]);
 
   function handleAdd() {
     if (!canAdd) return;
@@ -283,79 +351,204 @@ function ProductDetail({ product, shop, onBack, onAddToBasket }) {
       variantId: selectedVariant?.id || null,
       name,
       label,
-      qty: 1,
+      qty,
       unitPrice,
     });
+    setQty(1);
   }
 
-  const bg = toneColor(product);
+  async function handleReviewSubmit(review) {
+    try {
+      await api.post(`/shops/${shop.id}/reviews`, {
+        productId: product.id,
+        rating: review.rating,
+        name: review.name,
+        text: review.text,
+      });
+      showToast(t('rv_thanks'));
+      // Refetch reviews
+      const res = await api.get(`/shops/${shop.id}/reviews`);
+      const all = res.data || [];
+      setReviews(all.filter(r => r.productId === product.id));
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error', 'error');
+    }
+  }
+
+  function handleShare() {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({ title: name, url });
+    } else {
+      navigator.clipboard.writeText(url);
+      showToast('Link copied!');
+    }
+  }
+
+  const stats = ratingStats(reviews);
 
   return (
-    <div className="sf-detail">
-      <button className="sf-detail__back" onClick={onBack} type="button">
-        &#8592; {t('sf_back')}
-      </button>
-      <div className="sf-detail__layout">
-        <div className="sf-detail__gallery">
-          {product.imageUrl ? (
-            <div className="sf-detail__main-img">
-              <img src={product.imageUrl} alt={name} />
-            </div>
-          ) : (
-            <div className="sf-detail__no-img--toned" style={{ background: bg }}>
-              {name?.charAt(0)}
-            </div>
-          )}
-        </div>
-        <div className="sf-detail__info">
-          <h2 className="sf-detail__name">{name}</h2>
-          <div className="sf-detail__price">{fmtPrice(product.price)}</div>
-          <StockBadge state={state} />
+    <div className="pp">
+      <div className="sf-wrap">
+        <button className="pp-back" type="button" onClick={onBack}>
+          &#8592; {t('pp_back')}
+        </button>
 
-          {hasVariants && (
-            <div className="sf-detail__sizes" style={{ marginTop: 16 }}>
-              <label>{t('sf_pick_size')}</label>
-              <div className="sf-detail__size-grid">
-                {product.variants.map((v, i) => {
-                  const label = parseVariantLabel(v.optionsJson);
-                  const out = (v.qty || 0) === 0;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`size-btn ${selectedVariantIdx === i ? 'size-btn--active' : ''} ${out ? 'size-btn--out' : ''}`}
-                      disabled={out}
-                      onClick={() => setSelectedVariantIdx(i)}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
+        <div className="pp-grid">
+          {/* Gallery */}
+          <div className="pp-gal">
+            <StockBadge state={state} />
+            {[0,1,2,3].map(k => (
+              <div key={k} className={`sf-gal-frame${galIdx === k ? ' on' : ''}`}>
+                {product.imageUrl && k === 0 ? (
+                  <img src={product.imageUrl} alt={name} style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                ) : (
+                  <div className="pp-img-placeholder" style={{backgroundColor: product.tone || bg}}>
+                    {k === 0 && <span>{name.charAt(0)}</span>}
+                  </div>
+                )}
               </div>
+            ))}
+            <div className="sf-gal-dots">
+              {[0,1,2,3].map(k => (
+                <button key={k} className={`sf-gal-dot${galIdx === k ? ' on' : ''}`} onClick={() => setGalIdx(k)} type="button"/>
+              ))}
             </div>
-          )}
+            {galIdx > 0 && <button className="sf-gal-nav prev" type="button" onClick={() => setGalIdx(galIdx - 1)}>&#8592;</button>}
+            {galIdx < 3 && <button className="sf-gal-nav next" type="button" onClick={() => setGalIdx(galIdx + 1)}>&#8594;</button>}
+          </div>
 
-          {isSoldOut ? (
-            <button className="btn btn--primary btn--lg btn--block sf-detail__add-btn" disabled>
-              {t('sf_sold')}
-            </button>
-          ) : (
-            <button
-              className="btn btn--primary btn--lg btn--block sf-detail__add-btn"
-              onClick={handleAdd}
-              disabled={hasVariants && selectedVariantIdx === null}
-              style={{ marginTop: 16 }}
-            >
-              {t('co_add')}
-            </button>
-          )}
+          {/* Info */}
+          <div className="pp-info">
+            <div className="pname sf-display">{name}</div>
 
-          {desc && (
-            <div className="sf-detail__desc">
-              <h3>{t('sf_desc')}</h3>
-              <p>{desc}</p>
+            <div className="pp-price-row">
+              <span style={{fontSize: '1.25rem', fontWeight: 700, color: 'var(--s-accent, var(--primary))'}}>
+                {fmtPrice(selectedVariant?.price || product.price)}
+              </span>
+              {stats.n > 0 && (
+                <button className="pp-rv-link" type="button" onClick={() => {
+                  const el = document.getElementById('pp-reviews');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}>
+                  <Stars value={Math.round(parseFloat(stats.avg))} size={14} />
+                  <span>{fill(t('rv_count'), { n: stats.n })}</span>
+                </button>
+              )}
             </div>
-          )}
+
+            {desc && (
+              <div className="sf-detail-desc">{desc}</div>
+            )}
+
+            {/* Option Picker (variants) */}
+            {hasVariants && (
+              <div className="opt-groups">
+                <div className="opt-group">
+                  <div className="opt-label"><span className="sf-up">{t('sf_pick_size')}</span></div>
+                  <div className="opt-values">
+                    {product.variants.map((v, i) => {
+                      const label = parseVariantLabel(v.optionsJson);
+                      const out = (v.qty || 0) === 0;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`opt-chip${selectedVariantIdx === i ? ' on' : ''}${out ? ' off' : ''}`}
+                          disabled={out}
+                          onClick={() => { setSelectedVariantIdx(i); setQty(1); }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Buy Box */}
+            <div className="buy-box">
+              <div className="buy-row">
+                <div className="opt-label"><span className="sf-up">{t('opt_qty')}</span></div>
+                <div className="qty-pick">
+                  <button type="button" disabled={qty <= 1} onClick={() => setQty(q => Math.max(1, q - 1))}>&#8722;</button>
+                  <b>{qty}</b>
+                  <button type="button" disabled={qty >= maxQty} onClick={() => setQty(q => Math.min(maxQty, q + 1))}>+</button>
+                </div>
+                {chosen && chosen.qty > 0 && (
+                  <span className={`buy-left${chosen.qty <= 5 ? ' low' : ''}`}>
+                    {fill(t('opt_left'), { n: chosen.qty })}
+                  </span>
+                )}
+              </div>
+
+              {isSoldOut ? (
+                <button className="sf-btn sf-btn-accent" disabled>
+                  {t('sf_sold')}
+                </button>
+              ) : (
+                <button
+                  className="sf-btn sf-btn-accent"
+                  onClick={handleAdd}
+                  disabled={hasVariants && selectedVariantIdx === null}
+                >
+                  {t('co_add')}
+                </button>
+              )}
+            </div>
+
+            {/* Share */}
+            <button className="pp-share-btn" type="button" onClick={handleShare}>
+              &#8599; {t('sf_share')}
+            </button>
+
+            {/* Contact info */}
+            <div className="pp-contact">
+              {shop.telegram && (
+                <span>Telegram: <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">@{shop.telegram.replace('@', '')}</a></span>
+              )}
+              {shop.phone && (
+                <span>{t('ob_phone_contact')}: <a href={`tel:${shop.phone}`}>{shop.phone}</a></span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="pp-reviews" id="pp-reviews">
+          <div className="pp-rv-head">
+            <b>{t('rv_title')}</b>
+            {stats.n > 0 && (
+              <div className="pp-rv-sum">
+                <Stars value={Math.round(parseFloat(stats.avg))} size={18} />
+                <span>{stats.avg}</span>
+                <span>{fill(t('rv_based'), { n: stats.n })}</span>
+              </div>
+            )}
+          </div>
+          <div className="pp-rv-grid">
+            <div className="pp-rv-list">
+              {reviews.length === 0 ? (
+                <div className="pp-rv-none">
+                  <p><b>{t('rv_none')}</b></p>
+                  <p>{t('rv_none_d')}</p>
+                </div>
+              ) : (
+                reviews.map((r, i) => (
+                  <div className="pp-rv" key={r.id || i}>
+                    <div className="pp-rv-top">
+                      <b>{r.name || t('rv_anon')}</b>
+                      <Stars value={r.rating} size={14} />
+                      {r.createdAt && <span>{new Date(r.createdAt).toLocaleDateString()}</span>}
+                    </div>
+                    {r.text && <p>{r.text}</p>}
+                  </div>
+                ))
+              )}
+            </div>
+            <ReviewForm onSubmit={handleReviewSubmit} />
+          </div>
         </div>
       </div>
     </div>
@@ -516,18 +709,17 @@ export default function StorefrontPage() {
     );
   }
 
-  // Product detail
+  // Product page (full page, not drawer/modal)
   if (selectedProduct) {
     return (
       <div className="storefront" style={styleVars}>
-        <div className="sf-container">
-          <ProductDetail
-            product={selectedProduct}
-            shop={shop}
-            onBack={() => setSelectedProduct(null)}
-            onAddToBasket={addToBasket}
-          />
-        </div>
+        <ProductPage
+          product={selectedProduct}
+          shop={shop}
+          onBack={() => setSelectedProduct(null)}
+          onAddToBasket={addToBasket}
+          showToast={showToast}
+        />
         {/* Basket dock */}
         {basket.length > 0 && !showCheckout && (
           <div className="basket-dock">

@@ -99,6 +99,21 @@ const translations = {
     co_added: 'Added!',
     co_basket: 'Basket',
 
+    rv_title: 'Reviews',
+    rv_write: 'Write a review',
+    rv_your_rating: 'Your rating',
+    rv_text_ph: 'Share your experience...',
+    rv_send: 'Submit',
+    rv_thanks: 'Thank you for your review!',
+    rv_anon: 'Anonymous',
+    rv_count: '{n} reviews',
+    rv_based: 'Based on {n} reviews',
+    rv_none: 'No reviews yet',
+    rv_none_d: 'Be the first to share your experience',
+    pp_back: 'Back to shop',
+    opt_qty: 'Quantity',
+    opt_left: '{n} left',
+
     db_title: 'Dashboard',
     db_products: 'Products',
     db_storefront: 'Storefront',
@@ -349,6 +364,21 @@ const translations = {
     co_add: 'В корзину',
     co_added: 'Добавлено!',
     co_basket: 'Корзина',
+
+    rv_title: 'Отзывы',
+    rv_write: 'Написать отзыв',
+    rv_your_rating: 'Ваша оценка',
+    rv_text_ph: 'Расскажите о впечатлениях...',
+    rv_send: 'Отправить',
+    rv_thanks: 'Спасибо за отзыв!',
+    rv_anon: 'Аноним',
+    rv_count: '{n} отзывов',
+    rv_based: 'На основе {n} отзывов',
+    rv_none: 'Пока нет отзывов',
+    rv_none_d: 'Будьте первым, кто оставит отзыв',
+    pp_back: 'Назад в магазин',
+    opt_qty: 'Количество',
+    opt_left: 'Осталось {n}',
 
     db_title: 'Панель',
     db_products: 'Товары',
@@ -601,6 +631,21 @@ const translations = {
     co_added: "Qo'shildi!",
     co_basket: 'Savat',
 
+    rv_title: 'Sharhlar',
+    rv_write: 'Sharh yozing',
+    rv_your_rating: 'Bahoyingiz',
+    rv_text_ph: 'Tajribangizni ulashing...',
+    rv_send: 'Yuborish',
+    rv_thanks: 'Sharhingiz uchun rahmat!',
+    rv_anon: 'Anonim',
+    rv_count: '{n} sharh',
+    rv_based: '{n} sharh asosida',
+    rv_none: 'Hali sharhlar yoʻq',
+    rv_none_d: 'Birinchi boʻlib sharh qoldiring',
+    pp_back: 'Doʻkonga qaytish',
+    opt_qty: 'Miqdor',
+    opt_left: '{n} ta qoldi',
+
     db_title: 'Boshqaruv',
     db_products: 'Tovarlar',
     db_storefront: 'Vitrina',
@@ -781,6 +826,11 @@ export function fmtPrice(n, lang) {
   const formatted = n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   const suffix = l === 'uz' ? 'soʻm' : l === 'ru' ? 'сум' : 'soʻm';
   return `${formatted} ${suffix}`;
+}
+
+export function fill(template, vars) {
+  if (!template) return '';
+  return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? key);
 }
 
 export default translations;
