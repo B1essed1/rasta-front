@@ -78,8 +78,8 @@ h3 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-accent { background: var(--primary); color: #fff; position: relative; overflow: hidden; }
 .btn-accent:hover:not(:disabled) { background: var(--primary-700); }
-.btn-ghost { background: transparent; color: var(--ink-2); border: 1.5px solid var(--line); }
-.btn-ghost:hover:not(:disabled) { border-color: var(--faint); background: var(--paper); }
+.btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--ink); background: #fff; }
 .btn-soft { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
 .btn-soft:hover:not(:disabled) { box-shadow: var(--shadow); }
 .btn-sm { height: 38px; padding: 0 16px; font-size: 14px; }

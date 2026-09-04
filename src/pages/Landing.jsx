@@ -25,15 +25,23 @@ const MARQUEE_NAMES = [
 const AVATAR_COLORS = ['#c7b09a', '#d8bf94', '#f3c9d6', '#bcae93', '#e8c2dd', '#b7bcc2'];
 
 const TILE_COLORS = [
-  ['#e8d5c4', '#d4bfab', '#c9a88e', '#bfa48c'],
-  ['#d9c8b0', '#c4aa8a', '#b89878', '#e0cbb5'],
-  ['#f0d5c8', '#e6bfb0', '#d9a898', '#ecc8b8'],
-  ['#c8d5c4', '#b0c4a0', '#a8b898', '#d0dcc8'],
+  ['#cdb7a3', '#e0d8cb', '#b89f86', '#c8b59c'],  // Lola (boutique)
+  ['#d8b98a', '#cba36f', '#dcb877', '#e0c79b'],  // Non & Co (minimal)
+  ['#ffd2a8', '#f7a8c0', '#cfe0f0', '#ffc9dd'],  // Gulnoza (playful)
+  ['#7fb3ab', '#c98a6a', '#9aa7c4', '#c9a96a'],  // Silk Road (minimal)
+];
+
+const TILE_PRICES = [
+  ['590k', '320k', '640k', '410k'],  // Lola prices
+  ['18k', '65k', '120k', '95k'],     // Non & Co prices
+  ['145k', '89k', '132k', '290k'],   // Gulnoza prices
+  ['180k', '240k', '320k', '450k'],  // Silk Road prices
 ];
 
 function ThemeCard({ theme, index }) {
   const preview = theme.preview;
   const tiles = TILE_COLORS[index % TILE_COLORS.length];
+  const prices = TILE_PRICES[index % TILE_PRICES.length];
   return (
     <div className="theme-card" style={{ fontFamily: theme.family, borderRadius: theme.radius }}>
       <div className="theme-card-preview" style={{ backgroundColor: preview.bg }}>
@@ -48,7 +56,7 @@ function ThemeCard({ theme, index }) {
         <div className="theme-card-tiles">
           {tiles.map((c, i) => (
             <div key={i} className="theme-card-tile" style={{ backgroundColor: c, borderRadius: theme.radius }}>
-              <span className="theme-card-tile-price">120k</span>
+              <span className="theme-card-tile-price">{prices[i]}</span>
             </div>
           ))}
         </div>
@@ -177,21 +185,30 @@ export default function Landing() {
 
           <div className="rise hero-visual">
             <div className="float-badge fb-1">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Add your products
+              <div className="fbi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </div>
+              {t('s2')}
             </div>
             <div className="float-badge fb-2">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-              </svg>
-              Orders straight to chat
+              <div className="fbi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+              </div>
+              {t('f3_t')}
             </div>
             <div className="site-card">
               <div className="site-bar">
                 <div className="tl"><i/><i/><i/></div>
-                <span className="site-url">rasta.uz/lolaatelier</span>
+                <span className="site-url">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                  {' '}rasta.uz/<b>lolaatelier</b>
+                </span>
                 <span />
               </div>
               <div className="site-view">
@@ -269,7 +286,7 @@ export default function Landing() {
             ))}
           </div>
           <div className="palette-strip">
-            {palettes.slice(0, 8).map((p) => (
+            {palettes.map((p) => (
               <div key={p.id} className="palette-swatch">
                 <div className="palette-colors">
                   <span style={{ backgroundColor: p.bg }} />
@@ -279,6 +296,10 @@ export default function Landing() {
                 <span className="palette-label">{p.name}</span>
               </div>
             ))}
+            <div className="palette-swatch palette-swatch--gen">
+              <div className="palette-colors palette-colors--gen" />
+              <span className="palette-label">{t('theme_custom') || 'Custom'}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -346,11 +367,11 @@ export default function Landing() {
                 {t('price_starter_price')} {t('som')} {t('price_mo')}
               </div>
               <ul>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Unlimited products</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> All themes</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Stock per size</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Scan to sell</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> UZ / RU / EN</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_starter_f1')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_starter_f2')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_starter_f3')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_starter_f4')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_starter_f5')}</li>
               </ul>
               <button className="btn btn-ghost btn--block mt-2" onClick={(e) => { e.stopPropagation(); navigate('/onboarding'); }}>
                 {t('cta_start_free')}
@@ -363,11 +384,11 @@ export default function Landing() {
                 {t('price_pro_price')} {t('som')} {t('price_mo')}
               </div>
               <ul>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Everything in Starter</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Bulk labels</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Analytics</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Custom domain</li>
-                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Featured in bazaar</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_pro_f1')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_pro_f2')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_pro_f3')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_pro_f4')}</li>
+                <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {t('price_pro_f5')}</li>
               </ul>
               <button className="btn btn-accent btn--block mt-2" onClick={(e) => { e.stopPropagation(); navigate('/onboarding'); }}>
                 {t('cta_start_free')}
