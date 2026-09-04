@@ -79,6 +79,7 @@ const translations = {
     sf_empty: 'No products yet',
     sf_share: 'Share',
     sf_chat: 'Chat',
+    sf_reach: 'How to reach this shop',
 
     co_checkout: 'Checkout',
     co_name: 'Your name',
@@ -345,6 +346,7 @@ const translations = {
     sf_empty: 'Пока нет товаров',
     sf_share: 'Поделиться',
     sf_chat: 'Чат',
+    sf_reach: 'Как связаться с магазином',
 
     co_checkout: 'Оформить заказ',
     co_name: 'Ваше имя',
@@ -611,6 +613,7 @@ const translations = {
     sf_empty: 'Hali tovar yoʻq',
     sf_share: 'Ulashish',
     sf_chat: 'Chat',
+    sf_reach: 'Do\'kon bilan qanday bog\'lanish mumkin',
 
     co_checkout: 'Buyurtma berish',
     co_name: 'Ismingiz',

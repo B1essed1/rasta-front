@@ -140,8 +140,8 @@ export default function ProductsView() {
             >
               <span className="products-table__col--drag">&#9776;</span>
               <span className="products-table__col--img">
-                {product.imageUrl ? (
-                  <img src={product.imageUrl} alt="" className="products-table__thumb" />
+                {product.images?.length > 0 ? (
+                  <img src={product.images[0].url} alt="" className="products-table__thumb" />
                 ) : (
                   <div className="products-table__thumb products-table__thumb--empty">
                     {(product.nameEn || product.nameUz || '')?.charAt(0)}

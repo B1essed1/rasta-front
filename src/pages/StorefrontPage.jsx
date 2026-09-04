@@ -322,6 +322,13 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
     ? product.variants[selectedVariantIdx]
     : null;
 
+  const allImages = product.images || [];
+  const variantImages = selectedVariant
+    ? allImages.filter(img => img.variantId === selectedVariant.id)
+    : [];
+  const defaultImages = allImages.filter(img => !img.variantId);
+  const galleryImages = variantImages.length > 0 ? variantImages : defaultImages;
+
   const chosen = selectedVariant || (!hasVariants ? { qty: (product.variants || []).reduce((s, v) => s + (v.qty || 0), 0) } : null);
   const maxQty = chosen ? (chosen.qty || 0) : 0;
 
@@ -398,24 +405,30 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
           {/* Gallery */}
           <div className="pp-gal">
             <StockBadge state={state} />
-            {[0,1,2,3].map(k => (
-              <div key={k} className={`sf-gal-frame${galIdx === k ? ' on' : ''}`}>
-                {product.imageUrl && k === 0 ? (
-                  <img src={product.imageUrl} alt={name} style={{width:'100%', height:'100%', objectFit:'cover'}} />
-                ) : (
-                  <div className="pp-img-placeholder" style={{backgroundColor: product.tone || bg}}>
-                    {k === 0 && <span>{name.charAt(0)}</span>}
-                  </div>
-                )}
+            {galleryImages.length > 0 ? (
+              galleryImages.map((img, k) => (
+                <div key={img.id || k} className={`sf-gal-frame${galIdx === k ? ' on' : ''}`}>
+                  <img src={img.url} alt={`${name} ${k + 1}`} style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                </div>
+              ))
+            ) : (
+              <div className="sf-gal-frame on">
+                <div className="pp-img-placeholder" style={{backgroundColor: product.tone || bg}}>
+                  <span>{name.charAt(0)}</span>
+                </div>
               </div>
-            ))}
-            <div className="sf-gal-dots">
-              {[0,1,2,3].map(k => (
-                <button key={k} className={`sf-gal-dot${galIdx === k ? ' on' : ''}`} onClick={() => setGalIdx(k)} type="button"/>
-              ))}
-            </div>
-            {galIdx > 0 && <button className="sf-gal-nav prev" type="button" onClick={() => setGalIdx(galIdx - 1)}>&#8592;</button>}
-            {galIdx < 3 && <button className="sf-gal-nav next" type="button" onClick={() => setGalIdx(galIdx + 1)}>&#8594;</button>}
+            )}
+            {galleryImages.length > 1 && (
+              <>
+                <div className="sf-gal-dots">
+                  {galleryImages.map((_, k) => (
+                    <button key={k} className={`sf-gal-dot${galIdx === k ? ' on' : ''}`} onClick={() => setGalIdx(k)} type="button"/>
+                  ))}
+                </div>
+                {galIdx > 0 && <button className="sf-gal-nav prev" type="button" onClick={() => setGalIdx(galIdx - 1)}>&#8592;</button>}
+                {galIdx < galleryImages.length - 1 && <button className="sf-gal-nav next" type="button" onClick={() => setGalIdx(galIdx + 1)}>&#8594;</button>}
+              </>
+            )}
           </div>
 
           {/* Info */}
@@ -456,9 +469,9 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
                           type="button"
                           className={`opt-chip${selectedVariantIdx === i ? ' on' : ''}${out ? ' off' : ''}`}
                           disabled={out}
-                          onClick={() => { setSelectedVariantIdx(i); setQty(1); }}
+                          onClick={() => { setSelectedVariantIdx(i); setQty(1); setGalIdx(0); }}
                         >
-                          {label}
+                          {label} <span className="opt-chip__qty">{v.qty || 0} {t('or_items')}</span>
                         </button>
                       );
                     })}
@@ -771,23 +784,41 @@ export default function StorefrontPage() {
           )}
           <div className="sf-header__info">
             <h1 className="sf-header__name">{shop.name}</h1>
-            <p className="sf-header__handle">rasta.uz/{shop.handle}</p>
+            <p className="sf-header__meta">
+              {shop.handle && <span>@{shop.handle}</span>}
+              {shop.location && <><span className="sf-meta-dot">&middot;</span><span>{shop.location}</span></>}
+              <span className="sf-meta-dot">&middot;</span>
+              <span>{filtered.length} {t('sf_products').toLowerCase()}</span>
+            </p>
+            <div className="sf-header__tags">
+              <span className="sf-tag-pill">{t('co_delivery')}</span>
+              <span className="sf-tag-pill">{t('co_pay_cash')}</span>
+              <span className="sf-tag-pill">{t('co_pay_card')}</span>
+            </div>
+            {(shop.telegram || shop.instagram || shop.phone) && (
+              <div className="sf-header__contacts">
+                <span className="sf-contacts-label">{t('sf_reach')}:</span>
+                {shop.telegram && (
+                  <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                    @{shop.telegram.replace('@', '')}
+                  </a>
+                )}
+                {shop.instagram && (
+                  <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                    @{shop.instagram.replace('@', '')}
+                  </a>
+                )}
+                {shop.phone && (
+                  <a href={`tel:${shop.phone}`}>{shop.phone}</a>
+                )}
+              </div>
+            )}
           </div>
           <div className="sf-header__actions">
-            <button className="btn btn--outline btn--sm" onClick={handleShare}>
-              {t('sf_share')}
-            </button>
-            {shop.telegram && (
-              <a
-                className="btn btn--primary btn--sm"
-                href={`https://t.me/${shop.telegram.replace('@', '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {t('sf_chat')}
-              </a>
-            )}
             <LangPill />
+            <button className="sf-btn sf-btn-line" onClick={handleShare}>
+              &#8599; {t('sf_share')}
+            </button>
           </div>
         </div>
 
@@ -866,8 +897,8 @@ export default function StorefrontPage() {
                       onClick={() => setSelectedProduct(product)}
                     >
                       <div className="sf-product-card__img">
-                        {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={name} />
+                        {product.images?.length > 0 ? (
+                          <img src={product.images[0].url} alt={name} />
                         ) : (
                           <div className="sf-product-card__no-img--toned" style={{ background: bg }}>
                             {name?.charAt(0)}
