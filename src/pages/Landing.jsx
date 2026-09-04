@@ -5,6 +5,7 @@ import { themes } from '../data/themes';
 import { palettes } from '../data/palettes';
 import LangPill from '../components/ui/LangPill';
 import Logo from '../components/ui/Logo';
+import { useAuthStore } from '../store/authStore';
 import '../styles/landing.css';
 
 const DEMO_SHOPS = [
@@ -77,6 +78,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const progRef = useRef(null);
   const rootRef = useRef(null);
+  const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
@@ -141,12 +143,20 @@ export default function Landing() {
           </div>
           <div className="pnav-right">
             <LangPill />
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/login')}>
-              {t('nav_login')}
-            </button>
-            <button className="btn btn-accent btn-sm" onClick={() => navigate('/onboarding')}>
-              {t('cta_start')}
-            </button>
+            {token ? (
+              <button className="btn btn-accent btn-sm" onClick={() => navigate('/dashboard')}>
+                {t('db_title')}
+              </button>
+            ) : (
+              <>
+                <button className="btn btn-ghost btn-sm" onClick={() => navigate('/login')}>
+                  {t('nav_login')}
+                </button>
+                <button className="btn btn-accent btn-sm" onClick={() => navigate('/onboarding')}>
+                  {t('cta_start')}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>

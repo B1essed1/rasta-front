@@ -4,6 +4,7 @@ import Logo from '../components/ui/Logo';
 import LangPill from '../components/ui/LangPill';
 import { t, onLangChange } from '../i18n';
 import { useAuthStore } from '../store/authStore';
+import { useShopStore } from '../store/shopStore';
 import '../styles/app.css';
 
 const validPrefixes = ['90', '91', '93', '94', '95', '97', '98', '99', '33', '88', '77', '71'];
@@ -224,10 +225,22 @@ export default function Auth() {
   const [phone, setPhone] = useState('');
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
+  const fetchMyShops = useShopStore((s) => s.fetchMyShops);
+  const fetchShop = useShopStore((s) => s.fetchShop);
 
   useEffect(() => {
-    if (token) navigate('/dashboard', { replace: true });
-  }, [token, navigate]);
+    if (token) {
+      fetchMyShops().then((shops) => {
+        if (shops.length > 0) {
+          fetchShop(shops[0].id).then(() =>
+            navigate('/dashboard', { replace: true })
+          );
+        } else {
+          navigate('/onboarding', { replace: true });
+        }
+      });
+    }
+  }, [token, navigate, fetchMyShops, fetchShop]);
 
   return (
     <div className="auth-page">

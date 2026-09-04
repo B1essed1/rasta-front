@@ -25,14 +25,27 @@ export default function Dashboard() {
   const user = useAuthStore((s) => s.user);
   const shop = useShopStore((s) => s.shop);
   const fetchShop = useShopStore((s) => s.fetchShop);
+  const fetchMyShops = useShopStore((s) => s.fetchMyShops);
+  const fetchConfig = useShopStore((s) => s.fetchConfig);
+  const fetchProducts = useShopStore((s) => s.fetchProducts);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
   }, []);
 
   useEffect(() => {
-    fetchShop();
-  }, [fetchShop]);
+    async function load() {
+      const shops = await fetchMyShops();
+      if (shops.length > 0) {
+        await fetchShop(shops[0].id);
+        await fetchConfig();
+        await fetchProducts(shops[0].id);
+      } else {
+        navigate('/onboarding', { replace: true });
+      }
+    }
+    load();
+  }, [fetchMyShops, fetchShop, fetchConfig, fetchProducts, navigate]);
 
   function handleLogout() {
     logout();

@@ -342,37 +342,88 @@
   padding-bottom: 4px;
 }
 .orders-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
 }
 .order-card {
-  background: #fff;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-md);
+  margin-bottom: 8px;
   overflow: hidden;
+  background: #fff;
 }
-.order-card__header {
-  display: flex;
-  justify-content: space-between;
+.order-card--open { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.order-card__summary {
+  display: grid;
+  grid-template-columns: 60px 1fr 60px 90px 100px 100px 80px 30px;
+  gap: 8px;
   align-items: center;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--gray-100);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: .875rem;
 }
-.order-card__id { font-weight: 600; font-size: 0.875rem; }
-.order-card__body { padding: 14px 16px; }
+.order-card__summary:hover { background: var(--gray-50); }
+.order-card__no { font-weight: 700; color: var(--gray-800); }
+.order-card__total { font-weight: 600; }
+.order-card__date { color: var(--gray-500); font-size: .8125rem; }
 .order-card__detail {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--gray-200);
+}
+.order-card__grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  padding-top: 16px;
+}
+.order-card__customer-info div {
   display: flex;
   justify-content: space-between;
   padding: 4px 0;
-  font-size: 0.875rem;
+  font-size: .875rem;
 }
-.order-card__label { color: var(--gray-500); }
+.order-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: .875rem;
+}
+.order-totals {
+  border-top: 1px solid var(--gray-200);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.order-totals div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: .875rem;
+}
+.order-totals__final {
+  font-weight: 700;
+  font-size: 1rem;
+  border-top: 1px solid var(--gray-200);
+  padding-top: 8px;
+  margin-top: 4px;
+}
 .order-card__actions {
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--gray-100);
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200);
+  margin-top: 16px;
+}
+.order-note {
+  background: var(--gray-50);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: .875rem;
+  color: var(--gray-500);
+  margin-top: 8px;
 }
 
 /* ===== Sales View ===== */

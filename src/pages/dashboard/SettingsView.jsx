@@ -1,30 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { t, onLangChange } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
-import { shopTypes, cities } from '../../data/types';
+import { shopTypes as fallbackShopTypes, cities, fetchShopTypes, getCategoryName } from '../../data/types';
 import { toast } from '../../components/ui/ToastHost';
 
 export default function SettingsView() {
   const [, setTick] = useState(0);
   const shop = useShopStore((s) => s.shop);
   const updateShop = useShopStore((s) => s.updateShop);
-  const uploadImage = useShopStore((s) => s.uploadImage);
   const [form, setForm] = useState({
     name: '',
     handle: '',
-    bio: '',
     type: '',
-    city: '',
+    location: '',
     telegram: '',
     instagram: '',
     phone: '',
-    coverUrl: '',
-    logoUrl: '',
+    coverColor: '',
   });
   const [saving, setSaving] = useState(false);
+  const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
+  }, []);
+
+  useEffect(() => {
+    fetchShopTypes().then(setShopTypes);
   }, []);
 
   useEffect(() => {
@@ -32,33 +34,18 @@ export default function SettingsView() {
       setForm({
         name: shop.name || '',
         handle: shop.handle || '',
-        bio: shop.bio || '',
         type: shop.type || '',
-        city: shop.city || '',
+        location: shop.location || '',
         telegram: shop.telegram || '',
         instagram: shop.instagram || '',
         phone: shop.phone || '',
-        coverUrl: shop.coverUrl || '',
-        logoUrl: shop.logoUrl || '',
+        coverColor: shop.coverColor || '',
       });
     }
   }, [shop]);
 
   function handleChange(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
-  }
-
-  async function handleImageUpload(field, e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const url = await uploadImage(file);
-      setForm((f) => ({ ...f, [field]: url }));
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => setForm((f) => ({ ...f, [field]: reader.result }));
-      reader.readAsDataURL(file);
-    }
   }
 
   async function handleSave(e) {
@@ -115,16 +102,6 @@ export default function SettingsView() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">{t('sf_about')}</label>
-            <textarea
-              className="form-textarea"
-              rows={3}
-              value={form.bio}
-              onChange={(e) => handleChange('bio', e.target.value)}
-            />
-          </div>
-
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">{t('ob_category')}</label>
@@ -135,7 +112,7 @@ export default function SettingsView() {
               >
                 <option value="">—</option>
                 {shopTypes.map((st) => (
-                  <option key={st.id} value={st.id}>{t(st.labelKey)}</option>
+                  <option key={st.id} value={st.id}>{getCategoryName(st)}</option>
                 ))}
               </select>
             </div>
@@ -143,41 +120,14 @@ export default function SettingsView() {
               <label className="form-label">{t('ob_city')}</label>
               <select
                 className="form-select"
-                value={form.city}
-                onChange={(e) => handleChange('city', e.target.value)}
+                value={form.location}
+                onChange={(e) => handleChange('location', e.target.value)}
               >
                 <option value="">—</option>
                 {cities.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="settings-section">
-          <h3>{t('ob_brand_t')}</h3>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">{t('ob_cover')}</label>
-              <div className="settings-upload">
-                {form.coverUrl && <img src={form.coverUrl} alt="Cover" className="settings-upload__img" />}
-                <label className="btn btn--outline btn--sm">
-                  {t('ob_upload')}
-                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload('coverUrl', e)} style={{ display: 'none' }} />
-                </label>
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{t('ob_logo')}</label>
-              <div className="settings-upload">
-                {form.logoUrl && <img src={form.logoUrl} alt="Logo" className="settings-upload__img settings-upload__img--round" />}
-                <label className="btn btn--outline btn--sm">
-                  {t('ob_upload')}
-                  <input type="file" accept="image/*" onChange={(e) => handleImageUpload('logoUrl', e)} style={{ display: 'none' }} />
-                </label>
-              </div>
             </div>
           </div>
         </div>

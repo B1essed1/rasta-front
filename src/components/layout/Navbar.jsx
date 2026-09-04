@@ -33,13 +33,13 @@ export default function Navbar({ transparent = false }) {
         </Link>
 
         <div className={`pnav-links ${menuOpen ? 'pnav-links--open' : ''}`}>
-          <a href="#features" onClick={() => setMenuOpen(false)}>
+          <a href="/#features" onClick={() => setMenuOpen(false)}>
             {t('nav_features')}
           </a>
-          <a href="#themes" onClick={() => setMenuOpen(false)}>
+          <a href="/#themes" onClick={() => setMenuOpen(false)}>
             {t('nav_themes')}
           </a>
-          <a href="#pricing" onClick={() => setMenuOpen(false)}>
+          <a href="/#pricing" onClick={() => setMenuOpen(false)}>
             {t('nav_pricing')}
           </a>
           <a

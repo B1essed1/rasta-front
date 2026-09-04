@@ -28,8 +28,12 @@ export default function HomeView() {
     }
   }, [shop?.id, fetchStats, fetchProducts, fetchOrders]);
 
-  const newOrders = orders.filter((o) => o.status === 'new' || o.status === 'open');
-  const lowStock = products.filter((p) => p.stock != null && p.stock > 0 && p.stock <= 5);
+  const newOrders = orders.filter((o) => o.status === 'NEW');
+  const lowStock = products.filter((p) => {
+    if (!p.variants?.length) return false;
+    const totalQty = p.variants.reduce((sum, v) => sum + (v.qty || 0), 0);
+    return totalQty > 0 && totalQty <= 5;
+  });
 
   return (
     <div className="home-view">
@@ -79,7 +83,7 @@ export default function HomeView() {
               >
                 <span className="attention-item__icon">&#9888;</span>
                 <span>
-                  {p.name} — {p.stock} {t('db_stock').toLowerCase()}
+                  {p.nameEn} — {p.variants?.reduce((sum, v) => sum + (v.qty || 0), 0)} {t('db_stock').toLowerCase()}
                 </span>
               </div>
             ))}

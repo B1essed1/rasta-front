@@ -31,7 +31,8 @@ export default function ProductsView() {
   }, [shop?.id, fetchProducts]);
 
   const filtered = products.filter((p) => {
-    const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase());
+    const name = p.nameEn || p.nameUz || p.nameRu || '';
+    const matchSearch = !search || name.toLowerCase().includes(search.toLowerCase());
     if (filter === 'published') return matchSearch && p.visible !== false;
     if (filter === 'hidden') return matchSearch && p.visible === false;
     return matchSearch;
@@ -139,17 +140,17 @@ export default function ProductsView() {
             >
               <span className="products-table__col--drag">&#9776;</span>
               <span className="products-table__col--img">
-                {(product.imageUrl || product.photos?.[0]) ? (
-                  <img src={product.photos?.[0] || product.imageUrl} alt="" className="products-table__thumb" />
+                {product.imageUrl ? (
+                  <img src={product.imageUrl} alt="" className="products-table__thumb" />
                 ) : (
                   <div className="products-table__thumb products-table__thumb--empty">
-                    {product.name?.charAt(0)}
+                    {(product.nameEn || product.nameUz || '')?.charAt(0)}
                   </div>
                 )}
               </span>
-              <span className="products-table__col--name">{product.name}</span>
+              <span className="products-table__col--name">{product.nameEn || product.nameUz || product.nameRu || ''}</span>
               <span className="products-table__col--price">{fmtPrice(product.price)}</span>
-              <span className="products-table__col--stock">{product.stock ?? '—'}</span>
+              <span className="products-table__col--stock">{product.variants?.reduce((sum, v) => sum + (v.qty || 0), 0) ?? '—'}</span>
               <span className="products-table__col--status">
                 <StatusPill
                   status={product.visible === false ? 'hidden' : 'published'}

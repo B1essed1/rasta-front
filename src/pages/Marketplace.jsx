@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { t, onLangChange } from '../i18n';
 import { useShopStore } from '../store/shopStore';
-import { shopTypes } from '../data/types';
+import { shopTypes as fallbackShopTypes, fetchShopTypes, getCategoryName } from '../data/types';
 import '../styles/marketplace.css';
 
 export default function Marketplace() {
@@ -12,10 +12,15 @@ export default function Marketplace() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
   const fetchAllShops = useShopStore((s) => s.fetchAllShops);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
+  }, []);
+
+  useEffect(() => {
+    fetchShopTypes().then(setShopTypes);
   }, []);
 
   useEffect(() => {
@@ -71,7 +76,7 @@ export default function Marketplace() {
                 onClick={() => setTypeFilter(st.id === typeFilter ? '' : st.id)}
                 type="button"
               >
-                {st.icon} {t(st.labelKey)}
+                {getCategoryName(st)}
               </button>
             ))}
           </div>
@@ -89,20 +94,22 @@ export default function Marketplace() {
                   className="shop-card__cover"
                   style={{
                     backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
-                    backgroundColor: shop.coverUrl ? undefined : '#e8e8e4',
+                    backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || '#e8e8e4'),
                   }}
                 >
-                  {shop.logoUrl && (
+                  {shop.logoUrl ? (
                     <img src={shop.logoUrl} alt={shop.name} className="shop-card__avatar" />
+                  ) : (
+                    <div className="shop-card__avatar-initials">
+                      {shop.initials || shop.name?.charAt(0) || ''}
+                    </div>
                   )}
                 </div>
                 <div className="shop-card__body">
                   <h3 className="shop-card__name">{shop.name}</h3>
                   <p className="shop-card__handle">rasta.uz/{shop.handle}</p>
-                  {shop.productCount != null && (
-                    <span className="shop-card__count">
-                      {shop.productCount} {t('mp_products_count')}
-                    </span>
+                  {shop.location && (
+                    <span className="shop-card__location">{shop.location}</span>
                   )}
                 </div>
               </Link>

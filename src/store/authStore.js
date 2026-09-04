@@ -20,7 +20,7 @@ export const useAuthStore = create((set, get) => ({
   async sendOtp(phone) {
     set({ loading: true, error: null });
     try {
-      const res = await api.post('/auth/send-otp', { phone });
+      const res = await api.post('/auth/send-code', { phone });
       set({ loading: false });
       return res.data;
     } catch (e) {
@@ -32,7 +32,7 @@ export const useAuthStore = create((set, get) => ({
   async verifyOtp(phone, code) {
     set({ loading: true, error: null });
     try {
-      const res = await api.post('/auth/verify-otp', { phone, code });
+      const res = await api.post('/auth/verify', { phone, code });
       const { token, user } = res.data;
       localStorage.setItem('rasta_token', token);
       localStorage.setItem('rasta_user', JSON.stringify(user));

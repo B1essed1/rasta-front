@@ -3,6 +3,7 @@ import api from '../api/client';
 
 export const useShopStore = create((set, get) => ({
   shop: null,
+  config: null,
   products: [],
   orders: [],
   sales: [],
@@ -11,13 +12,25 @@ export const useShopStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  async fetchShop() {
+  async fetchShop(shopId) {
     set({ loading: true });
     try {
-      const res = await api.get('/shops/mine');
+      const res = await api.get(`/shops/${shopId}`);
       set({ shop: res.data, loading: false });
+      return res.data;
     } catch (e) {
       set({ loading: false, error: e.response?.data?.message });
+      throw e;
+    }
+  },
+
+  async fetchMyShops() {
+    try {
+      const res = await api.get('/shops/mine');
+      // Backend returns a single shop; wrap in array for consistency
+      return res.data ? [res.data] : [];
+    } catch (e) {
+      return [];
     }
   },
 
@@ -36,9 +49,32 @@ export const useShopStore = create((set, get) => ({
   async createShop(data) {
     set({ loading: true });
     try {
-      const res = await api.post('/shops', data);
-      set({ shop: res.data, loading: false });
-      return res.data;
+      const shopPayload = {
+        handle: data.handle,
+        name: data.name,
+        location: data.city || data.location,
+        type: data.type || undefined,
+        coverColor: data.coverColor,
+        instagram: data.instagram,
+        telegram: data.telegram,
+        phone: data.phone,
+      };
+      const res = await api.post('/shops', shopPayload);
+      const shop = res.data;
+
+      if (data.plan && data.plan !== 'starter') {
+        await api.put(`/shops/${shop.id}`, { plan: data.plan.toUpperCase() });
+      }
+
+      if (data.themeId || data.paletteId) {
+        await api.put(`/shops/${shop.id}/config`, {
+          theme: data.themeId ? data.themeId.toUpperCase() : undefined,
+          palette: data.paletteId,
+        });
+      }
+
+      set({ shop, loading: false });
+      return shop;
     } catch (e) {
       set({ loading: false, error: e.response?.data?.message });
       throw e;
@@ -48,11 +84,50 @@ export const useShopStore = create((set, get) => ({
   async updateShop(data) {
     set({ loading: true });
     try {
-      const res = await api.put(`/shops/${get().shop.id}`, data);
+      const payload = {
+        name: data.name,
+        location: data.city || data.location,
+        type: data.type || undefined,
+        coverColor: data.coverColor,
+        instagram: data.instagram,
+        telegram: data.telegram,
+        phone: data.phone,
+      };
+      const res = await api.put(`/shops/${get().shop.id}`, payload);
       set({ shop: res.data, loading: false });
       return res.data;
     } catch (e) {
       set({ loading: false, error: e.response?.data?.message });
+      throw e;
+    }
+  },
+
+  async fetchConfig() {
+    try {
+      const shopId = get().shop?.id;
+      if (!shopId) return;
+      const res = await api.get(`/shops/${shopId}/config`);
+      set({ config: res.data });
+      return res.data;
+    } catch (e) {
+      console.error(e);
+    }
+  },
+
+  async updateConfig(data) {
+    try {
+      const shopId = get().shop?.id;
+      if (!shopId) return;
+      const payload = {
+        theme: data.theme || (data.themeId ? data.themeId.toUpperCase() : undefined),
+        palette: data.palette || data.paletteId,
+        layout: data.layout ? data.layout.toUpperCase() : undefined,
+        font: data.font || data.fontId,
+      };
+      const res = await api.put(`/shops/${shopId}/config`, payload);
+      set({ config: res.data });
+      return res.data;
+    } catch (e) {
       throw e;
     }
   },
@@ -68,7 +143,27 @@ export const useShopStore = create((set, get) => ({
 
   async createProduct(data) {
     try {
-      const res = await api.post(`/shops/${get().shop.id}/products`, data);
+      const payload = {
+        nameEn: data.nameEn || data.name,
+        nameRu: data.nameRu,
+        nameUz: data.nameUz,
+        descEn: data.descEn || data.description,
+        descRu: data.descRu,
+        descUz: data.descUz,
+        catId: data.catId || data.category,
+        price: data.price,
+        visible: data.visible,
+        sortOrder: data.sortOrder,
+        tone: data.tone,
+        variants: data.variants?.map((v) => ({
+          optionsJson: v.optionsJson || v.label,
+          qty: v.qty ?? v.stock ?? 0,
+          barcode: v.barcode,
+          avgCost: v.avgCost,
+          threshold: v.threshold,
+        })),
+      };
+      const res = await api.post(`/shops/${get().shop.id}/products`, payload);
       set({ products: [...get().products, res.data] });
       return res.data;
     } catch (e) {
@@ -78,7 +173,28 @@ export const useShopStore = create((set, get) => ({
 
   async updateProduct(id, data) {
     try {
-      const res = await api.put(`/shops/${get().shop.id}/products/${id}`, data);
+      const payload = {
+        nameEn: data.nameEn || data.name,
+        nameRu: data.nameRu,
+        nameUz: data.nameUz,
+        descEn: data.descEn || data.description,
+        descRu: data.descRu,
+        descUz: data.descUz,
+        catId: data.catId || data.category,
+        price: data.price,
+        visible: data.visible,
+        sortOrder: data.sortOrder,
+        tone: data.tone,
+        variants: data.variants?.map((v) => ({
+          id: v.id,
+          optionsJson: v.optionsJson || v.label,
+          qty: v.qty ?? v.stock ?? 0,
+          barcode: v.barcode,
+          avgCost: v.avgCost,
+          threshold: v.threshold,
+        })),
+      };
+      const res = await api.put(`/shops/${get().shop.id}/products/${id}`, payload);
       set({
         products: get().products.map((p) => (p.id === id ? res.data : p)),
       });
@@ -114,9 +230,23 @@ export const useShopStore = create((set, get) => ({
     }
   },
 
-  async updateOrderStatus(orderId, status) {
+  async updateOrderStatus(orderId, status, reason) {
     try {
-      const res = await api.put(`/shops/${get().shop.id}/orders/${orderId}`, { status });
+      const shopId = get().shop.id;
+      const upperStatus = status.toUpperCase();
+      let res;
+      if (upperStatus === 'CONFIRMED') {
+        res = await api.put(`/shops/${shopId}/orders/${orderId}/confirm`);
+      } else if (upperStatus === 'CANCELLED') {
+        res = await api.put(`/shops/${shopId}/orders/${orderId}/cancel`, {
+          reason: reason || 'Cancelled',
+          cancelledBy: 'shop',
+        });
+      } else {
+        res = await api.put(`/shops/${shopId}/orders/${orderId}/status`, {
+          status: upperStatus,
+        });
+      }
       set({
         orders: get().orders.map((o) => (o.id === orderId ? res.data : o)),
       });
@@ -149,7 +279,7 @@ export const useShopStore = create((set, get) => ({
       const res = await api.get(`/shops/${get().shop.id}/stats`);
       set({ stats: res.data });
     } catch (e) {
-      console.error(e);
+      set({ stats: { visitors: 0, itemsSold: 0, revenue: 0 } });
     }
   },
 
@@ -164,10 +294,59 @@ export const useShopStore = create((set, get) => ({
 
   async fetchAllShops(params) {
     try {
-      const res = await api.get('/shops', { params });
+      if (params?.search) {
+        const res = await api.get('/marketplace/search', {
+          params: { q: params.search },
+        });
+        return res.data;
+      }
+      const res = await api.get('/marketplace/discover', {
+        params: { type: params?.type || undefined },
+      });
       return res.data;
     } catch (e) {
       return [];
+    }
+  },
+
+  async createOrder(shopId, orderData) {
+    try {
+      const res = await api.post(`/shops/${shopId}/orders`, orderData);
+      return res.data;
+    } catch (e) {
+      throw e;
+    }
+  },
+
+  async restockVariant(variantId, productId, qty, unitCost, note) {
+    try {
+      const shopId = get().shop.id;
+      await api.post(`/shops/${shopId}/inventory/restock`, {
+        variantId,
+        productId,
+        qty,
+        unitCost: unitCost || null,
+        note: note || '',
+      });
+      await get().fetchProducts(shopId);
+    } catch (e) {
+      throw e;
+    }
+  },
+
+  async adjustStock(variantId, productId, delta, reason, note) {
+    try {
+      const shopId = get().shop.id;
+      await api.post(`/shops/${shopId}/inventory/adjust`, {
+        variantId,
+        productId,
+        delta,
+        reason: reason || 'CORRECTION',
+        note: note || '',
+      });
+      await get().fetchProducts(shopId);
+    } catch (e) {
+      throw e;
     }
   },
 }));

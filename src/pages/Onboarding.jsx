@@ -8,7 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useShopStore } from '../store/shopStore';
 import { themes } from '../data/themes';
 import { palettes } from '../data/palettes';
-import { shopTypes, cities } from '../data/types';
+import { shopTypes as fallbackShopTypes, cities, fetchShopTypes, getCategoryName } from '../data/types';
 import '../styles/onboarding.css';
 
 const validPrefixes = ['90', '91', '93', '94', '95', '97', '98', '99', '33', '88', '77', '71'];
@@ -154,7 +154,9 @@ function AuthStep({ onNext }) {
 
 function ShopStep({ data, onChange }) {
   const [, setTick] = useState(0);
+  const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
   useEffect(() => { return onLangChange(() => setTick((t) => t + 1)); }, []);
+  useEffect(() => { fetchShopTypes().then(setShopTypes); }, []);
 
   function handleChange(field, value) {
     onChange({ ...data, [field]: value });
@@ -202,7 +204,7 @@ function ShopStep({ data, onChange }) {
         >
           <option value="">{t('ob_category')}</option>
           {shopTypes.map((st) => (
-            <option key={st.id} value={st.id}>{st.icon} {t(st.labelKey)}</option>
+            <option key={st.id} value={st.id}>{getCategoryName(st)}</option>
           ))}
         </select>
       </div>

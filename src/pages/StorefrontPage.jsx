@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import LangPill from '../components/ui/LangPill';
 import EmptyState from '../components/ui/EmptyState';
@@ -6,19 +6,289 @@ import { t, onLangChange, fmtPrice } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import { getTheme, applyThemeVars } from '../data/themes';
 import { getPalette, applyPaletteVars } from '../data/palettes';
+import api from '../api/client';
 import '../styles/storefront.css';
 
-function ProductDetail({ product, shop, onBack }) {
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedSize, setSelectedSize] = useState('');
-  const images = product.photos?.length ? product.photos : [product.imageUrl].filter(Boolean);
+/* ===== helpers ===== */
 
-  function handleOrder() {
-    const tgUser = shop.telegram?.replace('@', '') || '';
-    const sizePart = selectedSize ? ` | ${t('sf_size')}: ${selectedSize}` : '';
-    const msg = encodeURIComponent(`${product.name}${sizePart} — ${fmtPrice(product.price)}`);
-    window.open(`https://t.me/${tgUser}?text=${msg}`, '_blank');
+const TONE_COLORS = [
+  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
+  '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6',
+];
+
+function toneColor(product) {
+  if (product.tone) return product.tone;
+  const hash = (product.id || '').toString().split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return TONE_COLORS[hash % TONE_COLORS.length];
+}
+
+function getProductName(product) {
+  return product.nameEn || product.nameUz || product.nameRu || '';
+}
+
+function getProductDesc(product) {
+  return product.descEn || product.descUz || product.descRu || '';
+}
+
+function parseVariantLabel(optionsJson) {
+  if (!optionsJson) return '';
+  try {
+    const obj = JSON.parse(optionsJson);
+    return Object.values(obj).join(' / ');
+  } catch {
+    return optionsJson;
   }
+}
+
+function stockState(product) {
+  const total = (product.variants || []).reduce((s, v) => s + (v.qty || 0), 0);
+  if (total === 0) return 'sold';
+  if (total <= 5) return 'low';
+  return 'in';
+}
+
+function StockBadge({ state, overlay }) {
+  const label = state === 'in' ? t('sf_in_stock') : state === 'low' ? t('sf_low') : t('sf_sold');
+  return (
+    <span className={`sf-stock-badge sf-stock-badge--${state}${overlay ? ' sf-stock-badge--overlay' : ''}`}>
+      {label}
+    </span>
+  );
+}
+
+/* ===== Toast ===== */
+
+let toastTimer = null;
+function useToast() {
+  const [toast, setToast] = useState(null);
+  const show = useCallback((msg, type) => {
+    clearTimeout(toastTimer);
+    setToast({ msg, type });
+    toastTimer = setTimeout(() => setToast(null), 2200);
+  }, []);
+  return [toast, show];
+}
+
+function Toast({ toast }) {
+  if (!toast) return null;
+  return (
+    <div className={`sf-toast${toast.type === 'error' ? ' sf-toast--error' : ''}`}>
+      {toast.msg}
+    </div>
+  );
+}
+
+/* ===== Checkout Sheet ===== */
+
+function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdateQty, onRemoveItem }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [delivery, setDelivery] = useState('delivery');
+  const [payMethod, setPayMethod] = useState('cash');
+  const [note, setNote] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const deliveryFee = delivery === 'pickup' ? 0 : 15000;
+  const subtotal = basket.reduce((s, b) => s + b.qty * b.unitPrice, 0);
+  const total = subtotal + deliveryFee;
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) return;
+    if (delivery === 'delivery' && !address.trim()) return;
+    setSending(true);
+    try {
+      const order = await api.post(`/shops/${shop.id}/orders`, {
+        customerName: name,
+        customerPhone: phone,
+        customerAddress: address,
+        deliveryMethod: delivery,
+        deliveryFee,
+        payMethod,
+        note,
+        items: basket.map((b) => ({
+          productId: b.productId,
+          variantId: b.variantId,
+          name: b.name,
+          label: b.label,
+          qty: b.qty,
+          unitPrice: b.unitPrice,
+        })),
+      });
+      onOrderSent(order.data);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error placing order', 'error');
+    }
+    setSending(false);
+  }
+
+  return (
+    <div className="checkout-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="checkout-sheet">
+        <div className="checkout-sheet__header">
+          <span className="checkout-sheet__title">{t('co_checkout')}</span>
+          <button className="checkout-sheet__close" type="button" onClick={onClose}>&times;</button>
+        </div>
+
+        {/* Basket items */}
+        <div className="checkout-sheet__items">
+          {basket.map((item, i) => (
+            <div className="checkout-item" key={i}>
+              <div className="checkout-item__info">
+                <div className="checkout-item__name">{item.name}</div>
+                {item.label && <div className="checkout-item__label">{item.label}</div>}
+              </div>
+              <div className="checkout-item__qty-ctrl">
+                <button
+                  className="checkout-item__qty-btn"
+                  type="button"
+                  onClick={() => item.qty <= 1 ? onRemoveItem(i) : onUpdateQty(i, item.qty - 1)}
+                >
+                  {item.qty <= 1 ? '✕' : '−'}
+                </button>
+                <span className="checkout-item__qty">{item.qty}</span>
+                <button className="checkout-item__qty-btn" type="button" onClick={() => onUpdateQty(i, item.qty + 1)}>+</button>
+              </div>
+              <span className="checkout-item__price">{fmtPrice(item.qty * item.unitPrice)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Form */}
+        <form onSubmit={submit}>
+          <div className="checkout-field">
+            <label>{t('co_name')}</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="checkout-field">
+            <label>{t('co_phone')}</label>
+            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+          </div>
+
+          <div className="checkout-field">
+            <label>{t('co_delivery')}</label>
+            <div className="checkout-radio-group">
+              <button
+                type="button"
+                className={`checkout-radio${delivery === 'delivery' ? ' checkout-radio--active' : ''}`}
+                onClick={() => setDelivery('delivery')}
+              >
+                {t('co_delivery_deliver')}
+              </button>
+              <button
+                type="button"
+                className={`checkout-radio${delivery === 'pickup' ? ' checkout-radio--active' : ''}`}
+                onClick={() => setDelivery('pickup')}
+              >
+                {t('co_delivery_pickup')}
+              </button>
+            </div>
+          </div>
+
+          {delivery === 'delivery' && (
+            <div className="checkout-field">
+              <label>{t('co_address')}</label>
+              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required />
+            </div>
+          )}
+
+          <div className="checkout-field">
+            <label>{t('co_payment')}</label>
+            <div className="checkout-radio-group">
+              <button
+                type="button"
+                className={`checkout-radio${payMethod === 'cash' ? ' checkout-radio--active' : ''}`}
+                onClick={() => setPayMethod('cash')}
+              >
+                {t('co_pay_cash')}
+              </button>
+              <button
+                type="button"
+                className={`checkout-radio${payMethod === 'card' ? ' checkout-radio--active' : ''}`}
+                onClick={() => setPayMethod('card')}
+              >
+                {t('co_pay_card')}
+              </button>
+            </div>
+          </div>
+
+          <div className="checkout-field">
+            <label>{t('co_note')}</label>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
+          </div>
+
+          <div className="checkout-total">
+            <span>{t('co_total')}</span>
+            <span>{fmtPrice(total)}</span>
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn--primary btn--lg btn--block"
+            disabled={sending}
+          >
+            {sending ? t('loading') : t('co_place')}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ===== Order Success ===== */
+
+function OrderSuccess({ order, onClose }) {
+  return (
+    <div className="order-success">
+      <div className="order-success__icon">{'✓'}</div>
+      <h2>{t('co_success')}</h2>
+      <p>Order #{order.orderNo || order.id}</p>
+      <p>{t('co_total')}: {fmtPrice(order.total)}</p>
+      <p>The seller will confirm your order shortly.</p>
+      <button className="btn btn--primary btn--lg" onClick={onClose}>
+        {t('sf_back')}
+      </button>
+    </div>
+  );
+}
+
+/* ===== Product Detail ===== */
+
+function ProductDetail({ product, shop, onBack, onAddToBasket }) {
+  const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
+  const name = getProductName(product);
+  const desc = getProductDesc(product);
+  const hasVariants = product.variants && product.variants.length > 0;
+  const state = stockState(product);
+
+  const selectedVariant = hasVariants && selectedVariantIdx !== null
+    ? product.variants[selectedVariantIdx]
+    : null;
+
+  const canAdd = hasVariants
+    ? selectedVariant && (selectedVariant.qty || 0) > 0
+    : state !== 'sold';
+
+  const isSoldOut = hasVariants
+    ? selectedVariant ? (selectedVariant.qty || 0) === 0 : state === 'sold'
+    : state === 'sold';
+
+  function handleAdd() {
+    if (!canAdd) return;
+    const label = selectedVariant ? parseVariantLabel(selectedVariant.optionsJson) : '';
+    const unitPrice = selectedVariant?.price || product.price || 0;
+    onAddToBasket({
+      productId: product.id,
+      variantId: selectedVariant?.id || null,
+      name,
+      label,
+      qty: 1,
+      unitPrice,
+    });
+  }
+
+  const bg = toneColor(product);
 
   return (
     <div className="sf-detail">
@@ -27,60 +297,63 @@ function ProductDetail({ product, shop, onBack }) {
       </button>
       <div className="sf-detail__layout">
         <div className="sf-detail__gallery">
-          {images.length > 0 ? (
-            <>
-              <div className="sf-detail__main-img">
-                <img src={images[selectedImage]} alt={product.name} />
-              </div>
-              {images.length > 1 && (
-                <div className="sf-detail__thumbs">
-                  {images.map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      alt=""
-                      className={`sf-detail__thumb ${i === selectedImage ? 'sf-detail__thumb--active' : ''}`}
-                      onClick={() => setSelectedImage(i)}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+          {product.imageUrl ? (
+            <div className="sf-detail__main-img">
+              <img src={product.imageUrl} alt={name} />
+            </div>
           ) : (
-            <div className="sf-detail__no-img">No image</div>
+            <div className="sf-detail__no-img--toned" style={{ background: bg }}>
+              {name?.charAt(0)}
+            </div>
           )}
         </div>
         <div className="sf-detail__info">
-          <h2 className="sf-detail__name">{product.name}</h2>
+          <h2 className="sf-detail__name">{name}</h2>
           <div className="sf-detail__price">{fmtPrice(product.price)}</div>
+          <StockBadge state={state} />
 
-          {product.variants?.length > 0 && (
-            <div className="sf-detail__sizes">
+          {hasVariants && (
+            <div className="sf-detail__sizes" style={{ marginTop: 16 }}>
               <label>{t('sf_pick_size')}</label>
               <div className="sf-detail__size-grid">
-                {product.variants.map((v, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`size-btn ${selectedSize === v.label ? 'size-btn--active' : ''} ${v.stock === 0 ? 'size-btn--out' : ''}`}
-                    disabled={v.stock === 0}
-                    onClick={() => setSelectedSize(v.label)}
-                  >
-                    {v.label}
-                  </button>
-                ))}
+                {product.variants.map((v, i) => {
+                  const label = parseVariantLabel(v.optionsJson);
+                  const out = (v.qty || 0) === 0;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`size-btn ${selectedVariantIdx === i ? 'size-btn--active' : ''} ${out ? 'size-btn--out' : ''}`}
+                      disabled={out}
+                      onClick={() => setSelectedVariantIdx(i)}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          <button className="btn btn--primary btn--lg btn--block sf-detail__order" onClick={handleOrder}>
-            {t('sf_order_tg')}
-          </button>
+          {isSoldOut ? (
+            <button className="btn btn--primary btn--lg btn--block sf-detail__add-btn" disabled>
+              {t('sf_sold')}
+            </button>
+          ) : (
+            <button
+              className="btn btn--primary btn--lg btn--block sf-detail__add-btn"
+              onClick={handleAdd}
+              disabled={hasVariants && selectedVariantIdx === null}
+              style={{ marginTop: 16 }}
+            >
+              {t('co_add')}
+            </button>
+          )}
 
-          {product.description && (
+          {desc && (
             <div className="sf-detail__desc">
               <h3>{t('sf_desc')}</h3>
-              <p>{product.description}</p>
+              <p>{desc}</p>
             </div>
           )}
         </div>
@@ -89,12 +362,15 @@ function ProductDetail({ product, shop, onBack }) {
   );
 }
 
+/* ===== Main Page ===== */
+
 export default function StorefrontPage() {
   const { handle } = useParams();
   const navigate = useNavigate();
   const [, setTick] = useState(0);
   const [loading, setLoading] = useState(true);
   const [shop, setShop] = useState(null);
+  const [shopConfig, setShopConfig] = useState(null);
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -103,6 +379,13 @@ export default function StorefrontPage() {
   const [tab, setTab] = useState('products');
   const fetchShopByHandle = useShopStore((s) => s.fetchShopByHandle);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
+
+  // Basket
+  const [basket, setBasket] = useState([]); // [{productId, variantId, name, label, qty, unitPrice}]
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [completedOrder, setCompletedOrder] = useState(null);
+
+  const [toast, showToast] = useToast();
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
@@ -118,6 +401,12 @@ export default function StorefrontPage() {
           await fetchProducts(shopData.id);
           const storeProducts = useShopStore.getState().products;
           setProducts(storeProducts);
+          try {
+            const configRes = await api.get(`/shops/${shopData.id}/config`);
+            setShopConfig(configRes.data);
+          } catch {
+            // config may not exist
+          }
         }
       } catch (e) {
         navigate('/', { replace: true });
@@ -127,15 +416,17 @@ export default function StorefrontPage() {
     load();
   }, [handle, fetchShopByHandle, fetchProducts, navigate]);
 
-  const theme = getTheme(shop?.themeId || 'minimal');
-  const palette = getPalette(shop?.paletteId || 'ivory');
+  const themeId = shopConfig?.theme?.toLowerCase() || 'minimal';
+  const paletteId = shopConfig?.palette || 'ivory';
+  const theme = getTheme(themeId);
+  const palette = getPalette(paletteId);
   const themeVars = applyThemeVars(theme);
   const paletteVars = applyPaletteVars(palette);
   const styleVars = { ...themeVars, ...paletteVars };
 
   const categories = useMemo(() => {
     const cats = new Set();
-    products.forEach((p) => { if (p.category) cats.add(p.category); });
+    products.forEach((p) => { if (p.catId) cats.add(p.catId); });
     return Array.from(cats);
   }, [products]);
 
@@ -143,17 +434,52 @@ export default function StorefrontPage() {
     let list = products.filter((p) => p.visible !== false);
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((p) => p.name?.toLowerCase().includes(q));
+      list = list.filter((p) => getProductName(p).toLowerCase().includes(q));
     }
     if (categoryFilter) {
-      list = list.filter((p) => p.category === categoryFilter);
+      list = list.filter((p) => p.catId === categoryFilter);
     }
     if (sort === 'price-asc') list.sort((a, b) => (a.price || 0) - (b.price || 0));
     if (sort === 'price-desc') list.sort((a, b) => (b.price || 0) - (a.price || 0));
     return list;
   }, [products, search, categoryFilter, sort]);
 
-  const layout = theme.layout || 'grid';
+  const layout = shopConfig?.layout?.toLowerCase() || 'grid';
+
+  /* ===== Basket actions ===== */
+
+  function addToBasket(item) {
+    setBasket((prev) => {
+      const idx = prev.findIndex(
+        (b) => b.productId === item.productId && b.variantId === item.variantId,
+      );
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], qty: updated[idx].qty + item.qty };
+        return updated;
+      }
+      return [...prev, item];
+    });
+    showToast(t('co_added'));
+  }
+
+  function updateBasketQty(index, qty) {
+    setBasket((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], qty };
+      return updated;
+    });
+  }
+
+  function removeBasketItem(index) {
+    setBasket((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleOrderSent(order) {
+    setShowCheckout(false);
+    setBasket([]);
+    setCompletedOrder(order);
+  }
 
   function handleShare() {
     const url = `${window.location.origin}/${handle}`;
@@ -163,6 +489,8 @@ export default function StorefrontPage() {
       navigator.clipboard.writeText(url);
     }
   }
+
+  /* ===== Renders ===== */
 
   if (loading) {
     return (
@@ -174,6 +502,21 @@ export default function StorefrontPage() {
 
   if (!shop) return null;
 
+  // Order success screen
+  if (completedOrder) {
+    return (
+      <div className="storefront" style={styleVars}>
+        <div className="sf-container">
+          <OrderSuccess
+            order={completedOrder}
+            onClose={() => { setCompletedOrder(null); setSelectedProduct(null); }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Product detail
   if (selectedProduct) {
     return (
       <div className="storefront" style={styleVars}>
@@ -182,12 +525,37 @@ export default function StorefrontPage() {
             product={selectedProduct}
             shop={shop}
             onBack={() => setSelectedProduct(null)}
+            onAddToBasket={addToBasket}
           />
         </div>
+        {/* Basket dock */}
+        {basket.length > 0 && !showCheckout && (
+          <div className="basket-dock">
+            <span className="basket-dock__summary">
+              {basket.reduce((s, b) => s + b.qty, 0)} {t('co_items')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
+            </span>
+            <button className="btn btn--primary btn--sm" onClick={() => setShowCheckout(true)}>
+              {t('co_checkout')} &rarr;
+            </button>
+          </div>
+        )}
+        {showCheckout && (
+          <CheckoutSheet
+            basket={basket}
+            shop={shop}
+            onClose={() => setShowCheckout(false)}
+            onOrderSent={handleOrderSent}
+            showToast={showToast}
+            onUpdateQty={updateBasketQty}
+            onRemoveItem={removeBasketItem}
+          />
+        )}
+        <Toast toast={toast} />
       </div>
     );
   }
 
+  // Main listing
   return (
     <div className="storefront" style={styleVars}>
       {/* Cover */}
@@ -195,7 +563,7 @@ export default function StorefrontPage() {
         className="sf-cover"
         style={{
           backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
-          backgroundColor: shop.coverUrl ? undefined : 'var(--s-line)',
+          backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || 'var(--s-line)'),
         }}
       />
 
@@ -206,13 +574,12 @@ export default function StorefrontPage() {
             <img src={shop.logoUrl} alt={shop.name} className="sf-header__avatar" />
           ) : (
             <div className="sf-header__avatar sf-header__avatar--placeholder">
-              {shop.name?.charAt(0)}
+              {shop.initials || shop.name?.charAt(0)}
             </div>
           )}
           <div className="sf-header__info">
             <h1 className="sf-header__name">{shop.name}</h1>
             <p className="sf-header__handle">rasta.uz/{shop.handle}</p>
-            {shop.bio && <p className="sf-header__bio">{shop.bio}</p>}
           </div>
           <div className="sf-header__actions">
             <button className="btn btn--outline btn--sm" onClick={handleShare}>
@@ -296,37 +663,45 @@ export default function StorefrontPage() {
               <EmptyState icon="&#128722;" title={t('sf_empty')} />
             ) : (
               <div className={`sf-products sf-products--${layout}`}>
-                {filtered.map((product) => (
-                  <div
-                    key={product.id}
-                    className={`sf-product-card sf-product-card--${layout}`}
-                    onClick={() => setSelectedProduct(product)}
-                  >
-                    <div className="sf-product-card__img">
-                      {(product.imageUrl || product.photos?.[0]) ? (
-                        <img src={product.photos?.[0] || product.imageUrl} alt={product.name} />
-                      ) : (
-                        <div className="sf-product-card__no-img">
-                          {product.name?.charAt(0)}
-                        </div>
-                      )}
+                {filtered.map((product) => {
+                  const name = getProductName(product);
+                  const state = stockState(product);
+                  const bg = toneColor(product);
+                  return (
+                    <div
+                      key={product.id}
+                      className={`sf-product-card sf-product-card--${layout}`}
+                      onClick={() => setSelectedProduct(product)}
+                    >
+                      <div className="sf-product-card__img">
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={name} />
+                        ) : (
+                          <div className="sf-product-card__no-img--toned" style={{ background: bg }}>
+                            {name?.charAt(0)}
+                          </div>
+                        )}
+                        <StockBadge state={state} overlay />
+                      </div>
+                      <div className="sf-product-card__info">
+                        <h3 className="sf-product-card__name">{name}</h3>
+                        <span className="sf-product-card__price">{fmtPrice(product.price)}</span>
+                        {product.variants?.length > 0 && (
+                          <div className="sf-product-card__sizes">
+                            {product.variants.slice(0, 4).map((v, i) => (
+                              <span key={i} className="sf-product-card__size">
+                                {parseVariantLabel(v.optionsJson)}
+                              </span>
+                            ))}
+                            {product.variants.length > 4 && (
+                              <span className="sf-product-card__size">+{product.variants.length - 4}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="sf-product-card__info">
-                      <h3 className="sf-product-card__name">{product.name}</h3>
-                      <span className="sf-product-card__price">{fmtPrice(product.price)}</span>
-                      {product.variants?.length > 0 && (
-                        <div className="sf-product-card__sizes">
-                          {product.variants.slice(0, 4).map((v, i) => (
-                            <span key={i} className="sf-product-card__size">{v.label}</span>
-                          ))}
-                          {product.variants.length > 4 && (
-                            <span className="sf-product-card__size">+{product.variants.length - 4}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
@@ -334,13 +709,40 @@ export default function StorefrontPage() {
 
         {tab === 'about' && (
           <div className="sf-about">
-            {shop.bio && <p>{shop.bio}</p>}
-            {shop.city && <p><strong>{t('ob_city')}:</strong> {shop.city}</p>}
+            {shop.location && <p><strong>{t('ob_city')}:</strong> {shop.location}</p>}
             {shop.telegram && <p><strong>Telegram:</strong> @{shop.telegram.replace('@', '')}</p>}
             {shop.instagram && <p><strong>Instagram:</strong> @{shop.instagram.replace('@', '')}</p>}
+            {shop.phone && <p><strong>{t('ob_phone_contact')}:</strong> {shop.phone}</p>}
           </div>
         )}
       </div>
+
+      {/* Basket dock */}
+      {basket.length > 0 && !showCheckout && (
+        <div className="basket-dock">
+          <span className="basket-dock__summary">
+            {basket.reduce((s, b) => s + b.qty, 0)} {t('co_items')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
+          </span>
+          <button className="btn btn--primary btn--sm" onClick={() => setShowCheckout(true)}>
+            {t('co_checkout')} &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* Checkout */}
+      {showCheckout && (
+        <CheckoutSheet
+          basket={basket}
+          shop={shop}
+          onClose={() => setShowCheckout(false)}
+          onOrderSent={handleOrderSent}
+          showToast={showToast}
+          onUpdateQty={updateBasketQty}
+          onRemoveItem={removeBasketItem}
+        />
+      )}
+
+      <Toast toast={toast} />
     </div>
   );
 }

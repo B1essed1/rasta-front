@@ -23,7 +23,9 @@ const fonts = [
 export default function DesignView() {
   const [, setTick] = useState(0);
   const shop = useShopStore((s) => s.shop);
-  const updateShop = useShopStore((s) => s.updateShop);
+  const shopConfig = useShopStore((s) => s.config);
+  const fetchConfig = useShopStore((s) => s.fetchConfig);
+  const updateConfig = useShopStore((s) => s.updateConfig);
   const [config, setConfig] = useState({
     themeId: 'minimal',
     paletteId: 'ivory',
@@ -37,15 +39,19 @@ export default function DesignView() {
   }, []);
 
   useEffect(() => {
-    if (shop) {
+    if (shop?.id) fetchConfig();
+  }, [shop?.id, fetchConfig]);
+
+  useEffect(() => {
+    if (shopConfig) {
       setConfig({
-        themeId: shop.themeId || 'minimal',
-        paletteId: shop.paletteId || 'ivory',
-        layout: shop.layout || 'grid',
-        fontId: shop.fontId || 'hanken',
+        themeId: shopConfig.theme?.toLowerCase() || 'minimal',
+        paletteId: shopConfig.palette || 'ivory',
+        layout: shopConfig.layout?.toLowerCase() || 'grid',
+        fontId: shopConfig.font || 'hanken',
       });
     }
-  }, [shop]);
+  }, [shopConfig]);
 
   const previewTheme = getTheme(config.themeId);
   const previewPalette = getPalette(config.paletteId);
@@ -59,7 +65,7 @@ export default function DesignView() {
   async function handleSave() {
     setSaving(true);
     try {
-      await updateShop(config);
+      await updateConfig(config);
       toast(t('db_saved'), 'success');
     } catch {
       toast('Error', 'error');
