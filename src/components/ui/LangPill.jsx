@@ -24,7 +24,7 @@ export default function LangPill({ className = '' }) {
       {languages.map((l) => (
         <button
           key={l.code}
-          className={current === l.code ? 'active' : ''}
+          className={current === l.code ? 'on' : ''}
           onClick={() => handleClick(l.code)}
           type="button"
         >
