@@ -1,0 +1,170 @@
+/* ===== Onboarding Page ===== */
+.ob-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  background: var(--gray-50);
+}
+.ob-page__header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.ob-page__stepper {
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+.ob-page__card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-md);
+  max-width: 600px;
+  width: 100%;
+}
+
+/* ===== Onboarding Step ===== */
+.ob-step h2 {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+.ob-step p {
+  color: var(--gray-500);
+  margin-bottom: 20px;
+}
+.ob-step__row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.ob-step__footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gray-200);
+}
+
+/* ===== Plan Cards ===== */
+.ob-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.ob-plan-card {
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.ob-plan-card:hover { border-color: var(--gray-300); }
+.ob-plan-card--selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.ob-plan-card--featured { background: var(--primary-tint); }
+.ob-plan-card__badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: rgba(27, 107, 90, 0.1);
+  padding: 3px 8px;
+  border-radius: 100px;
+  margin-bottom: 8px;
+}
+.ob-plan-card h3 { margin-bottom: 4px; }
+.ob-plan-card__price {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--gray-600);
+}
+.ob-plan-card ul { font-size: 0.875rem; }
+.ob-plan-card li {
+  padding: 4px 0;
+  color: var(--gray-600);
+}
+.ob-plan-card li::before {
+  content: '\2713';
+  color: var(--primary);
+  margin-right: 8px;
+}
+
+/* ===== Billing Toggle ===== */
+.billing-toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 100px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.billing-toggle__btn {
+  padding: 8px 18px;
+  border: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.billing-toggle__btn--active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ===== Review ===== */
+.ob-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ob-review__item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+.ob-review__label { color: var(--gray-500); font-size: 0.875rem; }
+.ob-review__value { font-weight: 500; }
+.ob-review__cover { margin-top: 12px; }
+.ob-review__cover img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+/* ===== Congrats ===== */
+.ob-congrats {
+  text-align: center;
+}
+.ob-congrats__icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+.ob-congrats h2 {
+  margin-bottom: 8px;
+}
+.ob-congrats p {
+  color: var(--gray-500);
+  margin-bottom: 24px;
+}
+.ob-congrats__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 640px) {
+  .ob-page__card { padding: 24px 20px; }
+  .ob-plans { grid-template-columns: 1fr; }
+  .ob-congrats__actions { flex-direction: column; }
+}

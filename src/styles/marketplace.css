@@ -1,0 +1,118 @@
+/* ===== Marketplace ===== */
+.marketplace {
+  min-height: 100vh;
+  background: var(--gray-50);
+}
+.marketplace__content {
+  padding-top: 88px;
+  padding-bottom: 60px;
+}
+.marketplace__title {
+  font-size: 1.75rem;
+  margin-bottom: 24px;
+}
+.marketplace__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.marketplace__search {
+  max-width: 400px;
+}
+.marketplace__types {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.type-pill {
+  padding: 6px 14px;
+  border-radius: 100px;
+  border: 1.5px solid var(--gray-200);
+  background: #fff;
+  color: var(--gray-500);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.type-pill:hover { border-color: var(--gray-300); }
+.type-pill--active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* ===== Shop Grid ===== */
+.marketplace__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.marketplace__loading,
+.marketplace__empty {
+  text-align: center;
+  padding: 60px 0;
+  color: var(--gray-400);
+  font-size: 1rem;
+}
+
+/* ===== Shop Card ===== */
+.shop-card {
+  display: block;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+.shop-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.shop-card__cover {
+  height: 120px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.shop-card__avatar {
+  position: absolute;
+  bottom: -20px;
+  left: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fff;
+  background: #fff;
+}
+.shop-card__body {
+  padding: 28px 16px 16px;
+}
+.shop-card__name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.shop-card__handle {
+  font-size: 0.8125rem;
+  color: var(--gray-400);
+  margin-bottom: 8px;
+}
+.shop-card__count {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  background: var(--gray-100);
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 640px) {
+  .marketplace__content { padding-top: 80px; }
+  .marketplace__grid { grid-template-columns: 1fr; }
+}
