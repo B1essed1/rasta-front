@@ -135,7 +135,7 @@ export default function Landing() {
       <nav className="pnav">
         <div className="pnav-inner">
           <a href="/" className="brand" onClick={(e) => { e.preventDefault(); navigate('/'); }}>
-            <Logo size={26} /> rasta
+            <Logo size={26} /> rastashops
           </a>
           <div className="pnav-links">
             <a href="#features">{t('nav_features')}</a>
@@ -440,7 +440,7 @@ export default function Landing() {
         <div className="wrap lp-footer-grid">
           <div>
             <div className="brand">
-              <Logo size={26} /> rasta
+              <Logo size={26} /> rastashops
             </div>
             <p className="foot-tag">{t('footer_tag')}</p>
           </div>

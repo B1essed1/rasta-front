@@ -58,7 +58,7 @@ export default function Dashboard() {
       <aside className={`dashboard__sidebar ${sidebarOpen ? 'dashboard__sidebar--open' : ''}`}>
         <div className="dashboard__sidebar-header">
           <Logo size={28} />
-          <span className="dashboard__brand">rasta</span>
+          <span className="dashboard__brand">rastashops</span>
         </div>
 
         {shop && (

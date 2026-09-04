@@ -29,7 +29,7 @@ export default function Navbar({ transparent = false }) {
       <div className="pnav-inner">
         <Link to="/" className="brand" onClick={() => setMenuOpen(false)}>
           <Logo size={30} />
-          <span>rasta</span>
+          <span>rastashops</span>
         </Link>
 
         <div className={`pnav-links ${menuOpen ? 'pnav-links--open' : ''}`}>

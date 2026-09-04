@@ -1,11 +1,9 @@
 export default function Logo({ size = 26 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className="mark" aria-hidden="true">
-      <rect x="1.5" y="1.5" width="29" height="29" rx="8" fill="var(--primary, #1f7a72)"/>
-      <path d="M7 22v-6a3 3 0 0 1 6 0v6" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"/>
-      <path d="M13 22v-6a3 3 0 0 1 6 0v6" stroke="var(--saffron, #e09a36)" strokeWidth="2.1" strokeLinecap="round"/>
-      <path d="M19 22v-6a3 3 0 0 1 6 0v6" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"/>
-      <path d="M6 22h20" stroke="#fff" strokeWidth="2.1" strokeLinecap="round"/>
+    <svg width={size} height={size} viewBox="0 0 160 160" fill="none" className="mark" aria-hidden="true">
+      <rect x="5" y="5" width="150" height="150" rx="36" fill="none" stroke="#E4573B" strokeWidth="12"/>
+      <path d="M53 117 V69 A24 24 0 0 1 101 69" fill="none" stroke="#E4573B" strokeWidth="12" strokeLinecap="round"/>
+      <circle cx="107" cy="111" r="11" fill="#E4573B"/>
     </svg>
   );
 }
