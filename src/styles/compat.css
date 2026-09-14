@@ -1,0 +1,90 @@
+/* ===========================================================================
+   compat.css — app compatibility layer. Loaded LAST, after the design's
+   dashboard.css / app2.css / chat.css.
+
+   The design owns the bare class names `.toast`, `.toast-host`, `.stepper`,
+   `.empty-state` and `.modal-body` and gives them different semantics than the
+   app's own shared components do. Each rule below is scoped by a child class
+   that only the app's component emits, so it can never reach design markup.
+
+   Delete a block once the matching component in src/components/ui is ported
+   to the design's markup.
+   =========================================================================== */
+
+/* ToastHost (components/ui/ToastHost.jsx) — app2.css makes every .toast a dark
+   pill; restore the app's per-type colours. */
+.toast.toast--info { background: var(--ink-2); }
+.toast.toast--success { background: var(--primary); }
+.toast.toast--error { background: var(--danger); }
+
+/* Stepper (components/ui/Stepper.jsx) — app2.css `.stepper` is the quantity
+   stepper (bordered white box). The onboarding progress stepper is a plain row. */
+.stepper:has(.stepper__step) {
+  display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 8px 0;
+  background: none; border: none; border-radius: 0; flex: initial;
+}
+
+/* EmptyState (components/ui/EmptyState.jsx) — dashboard.css `.empty-state` is
+   the design's dashed onboarding card. */
+.empty-state:has(.empty-state__icon) {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 60px 24px; text-align: center;
+  background: none; border: none; border-radius: 0; max-width: none; margin: 0;
+}
+
+/* Modal (components/ui/Modal.jsx) — the app's own modals scroll via the overlay,
+   so undo the inner max-height app2.css adds. EXCEPT when the modal has a
+   design-style sticky `.modal-foot`: there the scrolling body IS the design's
+   behaviour, and removing it pushes the footer off-screen. */
+.modal-content:not(:has(.modal-foot)) .modal-body {
+  max-height: none; overflow: visible; padding: 24px;
+}
+
+/* ---------------------------------------------------------------------------
+   Pages with no design counterpart.
+   The design sets line-height per component and so needs none on <body>; the
+   app's Landing, Marketplace, Onboarding, Auth and Storefront were written
+   against `body{line-height:1.6}` and inherit ~1.2 without it, which cramps all
+   of their prose. Restore it on those roots only, so the dashboard keeps the
+   design's own metrics.
+   Remove each selector as its page is ported to the design.
+   --------------------------------------------------------------------------- */
+.lp,
+.marketplace,
+.ob-page,
+.auth-page,
+.storefront {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Review cards keep their horizontal padding — app2.css's `.pp-rv{padding:14px 0}`
+   would sit review text flush against the card border. Invisible until a shop
+   actually has reviews. */
+.storefront .pp-rv { padding: 16px; }
+
+/* ---------------------------------------------------------------------------
+   PhotoSlot — stands in for the design's <image-slot> web component, whose
+   drop-zone chrome lives in a shadow DOM (styled there via image-slot::part()).
+   Only the inner surface; .img-cell supplies the frame, radius and aspect.
+   Delete this block if a real <image-slot> element is ever adopted.
+   --------------------------------------------------------------------------- */
+.ps {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; background: var(--paper-2, var(--paper)); transition: background .12s, box-shadow .12s;
+}
+.ps img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ps-ph {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  color: var(--soft); text-align: center; padding: 8px;
+}
+.ps-ph b { font-size: 12px; font-weight: 600; }
+.ps.over { background: var(--primary-tint); box-shadow: inset 0 0 0 2px var(--primary); }
+.ps.busy { opacity: .6; pointer-events: none; }
+.ps-clear {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 999px;
+  background: rgba(20, 15, 10, .62); color: #fff; opacity: 0; transition: opacity .12s;
+}
+.img-cell:hover .ps-clear { opacity: 1; }

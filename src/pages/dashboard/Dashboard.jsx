@@ -1,138 +1,324 @@
-import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../../components/ui/Logo';
 import LangPill from '../../components/ui/LangPill';
+import { I } from '../../components/ui/Icons';
 import { t, onLangChange } from '../../i18n';
 import { useAuthStore } from '../../store/authStore';
-import { useShopStore } from '../../store/shopStore';
-import '../../styles/dashboard.css';
+import { useShopStore, stockState } from '../../store/shopStore';
+import { getPalette } from '../../data/palettes';
 
-const navItems = [
-  { to: '/dashboard', icon: '&#9750;', labelKey: 'db_home', end: true },
-  { to: '/dashboard/orders', icon: '&#128230;', labelKey: 'db_orders' },
-  { to: '/dashboard/products', icon: '&#128722;', labelKey: 'db_products' },
-  { to: '/dashboard/sales', icon: '&#128200;', labelKey: 'db_sales' },
-  { to: '/dashboard/reviews', icon: '&#11088;', labelKey: 'db_reviews' },
-  { to: '/dashboard/design', icon: '&#127912;', labelKey: 'db_design' },
-  { to: '/dashboard/settings', icon: '&#9881;', labelKey: 'db_settings' },
+// Tabs the app has no view for yet render an inline placeholder instead of a route.
+// TODO: build ChatsView + InventoryView and give them real routes in App.jsx.
+const PLACEHOLDER_TABS = ['chats', 'inventory', 'scan'];
+
+const TABS = [
+  { id: 'home', path: '/dashboard', labelKey: 'db_home', icon: 'home' },
+  { id: 'orders', path: '/dashboard/orders', labelKey: 'db_orders', icon: 'bag' },
+  { id: 'chats', path: null, labelKey: 'db_chats', icon: 'chat' },
+  { id: 'products', path: '/dashboard/products', labelKey: 'db_products', icon: 'grid' },
+  { id: 'inventory', path: null, labelKey: 'db_inventory', icon: 'box' },
+  { id: 'sales', path: '/dashboard/sales', labelKey: 'db_sales', icon: 'wallet' },
+  { id: 'reviews', path: '/dashboard/reviews', labelKey: 'rv_title', icon: 'spark' },
+  { id: 'design', path: '/dashboard/design', labelKey: 'db_design', icon: 'palette' },
+  { id: 'settings', path: '/dashboard/settings', labelKey: 'db_settings', icon: 'gear' },
 ];
+
+function initialsOf(name) {
+  if (!name) return '??';
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
+
+function tabFromPath(pathname) {
+  const match = TABS.filter((x) => x.path).find((x) =>
+    x.path === '/dashboard' ? pathname === '/dashboard' || pathname === '/dashboard/' : pathname.startsWith(x.path)
+  );
+  return match ? match.id : 'home';
+}
+
+function ShopSwitcher({ shop, shops, tone, onPick }) {
+  const [open, setOpen] = useState(false);
+  const initials = shop?.initials || initialsOf(shop?.name);
+  return (
+    <div
+      className="db-shopsel"
+      role="button"
+      tabIndex={0}
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      onClick={() => setOpen((o) => !o)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setOpen((o) => !o);
+        }
+      }}
+    >
+      <div className="av ph" style={{ '--ph-tone': tone }}>
+        <div className="ph-init" style={{ fontSize: 13 }}>
+          {initials}
+        </div>
+      </div>
+      <div className="nm">
+        <b>{shop?.name || ''}</b>
+        <span>rasta.uz/{shop?.handle || ''}</span>
+      </div>
+      <span className="cv">{I.layers({ width: 16, height: 16 })}</span>
+      {open && (
+        <div className="db-shop-menu" onClick={(e) => e.stopPropagation()}>
+          {(shops.length ? shops : shop ? [shop] : []).map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => {
+                onPick(s.id);
+                setOpen(false);
+              }}
+            >
+              <div className="av ph" style={{ '--ph-tone': tone }}>
+                <div className="ph-init" style={{ fontSize: 11 }}>
+                  {s.initials || initialsOf(s.name)}
+                </div>
+              </div>
+              <b>{s.name}</b>
+              {s.id === shop?.id && (
+                <span style={{ marginLeft: 'auto', color: 'var(--primary)' }}>
+                  {I.check({ width: 16, height: 16 })}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [, setTick] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [shops, setShops] = useState([]);
+  // Non-routed tab currently shown ("chats" | "inventory" | "scan"), or null.
+  const [placeholder, setPlaceholder] = useState(null);
+
   const navigate = useNavigate();
+  const location = useLocation();
+
   const logout = useAuthStore((s) => s.logout);
-  const user = useAuthStore((s) => s.user);
   const shop = useShopStore((s) => s.shop);
+  const config = useShopStore((s) => s.config);
+  const products = useShopStore((s) => s.products);
+  const orders = useShopStore((s) => s.orders);
   const fetchShop = useShopStore((s) => s.fetchShop);
   const fetchMyShops = useShopStore((s) => s.fetchMyShops);
   const fetchConfig = useShopStore((s) => s.fetchConfig);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
+  const fetchOrders = useShopStore((s) => s.fetchOrders);
+
+  useEffect(() => onLangChange(() => setTick((n) => n + 1)), []);
 
   useEffect(() => {
-    return onLangChange(() => setTick((t) => t + 1));
-  }, []);
-
-  useEffect(() => {
+    let alive = true;
     async function load() {
-      const shops = await fetchMyShops();
-      if (shops.length > 0) {
-        await fetchShop(shops[0].id);
+      const mine = await fetchMyShops();
+      if (!alive) return;
+      setShops(mine);
+      if (mine.length > 0) {
+        await fetchShop(mine[0].id);
         await fetchConfig();
-        await fetchProducts(shops[0].id);
+        await fetchProducts(mine[0].id);
+        try {
+          await fetchOrders();
+        } catch (e) {
+          /* badge is optional */
+        }
       } else {
         navigate('/onboarding', { replace: true });
       }
     }
     load();
-  }, [fetchMyShops, fetchShop, fetchConfig, fetchProducts, navigate]);
+    return () => {
+      alive = false;
+    };
+  }, [fetchMyShops, fetchShop, fetchConfig, fetchProducts, fetchOrders, navigate]);
+
+  const routeTab = tabFromPath(location.pathname);
+  const tab = placeholder || routeTab;
+
+  // Clear a placeholder tab whenever a real route takes over.
+  useEffect(() => {
+    setPlaceholder(null);
+  }, [location.pathname]);
+
+  const newOrders = useMemo(
+    () => (orders || []).filter((o) => (o.status || '').toUpperCase() === 'NEW').length,
+    [orders]
+  );
+  const lowStock = useMemo(
+    () => (products || []).filter((p) => stockState(p, config?.threshold) !== 'in').length,
+    [products, config]
+  );
+
+  // Design tints the avatar tile with the palette's `swatch`; the app's palettes have
+  // no swatch field, so fall back to the shop's cover colour, then the accent.
+  const palette = getPalette(config?.palette);
+  const tone = palette?.swatch || shop?.coverColor || palette?.accent || '#ddd6cb';
+
+  const nav = TABS.map((item) => ({
+    ...item,
+    label: t(item.labelKey),
+    badge: item.id === 'orders' ? newOrders || null : item.id === 'inventory' ? lowStock || null : null,
+  }));
+  const curNav = nav.find((n) => n.id === tab) || nav[0];
+
+  function go(item) {
+    if (item.path) {
+      setPlaceholder(null);
+      navigate(item.path);
+    } else {
+      setPlaceholder(item.id);
+    }
+  }
 
   function handleLogout() {
     logout();
     navigate('/');
   }
 
+  function handleVisit() {
+    if (shop?.handle) window.open(`/${shop.handle}`, '_blank', 'noopener');
+  }
+
+  // TODO: replace with the real Scan & sell (POS) modal once that view exists.
+  function handleScan() {
+    setPlaceholder('scan');
+  }
+
+  const scanLabel = t('db_scan');
+
   return (
-    <div className="dashboard">
-      {/* Sidebar */}
-      <aside className={`dashboard__sidebar ${sidebarOpen ? 'dashboard__sidebar--open' : ''}`}>
-        <div className="dashboard__sidebar-header">
-          <Logo size={28} />
-          <span className="dashboard__brand">rastashops</span>
+    <div className="db">
+      <aside className="db-side">
+        <div className="brand">
+          <Logo size={26} />{' '}
+          <span className="brand-name">
+            rasta<i>shops</i>
+          </span>
         </div>
 
-        {shop && (
-          <div className="dashboard__shop-info">
-            <strong>{shop.name}</strong>
-            <span className="dashboard__handle">rasta.uz/{shop.handle}</span>
-          </div>
-        )}
+        <ShopSwitcher
+          shop={shop}
+          shops={shops}
+          tone={tone}
+          onPick={(id) => {
+            if (id && id !== shop?.id) fetchShop(id);
+          }}
+        />
 
-        <nav className="dashboard__nav">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `dashboard__nav-item ${isActive ? 'dashboard__nav-item--active' : ''}`
-              }
-              onClick={() => setSidebarOpen(false)}
+        <nav className="db-nav" aria-label={t('db_title')}>
+          {nav.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={tab === item.id ? 'on' : ''}
+              aria-current={tab === item.id ? 'page' : undefined}
+              onClick={() => go(item)}
             >
-              <span
-                className="dashboard__nav-icon"
-                dangerouslySetInnerHTML={{ __html: item.icon }}
-              />
-              <span>{t(item.labelKey)}</span>
-            </NavLink>
+              {I[item.icon]({ width: 20, height: 20 })}{' '}
+              <span className="dn-lab">{item.label}</span>
+              {item.badge ? <span className="dn-badge">{item.badge}</span> : null}
+            </button>
           ))}
         </nav>
 
-        <div className="dashboard__sidebar-footer">
-          {shop?.handle && (
-            <a
-              href={`/${shop.handle}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="dashboard__visit-btn"
-            >
-              {t('db_visit')}
-            </a>
-          )}
-          <button className="btn btn--ghost btn--sm" onClick={handleLogout} type="button">
-            Logout
+        <div className="db-side-foot">
+          <button
+            type="button"
+            className="btn btn-accent btn-sm"
+            style={{ width: '100%' }}
+            onClick={handleScan}
+          >
+            {I.scan({ width: 17, height: 17 })} {scanLabel}
           </button>
+          <button
+            type="button"
+            className="btn btn-soft btn-sm"
+            style={{ width: '100%' }}
+            onClick={handleVisit}
+          >
+            {I.eye({ width: 17, height: 17 })} {t('db_visit')}
+          </button>
+          <div className="db-side-row">
+            <LangPill />
+            <button type="button" className="lnk" onClick={handleLogout}>
+              {t('au_logout')}
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div className="dashboard__overlay" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      {/* Main content */}
-      <div className="dashboard__main">
-        <header className="dashboard__topbar">
-          <button
-            className="dashboard__burger"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            type="button"
-            aria-label="Menu"
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-          <div className="dashboard__topbar-right">
+      <div className="db-main">
+        <div className="db-top">
+          <h1>{placeholder === 'scan' ? scanLabel : curNav.label}</h1>
+          <div className="right">
+            <button type="button" className="btn btn-soft btn-sm" onClick={handleScan}>
+              {I.scan({ width: 16, height: 16 })} {scanLabel}
+            </button>
             <LangPill />
-            <span className="dashboard__user">
-              {user?.name || user?.phone || ''}
-            </span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleVisit}>
+              {I.eye({ width: 16, height: 16 })} {t('db_visit')}
+            </button>
           </div>
-        </header>
-        <main className="dashboard__content">
-          <Outlet />
-        </main>
+        </div>
+
+        <div className="db-mobtop">
+          <div className="dmt-row">
+            <div className="dmt-shop">
+              <div className="av ph" style={{ '--ph-tone': tone }}>
+                <div className="ph-init" style={{ fontSize: 12 }}>
+                  {shop?.initials || initialsOf(shop?.name)}
+                </div>
+              </div>
+              <b>{shop?.name || ''}</b>
+            </div>
+            <div className="dmt-right">
+              <button type="button" className="btn btn-accent btn-xs" aria-label={t('db_scan')} onClick={handleScan}>
+                {I.scan({ width: 15, height: 15 })}
+              </button>
+              <LangPill />
+            </div>
+          </div>
+          <div className="db-tabs scroll-x">
+            {nav.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={'db-tab' + (tab === item.id ? ' on' : '')}
+                onClick={() => go(item)}
+              >
+                {I[item.icon]({ width: 17, height: 17 })} {item.label}
+                {item.badge ? <span className="db-tab-badge">{item.badge}</span> : null}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="db-body scroll-y">
+          {placeholder && PLACEHOLDER_TABS.includes(placeholder) ? (
+            <div className="empty-state">
+              <div className="es-ic">{I.box({ width: 26, height: 26 })}</div>
+              <h3>{placeholder === 'scan' ? scanLabel : curNav.label}</h3>
+            </div>
+          ) : (
+            <Outlet />
+          )}
+        </div>
       </div>
     </div>
   );

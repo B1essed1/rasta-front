@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
-export default function Modal({ open, onClose, title, children, wide = false }) {
+// `foot` renders a sticky footer, as the design's Modal does (design-src/UI.jsx).
+export default function Modal({ open, onClose, title, children, wide = false, foot = null }) {
   const overlayRef = useRef(null);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function Modal({ open, onClose, title, children, wide = false }) 
           </button>
         </div>
         <div className="modal-body">{children}</div>
+        {foot && <div className="modal-foot">{foot}</div>}
       </div>
     </div>
   );
