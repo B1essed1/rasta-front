@@ -5,6 +5,7 @@ import StatusPill from '../../components/ui/StatusPill';
 import EmptyState from '../../components/ui/EmptyState';
 import ProductModal from './ProductModal';
 import Modal from '../../components/ui/Modal';
+import { I } from '../../components/ui/Icons';
 import { toast } from '../../components/ui/ToastHost';
 
 export default function ProductsView() {
@@ -162,15 +163,19 @@ export default function ProductsView() {
                   className="btn btn--ghost btn--sm"
                   onClick={() => handleEdit(product)}
                   type="button"
+                  aria-label={t('db_edit')}
+                  title={t('db_edit')}
                 >
-                  {t('db_edit')}
+                  {I.edit({ width: 16, height: 16 })}
                 </button>
                 <button
                   className="btn btn--ghost btn--sm btn--danger"
                   onClick={() => setDeleteConfirm(product)}
                   type="button"
+                  aria-label={t('db_delete')}
+                  title={t('db_delete')}
                 >
-                  {t('db_delete')}
+                  {I.trash({ width: 16, height: 16 })}
                 </button>
               </span>
             </div>

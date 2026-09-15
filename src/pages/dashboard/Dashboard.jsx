@@ -8,16 +8,12 @@ import { useAuthStore } from '../../store/authStore';
 import { useShopStore, stockState } from '../../store/shopStore';
 import { getPalette } from '../../data/palettes';
 
-// Tabs the app has no view for yet render an inline placeholder instead of a route.
-// TODO: build ChatsView + InventoryView and give them real routes in App.jsx.
-const PLACEHOLDER_TABS = ['chats', 'inventory', 'scan'];
-
 const TABS = [
   { id: 'home', path: '/dashboard', labelKey: 'db_home', icon: 'home' },
   { id: 'orders', path: '/dashboard/orders', labelKey: 'db_orders', icon: 'bag' },
-  { id: 'chats', path: null, labelKey: 'db_chats', icon: 'chat' },
+  { id: 'chats', path: '/dashboard/chats', labelKey: 'db_chats', icon: 'chat' },
   { id: 'products', path: '/dashboard/products', labelKey: 'db_products', icon: 'grid' },
-  { id: 'inventory', path: null, labelKey: 'db_inventory', icon: 'box' },
+  { id: 'inventory', path: '/dashboard/inventory', labelKey: 'db_inventory', icon: 'box' },
   { id: 'sales', path: '/dashboard/sales', labelKey: 'db_sales', icon: 'wallet' },
   { id: 'reviews', path: '/dashboard/reviews', labelKey: 'rv_title', icon: 'spark' },
   { id: 'design', path: '/dashboard/design', labelKey: 'db_design', icon: 'palette' },
@@ -104,8 +100,6 @@ function ShopSwitcher({ shop, shops, tone, onPick }) {
 export default function Dashboard() {
   const [, setTick] = useState(0);
   const [shops, setShops] = useState([]);
-  // Non-routed tab currently shown ("chats" | "inventory" | "scan"), or null.
-  const [placeholder, setPlaceholder] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -148,13 +142,7 @@ export default function Dashboard() {
     };
   }, [fetchMyShops, fetchShop, fetchConfig, fetchProducts, fetchOrders, navigate]);
 
-  const routeTab = tabFromPath(location.pathname);
-  const tab = placeholder || routeTab;
-
-  // Clear a placeholder tab whenever a real route takes over.
-  useEffect(() => {
-    setPlaceholder(null);
-  }, [location.pathname]);
+  const tab = tabFromPath(location.pathname);
 
   const newOrders = useMemo(
     () => (orders || []).filter((o) => (o.status || '').toUpperCase() === 'NEW').length,
@@ -178,12 +166,7 @@ export default function Dashboard() {
   const curNav = nav.find((n) => n.id === tab) || nav[0];
 
   function go(item) {
-    if (item.path) {
-      setPlaceholder(null);
-      navigate(item.path);
-    } else {
-      setPlaceholder(item.id);
-    }
+    navigate(item.path);
   }
 
   function handleLogout() {
@@ -195,9 +178,8 @@ export default function Dashboard() {
     if (shop?.handle) window.open(`/${shop.handle}`, '_blank', 'noopener');
   }
 
-  // TODO: replace with the real Scan & sell (POS) modal once that view exists.
   function handleScan() {
-    setPlaceholder('scan');
+    navigate('/dashboard/scan');
   }
 
   const scanLabel = t('db_scan');
@@ -240,7 +222,7 @@ export default function Dashboard() {
         <div className="db-side-foot">
           <button
             type="button"
-            className="btn btn-accent btn-sm"
+            className="btn btn-soft btn-sm"
             style={{ width: '100%' }}
             onClick={handleScan}
           >
@@ -265,16 +247,7 @@ export default function Dashboard() {
 
       <div className="db-main">
         <div className="db-top">
-          <h1>{placeholder === 'scan' ? scanLabel : curNav.label}</h1>
-          <div className="right">
-            <button type="button" className="btn btn-soft btn-sm" onClick={handleScan}>
-              {I.scan({ width: 16, height: 16 })} {scanLabel}
-            </button>
-            <LangPill />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={handleVisit}>
-              {I.eye({ width: 16, height: 16 })} {t('db_visit')}
-            </button>
-          </div>
+          <h1>{curNav.label}</h1>
         </div>
 
         <div className="db-mobtop">
@@ -288,7 +261,7 @@ export default function Dashboard() {
               <b>{shop?.name || ''}</b>
             </div>
             <div className="dmt-right">
-              <button type="button" className="btn btn-accent btn-xs" aria-label={t('db_scan')} onClick={handleScan}>
+              <button type="button" className="btn btn-soft btn-xs" aria-label={t('db_scan')} onClick={handleScan}>
                 {I.scan({ width: 15, height: 15 })}
               </button>
               <LangPill />
@@ -310,14 +283,7 @@ export default function Dashboard() {
         </div>
 
         <div className="db-body scroll-y">
-          {placeholder && PLACEHOLDER_TABS.includes(placeholder) ? (
-            <div className="empty-state">
-              <div className="es-ic">{I.box({ width: 26, height: 26 })}</div>
-              <h3>{placeholder === 'scan' ? scanLabel : curNav.label}</h3>
-            </div>
-          ) : (
-            <Outlet />
-          )}
+          <Outlet />
         </div>
       </div>
     </div>

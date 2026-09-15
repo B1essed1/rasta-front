@@ -13,6 +13,7 @@ import SalesView from './pages/dashboard/SalesView';
 import DesignView from './pages/dashboard/DesignView';
 import SettingsView from './pages/dashboard/SettingsView';
 import ReviewsView from './pages/dashboard/ReviewsView';
+import { ChatsView, InventoryView, ScanView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
 import ToastHost from './components/ui/ToastHost';
 
 function ProtectedRoute({ children }) {
@@ -45,8 +46,13 @@ export default function App() {
           <Route path="design" element={<DesignView />} />
           <Route path="settings" element={<SettingsView />} />
           <Route path="reviews" element={<ReviewsView />} />
+          <Route path="chats" element={<ChatsView />} />
+          <Route path="inventory" element={<InventoryView />} />
+          <Route path="scan" element={<ScanView />} />
+          <Route path="*" element={<DashboardNotFound />} />
         </Route>
         <Route path="/:handle" element={<StorefrontPage />} />
+        <Route path="/:handle/p/:productId" element={<StorefrontPage />} />
       </Routes>
     </>
   );

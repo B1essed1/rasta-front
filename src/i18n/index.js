@@ -73,6 +73,12 @@ const translations = {
     sf_products: 'Products',
     sf_about: 'About',
     sf_pick_size: 'Pick a size',
+    sf_size_chart: 'Size chart',
+    sf_specs: 'Details',
+    sf_hide_sold: 'Hide sold',
+    sf_sort_new: 'Newest',
+    sf_sort_low: 'Price ↑',
+    sf_sort_high: 'Price ↓',
     sf_desc: 'Description',
     sf_more: 'Show more',
     sf_back: 'Back',
@@ -90,7 +96,7 @@ const translations = {
     co_delivery_pickup: 'Pickup',
     co_payment: 'Payment',
     co_pay_cash: 'Cash',
-    co_pay_card: 'Card (Payme/Click)',
+    co_pay_card: 'Card on delivery',
     co_note: 'Note for seller',
     co_place: 'Place order',
     co_success: 'Order placed!',
@@ -109,6 +115,7 @@ const translations = {
     rv_anon: 'Anonymous',
     rv_count: '{n} reviews',
     rv_based: 'Based on {n} reviews',
+    rv_avg_rating: 'Avg. rating',
     rv_none: 'No reviews yet',
     rv_none_d: 'Be the first to share your experience',
     pp_back: 'Back to shop',
@@ -348,11 +355,42 @@ const translations = {
     rs_same_cost: 'Same cost for all sizes',
     rs_per_size: 'Cost differs by size? Change any row — the average is computed per size.',
     rs_costed_only: 'costed sizes only',
+    ph_per_color: 'Photos per colour',
+    ph_per_color_d: 'Upload a photo for each colour so buyers see what they\'re getting',
+    ph_pick_color: 'Select a colour above to add photos',
     pr_saved: 'Product saved',
     db_empty_t: 'No products yet',
     db_empty_d: 'Add your first product — photos, price and sizes take about a minute.',
     db_more: 'More',
     cat_platform: 'Category',
+
+    nf_shop_t: 'Shop not found',
+    nf_shop_d: 'The shop you\'re looking for doesn\'t exist or has been removed.',
+    nf_product_t: 'Product not found',
+    nf_product_d: 'This product doesn\'t exist or has been removed.',
+    nf_go_home: 'Go to rasta.uz',
+    nf_go_shop: 'Back to shop',
+    nf_tried: 'You tried',
+
+    co_subtotal: 'Products',
+    co_delivery_fee: 'Delivery',
+    co_free: 'Free',
+
+    sa_empty_t: 'No sales yet',
+    sa_empty_d: 'Sales will appear here after your first delivered order.',
+    rv_empty_t: 'No reviews yet',
+    rv_empty_d: 'Ask buyers to leave a review after delivery.',
+
+    db_not_found_t: 'Page not found',
+    db_not_found_d: 'This dashboard page doesn\'t exist.',
+    db_coming_soon: 'Coming soon',
+    at_pick: 'Choose',
+    at_combos: '{n} combinations',
+    at_variants_d: 'Select options to generate variant rows',
+
+    co_err_name: 'Enter your name',
+    co_err_phone: 'Enter a valid phone number',
+    co_err_address: 'Enter a delivery address',
   },
 
   ru: {
@@ -429,6 +467,12 @@ const translations = {
     sf_products: 'Товары',
     sf_about: 'О магазине',
     sf_pick_size: 'Выберите размер',
+    sf_size_chart: 'Таблица размеров',
+    sf_specs: 'Характеристики',
+    sf_hide_sold: 'Скрыть проданное',
+    sf_sort_new: 'Новые',
+    sf_sort_low: 'Цена ↑',
+    sf_sort_high: 'Цена ↓',
     sf_desc: 'Описание',
     sf_more: 'Ещё',
     sf_back: 'Назад',
@@ -446,7 +490,7 @@ const translations = {
     co_delivery_pickup: 'Самовывоз',
     co_payment: 'Оплата',
     co_pay_cash: 'Наличные',
-    co_pay_card: 'Карта (Payme/Click)',
+    co_pay_card: 'Картой при получении',
     co_note: 'Примечание',
     co_place: 'Оформить',
     co_success: 'Заказ оформлен!',
@@ -465,6 +509,7 @@ const translations = {
     rv_anon: 'Аноним',
     rv_count: '{n} отзывов',
     rv_based: 'На основе {n} отзывов',
+    rv_avg_rating: 'Средняя оценка',
     rv_none: 'Пока нет отзывов',
     rv_none_d: 'Будьте первым, кто оставит отзыв',
     pp_back: 'Назад в магазин',
@@ -704,11 +749,42 @@ const translations = {
     rs_same_cost: 'Одна цена для всех размеров',
     rs_per_size: 'Цена отличается по размерам? Измените строку — себестоимость считается по каждому размеру.',
     rs_costed_only: 'только с себестоимостью',
+    ph_per_color: 'Фото по цветам',
+    ph_per_color_d: 'Загрузите фото для каждого цвета, чтобы покупатели видели, что выбирают',
+    ph_pick_color: 'Выберите цвет выше, чтобы добавить фото',
     pr_saved: 'Товар сохранён',
     db_empty_t: 'Пока нет товаров',
     db_empty_d: 'Добавьте первый товар — фото, цена и размеры займут минуту.',
     db_more: 'Ещё',
     cat_platform: 'Категория',
+
+    nf_shop_t: 'Магазин не найден',
+    nf_shop_d: 'Магазин, который вы ищете, не существует или был удалён.',
+    nf_product_t: 'Товар не найден',
+    nf_product_d: 'Этот товар не существует или был удалён.',
+    nf_go_home: 'На rasta.uz',
+    nf_go_shop: 'Назад в магазин',
+    nf_tried: 'Вы искали',
+
+    co_subtotal: 'Товары',
+    co_delivery_fee: 'Доставка',
+    co_free: 'Бесплатно',
+
+    sa_empty_t: 'Пока нет продаж',
+    sa_empty_d: 'Продажи появятся здесь после первого доставленного заказа.',
+    rv_empty_t: 'Пока нет отзывов',
+    rv_empty_d: 'Попросите покупателей оставить отзыв после доставки.',
+
+    db_not_found_t: 'Страница не найдена',
+    db_not_found_d: 'Такой страницы в панели нет.',
+    db_coming_soon: 'Скоро',
+    at_pick: 'Выберите',
+    at_combos: '{n} комбинаций',
+    at_variants_d: 'Выберите параметры для создания вариантов',
+
+    co_err_name: 'Укажите имя',
+    co_err_phone: 'Введите корректный номер',
+    co_err_address: 'Укажите адрес доставки',
   },
 
   uz: {
@@ -785,6 +861,12 @@ const translations = {
     sf_products: 'Tovarlar',
     sf_about: 'Haqida',
     sf_pick_size: 'Oʻlcham tanlang',
+    sf_size_chart: "O'lchamlar jadvali",
+    sf_specs: 'Xususiyatlar',
+    sf_hide_sold: 'Sotilganlarni yashirish',
+    sf_sort_new: 'Yangi',
+    sf_sort_low: 'Narx ↑',
+    sf_sort_high: 'Narx ↓',
     sf_desc: 'Tavsif',
     sf_more: 'Koʻproq',
     sf_back: 'Orqaga',
@@ -802,7 +884,7 @@ const translations = {
     co_delivery_pickup: 'Olib ketish',
     co_payment: "To'lov",
     co_pay_cash: 'Naqd',
-    co_pay_card: 'Karta (Payme/Click)',
+    co_pay_card: 'Karta bilan qabul qilishda',
     co_note: 'Izoh',
     co_place: 'Buyurtma berish',
     co_success: 'Buyurtma berildi!',
@@ -821,6 +903,7 @@ const translations = {
     rv_anon: 'Anonim',
     rv_count: '{n} sharh',
     rv_based: '{n} sharh asosida',
+    rv_avg_rating: "O'rtacha baho",
     rv_none: 'Hali sharhlar yoʻq',
     rv_none_d: 'Birinchi boʻlib sharh qoldiring',
     pp_back: 'Doʻkonga qaytish',
@@ -1060,11 +1143,42 @@ const translations = {
     rs_same_cost: 'Barcha o‘lchamlar uchun bir narx',
     rs_per_size: 'Narx o‘lchamga qarab farq qiladimi? Qatorni o‘zgartiring — tannarx har o‘lcham uchun hisoblanadi.',
     rs_costed_only: 'faqat tannarxi borlar',
+    ph_per_color: 'Ranglar bo\'yicha rasmlar',
+    ph_per_color_d: 'Har bir rang uchun rasm yuklang — xaridorlar nimani tanlayotganini ko\'radi',
+    ph_pick_color: "Rasm qo'shish uchun yuqoridan rang tanlang",
     pr_saved: 'Mahsulot saqlandi',
     db_empty_t: 'Hozircha mahsulot yoʻq',
     db_empty_d: 'Birinchi mahsulotni qoʻshing — rasm, narx va oʻlchamlar bir daqiqa oladi.',
     db_more: 'Yana',
     cat_platform: 'Kategoriya',
+
+    nf_shop_t: 'Doʻkon topilmadi',
+    nf_shop_d: 'Siz qidirayotgan doʻkon mavjud emas yoki oʻchirilgan.',
+    nf_product_t: 'Tovar topilmadi',
+    nf_product_d: 'Bu tovar mavjud emas yoki oʻchirilgan.',
+    nf_go_home: 'rasta.uz ga',
+    nf_go_shop: 'Doʻkonga qaytish',
+    nf_tried: 'Siz qidirdingiz',
+
+    co_subtotal: 'Tovarlar',
+    co_delivery_fee: 'Yetkazish',
+    co_free: 'Bepul',
+
+    sa_empty_t: 'Hozircha sotuvlar yoʻq',
+    sa_empty_d: 'Birinchi yetkazilgan buyurtmadan keyin sotuvlar shu yerda koʻrinadi.',
+    rv_empty_t: 'Hozircha sharhlar yoʻq',
+    rv_empty_d: 'Xaridorlardan yetkazishdan keyin sharh qoldirishni soʻrang.',
+
+    db_not_found_t: 'Sahifa topilmadi',
+    db_not_found_d: 'Boshqaruv panelida bunday sahifa yoʻq.',
+    db_coming_soon: 'Tez kunda',
+    at_pick: 'Tanlang',
+    at_combos: '{n} ta kombinatsiya',
+    at_variants_d: 'Variant qatorlarini yaratish uchun parametrlarni tanlang',
+
+    co_err_name: 'Ismingizni kiriting',
+    co_err_phone: "To'g'ri telefon raqamini kiriting",
+    co_err_address: 'Yetkazish manzilini kiriting',
   },
 };
 
@@ -1101,6 +1215,51 @@ export function fmtPrice(n, lang) {
 export function fill(template, vars) {
   if (!template) return '';
   return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? key);
+}
+
+const PLURALS = {
+  ru: {
+    product: ['товар', 'товара', 'товаров'],
+    order: ['заказ', 'заказа', 'заказов'],
+    review: ['отзыв', 'отзыва', 'отзывов'],
+    item: ['товар', 'товара', 'товаров'],
+    view: ['просмотр', 'просмотра', 'просмотров'],
+    day: ['день', 'дня', 'дней'],
+  },
+  en: {
+    product: ['product', 'products'],
+    order: ['order', 'orders'],
+    review: ['review', 'reviews'],
+    item: ['item', 'items'],
+    view: ['view', 'views'],
+    day: ['day', 'days'],
+  },
+  uz: {
+    product: ['tovar'],
+    order: ['buyurtma'],
+    review: ['sharh'],
+    item: ['tovar'],
+    view: ["ko'rish"],
+    day: ['kun'],
+  },
+};
+
+function ruPlural(n) {
+  const abs = Math.abs(n);
+  const mod10 = abs % 10;
+  const mod100 = abs % 100;
+  if (mod10 === 1 && mod100 !== 11) return 0;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 1;
+  return 2;
+}
+
+export function plural(n, word) {
+  const lang = currentLang;
+  const forms = PLURALS[lang]?.[word];
+  if (!forms) return word;
+  if (lang === 'uz') return forms[0];
+  if (lang === 'en') return n === 1 ? forms[0] : forms[1];
+  return forms[ruPlural(n)];
 }
 
 export default translations;

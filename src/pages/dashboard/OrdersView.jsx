@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { t, onLangChange, fmtPrice } from '../../i18n';
+import { t, onLangChange, fmtPrice, getLang, plural } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import StatusPill from '../../components/ui/StatusPill';
 import EmptyState from '../../components/ui/EmptyState';
@@ -16,10 +16,36 @@ function OrderCard({ order, onConfirm, onCancel, onStatusChange }) {
   function formatDate(dateStr) {
     if (!dateStr) return '—';
     try {
-      return new Date(dateStr).toLocaleDateString();
+      const d = new Date(dateStr);
+      const now = new Date();
+      const diff = now - d;
+      const lang = getLang();
+      const locale = lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB';
+      if (diff < 86400000 && d.getDate() === now.getDate()) {
+        return (lang === 'ru' ? 'сегодня, ' : lang === 'uz' ? 'bugun, ' : 'today, ') +
+          d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+      }
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth()) {
+        return (lang === 'ru' ? 'вчера' : lang === 'uz' ? 'kecha' : 'yesterday');
+      }
+      return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch {
       return dateStr;
     }
+  }
+
+  function localizeDelivery(method) {
+    if (method === 'delivery') return t('co_delivery_deliver');
+    if (method === 'pickup') return t('co_delivery_pickup');
+    return method || '—';
+  }
+
+  function localizePayment(method) {
+    if (method === 'cash') return t('co_pay_cash');
+    if (method === 'card') return t('co_pay_card');
+    return method || '—';
   }
 
   return (
@@ -27,8 +53,8 @@ function OrderCard({ order, onConfirm, onCancel, onStatusChange }) {
       <button className="order-card__summary" onClick={() => setExpanded(!expanded)} type="button">
         <span className="order-card__no">#{order.orderNo}</span>
         <span className="order-card__customer">{order.customerName}</span>
-        <span className="order-card__count">{itemCount} {t('or_items')}</span>
-        <span className="order-card__delivery">{order.deliveryMethod}</span>
+        <span className="order-card__count">{itemCount} {plural(itemCount, 'item')}</span>
+        <span className="order-card__delivery">{localizeDelivery(order.deliveryMethod)}</span>
         <StatusPill status={order.status.toLowerCase()} label={t(`or_${order.status.toLowerCase()}`)} />
         <span className="order-card__total">{fmtPrice(order.total)}</span>
         <span className="order-card__date">{formatDate(order.createdAt)}</span>
@@ -59,8 +85,8 @@ function OrderCard({ order, onConfirm, onCancel, onStatusChange }) {
               <div><span>{t('or_name')}</span><b>{order.customerName}</b></div>
               <div><span>{t('or_phone')}</span><b>{order.customerPhone}</b></div>
               {order.customerAddress && <div><span>{t('or_address')}</span><b>{order.customerAddress}</b></div>}
-              <div><span>{t('or_delivery')}</span><b>{order.deliveryMethod}</b></div>
-              <div><span>{t('or_payment')}</span><b>{order.payMethod}</b></div>
+              <div><span>{t('or_delivery')}</span><b>{localizeDelivery(order.deliveryMethod)}</b></div>
+              <div><span>{t('or_payment')}</span><b>{localizePayment(order.payMethod)}</b></div>
               {order.note && <div className="order-note">{order.note}</div>}
             </div>
           </div>

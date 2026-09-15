@@ -473,6 +473,12 @@ export const useShopStore = create((set, get) => ({
         params: { url: img.url, variantId: img.variantId || undefined },
       });
     }
+    try {
+      const res = await api.get(`/shops/${shopId}/products/${productId}`);
+      set({
+        products: get().products.map((p) => (p.id === productId ? res.data : p)),
+      });
+    } catch { /* product list will refresh on next navigation */ }
   },
 
   async fetchAllShops(params) {

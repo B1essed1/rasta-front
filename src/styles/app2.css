@@ -1001,6 +1001,13 @@ a{color:var(--primary-700);} a:hover{color:var(--primary);}
 }
 
 /* photos per colour */
+.pc-tabs{display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px;}
+.pc-tab{display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 13px; border-radius:999px; background:#fff;
+  border:1px solid var(--line); font-size:13px; font-weight:600; color:var(--ink-2); cursor:pointer; transition:.13s; font-family:inherit;}
+.pc-tab:hover{border-color:var(--ink-2);}
+.pc-tab.on{background:var(--ink); border-color:var(--ink); color:#fff;}
+.pc-tab-count{font-size:11px; font-weight:700; padding:1px 6px; border-radius:999px; background:var(--line-2); color:var(--soft);}
+.pc-tab.on .pc-tab-count{background:#ffffff2e; color:#fff;}
 .pc-photos{margin-top:14px; background:var(--paper); border:1px solid var(--line); border-radius:13px; padding:12px 14px;}
 .pc-head b{display:block; font-size:13px; font-weight:700;}
 .pc-head span{display:block; font-size:12px; color:var(--soft); line-height:1.5; margin:3px 0 10px;}
@@ -1009,6 +1016,16 @@ a{color:var(--primary-700);} a:hover{color:var(--primary);}
 .pc-slot{aspect-ratio:4/5; border-radius:10px; overflow:hidden; position:relative; border:1px solid var(--line-2); background:#fff;}
 .pc-lab{display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; font-weight:650; color:var(--ink-2);}
 .pc-lab i{width:13px; height:13px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); flex:none;}
+.pc-empty{display:flex; align-items:center; justify-content:center; padding:40px 16px; border:1px dashed var(--line);
+  border-radius:var(--radius); color:var(--faint); font-size:14px; text-align:center;}
+.vq-color-group{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-bottom:12px;}
+.vq-color-group:last-child{margin-bottom:0;}
+.vq-color-head{display:flex; align-items:center; gap:9px; margin-bottom:12px;}
+.vq-color-head b{font-size:15px; font-weight:700;}
+.vq-color-count{margin-left:auto; font-size:12px; color:var(--faint);}
+.vq-color-group .img-uploader--sm{gap:8px; margin-bottom:14px;}
+.vq-color-group .img-uploader--sm .img-cell{max-width:100px;}
+.vq-color-group .vq-row{margin-left:0; border-color:var(--line-2);}
 
 /* ===== product page ===== */
 .pp{padding:22px 0 60px;}

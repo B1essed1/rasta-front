@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { t, onLangChange } from '../../i18n';
+import { t, onLangChange, getLang } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import EmptyState from '../../components/ui/EmptyState';
+import { I } from '../../components/ui/Icons';
 
 export default function ReviewsView() {
   const [, setTick] = useState(0);
@@ -28,19 +29,19 @@ export default function ReviewsView() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-card__icon">&#11088;</div>
+          <div className="stat-card__icon">{I.spark({ width: 20, height: 20 })}</div>
           <div className="stat-card__value">{avgRating}</div>
-          <div className="stat-card__label">Rating</div>
+          <div className="stat-card__label">{t('rv_avg_rating')}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card__icon">&#128172;</div>
+          <div className="stat-card__icon">{I.chat({ width: 20, height: 20 })}</div>
           <div className="stat-card__value">{reviews.length}</div>
           <div className="stat-card__label">{t('db_reviews')}</div>
         </div>
       </div>
 
       {reviews.length === 0 ? (
-        <EmptyState icon="&#11088;" title={t('sf_empty')} />
+        <EmptyState icon="&#11088;" title={t('rv_empty_t')} description={t('rv_empty_d')} />
       ) : (
         <div className="reviews-list">
           {reviews.map((review) => (
@@ -57,12 +58,12 @@ export default function ReviewsView() {
                   ))}
                 </div>
                 <span className="review-card__date">
-                  {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}
+                  {review.createdAt ? new Date(review.createdAt).toLocaleDateString(getLang() === 'ru' ? 'ru-RU' : getLang() === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
                 </span>
               </div>
               <p className="review-card__text">{review.text}</p>
               <span className="review-card__author">
-                {review.customerName || review.customerPhone || 'Anonymous'}
+                {review.customerName || review.customerPhone || t('rv_anon')}
               </span>
             </div>
           ))}

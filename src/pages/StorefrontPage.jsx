@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import LangPill from '../components/ui/LangPill';
 import EmptyState from '../components/ui/EmptyState';
-import { t, onLangChange, fmtPrice, fill } from '../i18n';
+import { t, onLangChange, fmtPrice, fill, plural } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import { getTheme, applyThemeVars } from '../data/themes';
 import { getPalette, applyPaletteVars } from '../data/palettes';
+import {
+  catLabel, catPathIds, variantLabel as taxonomyVariantLabel,
+  variantAttrs, specAttrs, sizeChartFor, offeredOptions, variantFor,
+  optionReachable, attrValueName, attrValueHex,
+} from '../data/taxonomy';
+import { I } from '../components/ui/Icons';
+import { getLang } from '../i18n';
 import api from '../api/client';
 import '../styles/storefront.css';
 
@@ -30,10 +37,14 @@ function getProductDesc(product) {
   return product.descEn || product.descUz || product.descRu || '';
 }
 
-function parseVariantLabel(optionsJson) {
+function parseVariantLabel(optionsJson, catId) {
   if (!optionsJson) return '';
   try {
     const obj = JSON.parse(optionsJson);
+    if (catId) {
+      const label = taxonomyVariantLabel(catId, obj, getLang());
+      if (label) return label;
+    }
     return Object.values(obj).join(' / ');
   } catch {
     return optionsJson;
@@ -131,6 +142,24 @@ function Toast({ toast }) {
 
 /* ===== Checkout Sheet ===== */
 
+function formatUzPhone(raw) {
+  const digits = raw.replace(/\D/g, '');
+  let d = digits;
+  if (d.startsWith('998')) d = d.slice(3);
+  else if (d.startsWith('8') && d.length > 9) d = d.slice(1);
+  let out = '+998';
+  if (d.length > 0) out += ' ' + d.slice(0, 2);
+  if (d.length > 2) out += ' ' + d.slice(2, 5);
+  if (d.length > 5) out += ' ' + d.slice(5, 7);
+  if (d.length > 7) out += ' ' + d.slice(7, 9);
+  return out;
+}
+
+function isValidUzPhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 12 && digits.startsWith('998');
+}
+
 function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdateQty, onRemoveItem }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -139,14 +168,20 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
   const [payMethod, setPayMethod] = useState('cash');
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
+  const [tried, setTried] = useState(false);
 
   const deliveryFee = delivery === 'pickup' ? 0 : 15000;
   const subtotal = basket.reduce((s, b) => s + b.qty * b.unitPrice, 0);
   const total = subtotal + deliveryFee;
 
+  const nameErr = tried && !name.trim();
+  const phoneErr = tried && !isValidUzPhone(phone);
+  const addrErr = tried && delivery === 'delivery' && !address.trim();
+
   async function submit(e) {
     e.preventDefault();
-    if (!name.trim() || !phone.trim()) return;
+    setTried(true);
+    if (!name.trim() || !isValidUzPhone(phone)) return;
     if (delivery === 'delivery' && !address.trim()) return;
     setSending(true);
     try {
@@ -194,12 +229,12 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
                 <button
                   className="checkout-item__qty-btn"
                   type="button"
-                  onClick={() => item.qty <= 1 ? onRemoveItem(i) : onUpdateQty(i, item.qty - 1)}
-                >
-                  {item.qty <= 1 ? '✕' : '−'}
-                </button>
+                  disabled={item.qty <= 1}
+                  onClick={() => onUpdateQty(i, item.qty - 1)}
+                >−</button>
                 <span className="checkout-item__qty">{item.qty}</span>
                 <button className="checkout-item__qty-btn" type="button" onClick={() => onUpdateQty(i, item.qty + 1)}>+</button>
+                <button className="checkout-item__remove" type="button" onClick={() => onRemoveItem(i)} aria-label="Remove">✕</button>
               </div>
               <span className="checkout-item__price">{fmtPrice(item.qty * item.unitPrice)}</span>
             </div>
@@ -208,13 +243,21 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
 
         {/* Form */}
         <form onSubmit={submit}>
-          <div className="checkout-field">
+          <div className={`checkout-field${nameErr ? ' checkout-field--error' : ''}`}>
             <label>{t('co_name')}</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} aria-invalid={nameErr || undefined} />
+            {nameErr && <span className="checkout-field__err">{t('co_err_name')}</span>}
           </div>
-          <div className="checkout-field">
+          <div className={`checkout-field${phoneErr ? ' checkout-field--error' : ''}`}>
             <label>{t('co_phone')}</label>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+            <input
+              type="tel"
+              value={phone}
+              placeholder="+998 __ ___ __ __"
+              onChange={(e) => setPhone(formatUzPhone(e.target.value))}
+              aria-invalid={phoneErr || undefined}
+            />
+            {phoneErr && <span className="checkout-field__err">{t('co_err_phone')}</span>}
           </div>
 
           <div className="checkout-field">
@@ -238,9 +281,10 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
           </div>
 
           {delivery === 'delivery' && (
-            <div className="checkout-field">
+            <div className={`checkout-field${addrErr ? ' checkout-field--error' : ''}`}>
               <label>{t('co_address')}</label>
-              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} required />
+              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} aria-invalid={addrErr || undefined} />
+              {addrErr && <span className="checkout-field__err">{t('co_err_address')}</span>}
             </div>
           )}
 
@@ -269,9 +313,19 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
           </div>
 
-          <div className="checkout-total">
-            <span>{t('co_total')}</span>
-            <span>{fmtPrice(total)}</span>
+          <div className="checkout-summary">
+            <div className="checkout-summary__line">
+              <span>{t('co_subtotal')} ({basket.reduce((s, b) => s + b.qty, 0)})</span>
+              <span>{fmtPrice(subtotal)}</span>
+            </div>
+            <div className="checkout-summary__line">
+              <span>{t('co_delivery_fee')}</span>
+              <span>{deliveryFee === 0 ? t('co_free') : fmtPrice(deliveryFee)}</span>
+            </div>
+            <div className="checkout-total">
+              <span>{t('co_total')}</span>
+              <span>{fmtPrice(total)}</span>
+            </div>
           </div>
 
           <button
@@ -304,41 +358,206 @@ function OrderSuccess({ order, onClose }) {
   );
 }
 
+/* ===== Size Chart ===== */
+
+function SizeChartPanel({ chart, lang, onClose }) {
+  return (
+    <div className="sz-chart" onClick={e => e.stopPropagation()}>
+      <div className="sz-head">
+        <b>{chart.title[lang]}</b>
+        <button type="button" onClick={onClose} aria-label={t('close')}>{I.x({ width: 15, height: 15 })}</button>
+      </div>
+      <table>
+        <thead><tr>{chart.cols.map((c, i) => <th key={i}>{c[lang]}</th>)}</tr></thead>
+        <tbody>{chart.rows.map((r, i) => <tr key={i}>{r.map((cell, k) => <td key={k}>{cell}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ===== Option Picker (design-accurate) ===== */
+
+function OptionPicker({ product, sel, setSel, lang }) {
+  const offered = offeredOptions(product);
+  const attrs = variantAttrs(product.catId).filter(a => (offered[a.id] || []).length);
+  const chart = sizeChartFor(product.catId);
+  const [showChart, setShowChart] = useState(false);
+
+  return (
+    <div className="opt-groups">
+      {attrs.map(a => {
+        const chosen = sel[a.id];
+        const isChart = chart && chart.attr.id === a.id;
+        return (
+          <div key={a.id} className="opt-group">
+            <div className="opt-label">
+              <span className="sf-up">{a.name[lang]}</span>
+              {chosen && a.swatch && <b>{attrValueName(a.id, chosen, lang)}</b>}
+              {isChart && <button className="opt-chart-link" type="button" onClick={() => setShowChart(v => !v)}>{t('sf_size_chart') || 'Size chart'}</button>}
+            </div>
+            {isChart && showChart && <SizeChartPanel chart={chart.chart} lang={lang} onClose={() => setShowChart(false)} />}
+            <div className={`opt-values ${a.swatch ? 'color' : 'size'}`}>
+              {(offered[a.id] || []).map(v => {
+                const rest = { ...sel }; delete rest[a.id];
+                const off = !optionReachable(product, rest, a.id, v);
+                const on = chosen === v;
+                if (a.swatch) {
+                  return (
+                    <button key={v} type="button"
+                      className={`opt-sw${on ? ' on' : ''}${off ? ' off' : ''}`}
+                      disabled={off}
+                      title={attrValueName(a.id, v, lang)}
+                      onClick={() => setSel(s => ({ ...s, [a.id]: v }))}
+                    >
+                      <i style={{ background: attrValueHex(a.id, v) || '#ccc' }} />
+                      <span>{attrValueName(a.id, v, lang)}</span>
+                    </button>
+                  );
+                }
+                return (
+                  <button key={v} type="button"
+                    className={`opt-chip${on ? ' on' : ''}${off ? ' off' : ''}`}
+                    disabled={off}
+                    onClick={() => setSel(s => ({ ...s, [a.id]: v }))}
+                  >{attrValueName(a.id, v, lang)}</button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ===== Spec Table ===== */
+
+function SpecTable({ product, lang }) {
+  const attrs = specAttrs(product.catId).filter(a => {
+    const v = (product.specs || {})[a.id];
+    return v != null && v !== '' && !(Array.isArray(v) && !v.length);
+  });
+  if (!attrs.length) return null;
+  return (
+    <div className="spec-block">
+      <div className="sf-sizes-label sf-up">{t('sf_specs') || t('sf_about')}</div>
+      <table className="spec-table"><tbody>
+        {attrs.map(a => {
+          const v = (product.specs || {})[a.id];
+          let text;
+          if (a.kind === 'bool') text = v ? t('yes') : t('no');
+          else if (a.kind === 'number') text = String(v) + (a.unit ? ' ' + a.unit[lang] : '');
+          else if (a.kind === 'multi') text = v.map(x => attrValueName(a.id, x, lang)).join(', ');
+          else if (a.kind === 'text') text = String(v);
+          else text = attrValueName(a.id, v, lang);
+          return <tr key={a.id}><th>{a.name[lang]}</th><td>{text}</td></tr>;
+        })}
+      </tbody></table>
+    </div>
+  );
+}
+
+/* ===== Contact Block ===== */
+
+function ContactBlock({ shop }) {
+  const rows = [
+    shop.telegram && ['Telegram', `@${shop.telegram.replace('@', '')}`, `https://t.me/${shop.telegram.replace('@', '')}`],
+    shop.instagram && ['Instagram', `@${shop.instagram.replace('@', '')}`, `https://instagram.com/${shop.instagram.replace('@', '')}`],
+    shop.phone && [t('ob_phone_contact'), shop.phone, `tel:${shop.phone}`],
+  ].filter(Boolean);
+  if (!rows.length) return null;
+  return (
+    <div className="sf-contact-block">
+      <div className="sf-sizes-label sf-up">{t('sf_reach')}</div>
+      <div className="sf-contacts">
+        {rows.map(([label, display, href]) => (
+          <div key={label} className="sf-contact">
+            <span>{label}</span>
+            <b><a href={href} target={href.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{display}</a></b>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ===== Product Page ===== */
 
-function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
+function parseOptions(v) {
+  if (v && v.options && typeof v.options === 'object') return v.options;
+  try { return JSON.parse(v.optionsJson || '{}') || {}; } catch { return {}; }
+}
+
+function normalizeProduct(product) {
+  if (!product.variants) return product;
+  const variants = product.variants.map(v => {
+    if (v.options) return v;
+    try {
+      return { ...v, options: JSON.parse(v.optionsJson || '{}') };
+    } catch { return { ...v, options: {} }; }
+  });
+  return { ...product, variants };
+}
+
+function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket, showToast }) {
+  const lang = getLang();
+  const product = useMemo(() => normalizeProduct(rawProduct), [rawProduct]);
   const [galIdx, setGalIdx] = useState(0);
-  const [selectedVariantIdx, setSelectedVariantIdx] = useState(null);
+  const [sel, setSel] = useState({});
   const [qty, setQty] = useState(1);
   const [reviews, setReviews] = useState([]);
+  const touchX = React.useRef(null);
 
   const name = getProductName(product);
   const desc = getProductDesc(product);
-  const hasVariants = product.variants && product.variants.length > 0;
   const state = stockState(product);
   const bg = toneColor(product);
 
-  const selectedVariant = hasVariants && selectedVariantIdx !== null
-    ? product.variants[selectedVariantIdx]
-    : null;
+  // Attribute-based variant picking (design-accurate)
+  const offered = useMemo(() => offeredOptions(product), [product]);
+  const pickAttrs = useMemo(() => variantAttrs(product.catId).filter(a => (offered[a.id] || []).length), [product.catId, offered]);
+  const hasAttrPicker = pickAttrs.length > 0;
 
+  const chosen = useMemo(() => {
+    if (!hasAttrPicker) return (product.variants || [])[0] || null;
+    if (pickAttrs.every(a => sel[a.id])) return variantFor(product, sel);
+    return null;
+  }, [hasAttrPicker, pickAttrs, sel, product]);
+
+  const needsPick = hasAttrPicker && !chosen;
+  const missing = pickAttrs.filter(a => !sel[a.id]).map(a => a.name[lang].toLowerCase()).join(' + ');
+  const maxQty = chosen ? Math.max(1, chosen.qty || 0) : 1;
+  const isSoldOut = chosen ? (chosen.qty || 0) === 0 : state === 'sold';
+  const canAdd = chosen && !isSoldOut && !needsPick;
+
+  // Images — match by exact variant OR by colour (same swatch attribute value)
   const allImages = product.images || [];
-  const variantImages = selectedVariant
-    ? allImages.filter(img => img.variantId === selectedVariant.id)
-    : [];
   const defaultImages = allImages.filter(img => !img.variantId);
+  const swatchAttr = pickAttrs.find(a => a.swatch) || null;
+  const colorPick = swatchAttr ? sel[swatchAttr.id] : null;
+  const variantImages = useMemo(() => {
+    if (!chosen && !colorPick) return [];
+    // First try exact variant match
+    if (chosen) {
+      const exact = allImages.filter(img => img.variantId === chosen.id);
+      if (exact.length) return exact;
+    }
+    // Then try matching any variant with the same colour
+    if (colorPick) {
+      const colorVariantIds = (product.variants || [])
+        .filter(v => (v.options || {})[swatchAttr.id] === colorPick)
+        .map(v => v.id);
+      const byColor = allImages.filter(img => img.variantId && colorVariantIds.includes(img.variantId));
+      if (byColor.length) return byColor;
+    }
+    return [];
+  }, [allImages, chosen, colorPick, product.variants, swatchAttr]);
   const galleryImages = variantImages.length > 0 ? variantImages : defaultImages;
 
-  const chosen = selectedVariant || (!hasVariants ? { qty: (product.variants || []).reduce((s, v) => s + (v.qty || 0), 0) } : null);
-  const maxQty = chosen ? (chosen.qty || 0) : 0;
-
-  const canAdd = hasVariants
-    ? selectedVariant && (selectedVariant.qty || 0) > 0
-    : state !== 'sold';
-
-  const isSoldOut = hasVariants
-    ? selectedVariant ? (selectedVariant.qty || 0) === 0 : state === 'sold'
-    : state === 'sold';
+  // Reset on product change
+  useEffect(() => { setGalIdx(0); setSel({}); setQty(1); }, [product.id]);
+  useEffect(() => { setQty(q => Math.min(Math.max(1, q), maxQty)); }, [chosen?.id, maxQty]);
+  useEffect(() => { setGalIdx(0); }, [JSON.stringify(sel)]);
 
   // Fetch reviews
   useEffect(() => {
@@ -351,17 +570,18 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
 
   function handleAdd() {
     if (!canAdd) return;
-    const label = selectedVariant ? parseVariantLabel(selectedVariant.optionsJson) : '';
-    const unitPrice = selectedVariant?.price || product.price || 0;
+    const label = chosen ? parseVariantLabel(chosen.optionsJson, product.catId) : '';
+    const unitPrice = chosen?.price || product.price || 0;
     onAddToBasket({
       productId: product.id,
-      variantId: selectedVariant?.id || null,
+      variantId: chosen?.id || null,
       name,
       label,
       qty,
       unitPrice,
     });
     setQty(1);
+    showToast(t('co_added'));
   }
 
   async function handleReviewSubmit(review) {
@@ -373,7 +593,6 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
         text: review.text,
       });
       showToast(t('rv_thanks'));
-      // Refetch reviews
       const res = await api.get(`/shops/${shop.id}/reviews`);
       const all = res.data || [];
       setReviews(all.filter(r => r.productId === product.id));
@@ -383,14 +602,30 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
   }
 
   function handleShare() {
-    const url = window.location.href;
+    const url = `${window.location.origin}/${handle}/p/${product.id}`;
     if (navigator.share) {
       navigator.share({ title: name, url });
     } else {
       navigator.clipboard.writeText(url);
-      showToast('Link copied!');
+      showToast(t('db_copied'));
     }
   }
+
+  // Touch swipe for gallery
+  function onTouchStart(e) { touchX.current = e.touches[0].clientX; }
+  function onTouchEnd(e) {
+    if (touchX.current == null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    if (Math.abs(dx) > 45) setGalIdx(x => Math.max(0, Math.min(galleryImages.length - 1, x + (dx < 0 ? 1 : -1))));
+    touchX.current = null;
+  }
+
+  // Smart button label
+  const buttonLabel = needsPick
+    ? `${t('sf_pick_size')}: ${missing}`
+    : isSoldOut
+    ? t('sf_sold')
+    : `${t('co_add')} · ${fmtPrice((chosen?.price || product.price) * qty)}`;
 
   const stats = ratingStats(reviews);
 
@@ -398,36 +633,51 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
     <div className="pp">
       <div className="sf-wrap">
         <button className="pp-back" type="button" onClick={onBack}>
-          &#8592; {t('pp_back')}
+          {I.back ? I.back({ width: 16, height: 16 }) : '←'} {t('pp_back')}
         </button>
 
         <div className="pp-grid">
           {/* Gallery */}
-          <div className="pp-gal">
-            <StockBadge state={state} />
-            {galleryImages.length > 0 ? (
-              galleryImages.map((img, k) => (
-                <div key={img.id || k} className={`sf-gal-frame${galIdx === k ? ' on' : ''}`}>
-                  <img src={img.url} alt={`${name} ${k + 1}`} style={{width:'100%', height:'100%', objectFit:'cover'}} />
+          <div className="pp-media">
+            <div className={`pp-gal${isSoldOut ? ' is-sold' : ''}`}
+              onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+              <StockBadge state={state} />
+              {galleryImages.length > 0 ? (
+                galleryImages.map((img, k) => (
+                  <div key={img.id || k} className={`sf-gal-frame${galIdx === k ? ' on' : ''}`}>
+                    <img src={img.url} alt={`${name} #${k + 1}`} loading={k === 0 ? 'eager' : 'lazy'} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                ))
+              ) : (
+                <div className="sf-gal-frame on">
+                  <div className="pp-img-placeholder" style={{ backgroundColor: product.tone || bg }}>
+                    <span>{name.charAt(0)}</span>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="sf-gal-frame on">
-                <div className="pp-img-placeholder" style={{backgroundColor: product.tone || bg}}>
-                  <span>{name.charAt(0)}</span>
-                </div>
-              </div>
-            )}
+              )}
+              {galleryImages.length > 1 && (
+                <>
+                  {galIdx > 0 && <button className="sf-gal-nav prev" type="button" onClick={() => setGalIdx(galIdx - 1)}>{I.back ? I.back({ width: 18, height: 18 }) : '←'}</button>}
+                  {galIdx < galleryImages.length - 1 && <button className="sf-gal-nav next" type="button" onClick={() => setGalIdx(galIdx + 1)}>{I.arrow ? I.arrow({ width: 18, height: 18 }) : '→'}</button>}
+                  <div className="sf-gal-count">{galIdx + 1}/{galleryImages.length}</div>
+                  <div className="sf-gal-dots">
+                    {galleryImages.map((_, k) => (
+                      <button key={k} type="button" className={`sf-gal-dot${galIdx === k ? ' on' : ''}`} onClick={() => setGalIdx(k)} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
             {galleryImages.length > 1 && (
-              <>
-                <div className="sf-gal-dots">
-                  {galleryImages.map((_, k) => (
-                    <button key={k} className={`sf-gal-dot${galIdx === k ? ' on' : ''}`} onClick={() => setGalIdx(k)} type="button"/>
-                  ))}
-                </div>
-                {galIdx > 0 && <button className="sf-gal-nav prev" type="button" onClick={() => setGalIdx(galIdx - 1)}>&#8592;</button>}
-                {galIdx < galleryImages.length - 1 && <button className="sf-gal-nav next" type="button" onClick={() => setGalIdx(galIdx + 1)}>&#8594;</button>}
-              </>
+              <div className="pp-thumbs">
+                {galleryImages.map((img, k) => (
+                  <button key={img.id || k} type="button"
+                    className={`pp-thumb${galIdx === k ? ' on' : ''}`}
+                    onClick={() => setGalIdx(k)}
+                    style={{ backgroundImage: `url(${img.url})` }}
+                  />
+                ))}
+              </div>
             )}
           </div>
 
@@ -436,48 +686,23 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
             <div className="pname sf-display">{name}</div>
 
             <div className="pp-price-row">
-              <span style={{fontSize: '1.25rem', fontWeight: 700, color: 'var(--s-accent, var(--primary))'}}>
-                {fmtPrice(selectedVariant?.price || product.price)}
-              </span>
+              <div className="pprice">{fmtPrice(chosen?.price || product.price)}</div>
               {stats.n > 0 && (
                 <button className="pp-rv-link" type="button" onClick={() => {
                   const el = document.getElementById('pp-reviews');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}>
                   <Stars value={Math.round(parseFloat(stats.avg))} size={14} />
-                  <span>{fill(t('rv_count'), { n: stats.n })}</span>
+                  <b>{stats.avg}</b> · {fill(t('rv_count'), { n: stats.n })}
                 </button>
               )}
             </div>
 
-            {desc && (
-              <div className="sf-detail-desc">{desc}</div>
-            )}
+            {desc && <div className="sf-detail-desc">{desc}</div>}
 
-            {/* Option Picker (variants) */}
-            {hasVariants && (
-              <div className="opt-groups">
-                <div className="opt-group">
-                  <div className="opt-label"><span className="sf-up">{t('sf_pick_size')}</span></div>
-                  <div className="opt-values">
-                    {product.variants.map((v, i) => {
-                      const label = parseVariantLabel(v.optionsJson);
-                      const out = (v.qty || 0) === 0;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          className={`opt-chip${selectedVariantIdx === i ? ' on' : ''}${out ? ' off' : ''}`}
-                          disabled={out}
-                          onClick={() => { setSelectedVariantIdx(i); setQty(1); setGalIdx(0); }}
-                        >
-                          {label} <span className="opt-chip__qty">{v.qty || 0} {t('or_items')}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+            {/* Option Picker */}
+            {hasAttrPicker && (
+              <OptionPicker product={product} sel={sel} setSel={setSel} lang={lang} />
             )}
 
             {/* Buy Box */}
@@ -485,9 +710,9 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
               <div className="buy-row">
                 <div className="opt-label"><span className="sf-up">{t('opt_qty')}</span></div>
                 <div className="qty-pick">
-                  <button type="button" disabled={qty <= 1} onClick={() => setQty(q => Math.max(1, q - 1))}>&#8722;</button>
+                  <button type="button" disabled={qty <= 1} onClick={() => setQty(q => Math.max(1, q - 1))}>{I.minus ? I.minus({ width: 16, height: 16 }) : '−'}</button>
                   <b>{qty}</b>
-                  <button type="button" disabled={qty >= maxQty} onClick={() => setQty(q => Math.min(maxQty, q + 1))}>+</button>
+                  <button type="button" disabled={qty >= maxQty} onClick={() => setQty(q => Math.min(maxQty, q + 1))}>{I.plus ? I.plus({ width: 16, height: 16 }) : '+'}</button>
                 </div>
                 {chosen && chosen.qty > 0 && (
                   <span className={`buy-left${chosen.qty <= 5 ? ' low' : ''}`}>
@@ -495,70 +720,60 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
                   </span>
                 )}
               </div>
-
-              {isSoldOut ? (
-                <button className="sf-btn sf-btn-accent" disabled>
-                  {t('sf_sold')}
-                </button>
-              ) : (
-                <button
-                  className="sf-btn sf-btn-accent"
-                  onClick={handleAdd}
-                  disabled={hasVariants && selectedVariantIdx === null}
-                >
-                  {t('co_add')}
-                </button>
-              )}
+              <button
+                className="sf-btn sf-btn-accent"
+                onClick={handleAdd}
+                disabled={!canAdd}
+                type="button"
+              >
+                {buttonLabel}
+              </button>
             </div>
 
             {/* Share */}
-            <button className="pp-share-btn" type="button" onClick={handleShare}>
-              &#8599; {t('sf_share')}
-            </button>
-
-            {/* Contact info */}
-            <div className="pp-contact">
-              {shop.telegram && (
-                <span>Telegram: <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">@{shop.telegram.replace('@', '')}</a></span>
-              )}
-              {shop.phone && (
-                <span>{t('ob_phone_contact')}: <a href={`tel:${shop.phone}`}>{shop.phone}</a></span>
-              )}
+            <div className="sf-detail-cta">
+              <button className="sf-btn sf-btn-line" type="button" onClick={handleShare}>
+                {I.share ? I.share({ width: 17, height: 17 }) : '↗'} {t('sf_share')}
+              </button>
             </div>
+
+            {/* Specs */}
+            <SpecTable product={product} lang={lang} />
+
+            {/* Contact */}
+            <ContactBlock shop={shop} />
           </div>
         </div>
 
         {/* Reviews Section */}
         <div className="pp-reviews" id="pp-reviews">
           <div className="pp-rv-head">
-            <b>{t('rv_title')}</b>
+            <b className="sf-display">{t('rv_title')}</b>
             {stats.n > 0 && (
-              <div className="pp-rv-sum">
-                <Stars value={Math.round(parseFloat(stats.avg))} size={18} />
-                <span>{stats.avg}</span>
-                <span>{fill(t('rv_based'), { n: stats.n })}</span>
-              </div>
+              <span className="pp-rv-sum">
+                <Stars value={Math.round(parseFloat(stats.avg))} size={14} />
+                <b>{stats.avg}</b> · {fill(t('rv_based'), { n: stats.n })}
+              </span>
             )}
           </div>
+          {stats.n === 0 && (
+            <div className="pp-rv-none">
+              <b>{t('rv_none')}</b>
+              <p>{t('rv_none_d')}</p>
+            </div>
+          )}
           <div className="pp-rv-grid">
             <div className="pp-rv-list">
-              {reviews.length === 0 ? (
-                <div className="pp-rv-none">
-                  <p><b>{t('rv_none')}</b></p>
-                  <p>{t('rv_none_d')}</p>
-                </div>
-              ) : (
-                reviews.map((r, i) => (
-                  <div className="pp-rv" key={r.id || i}>
-                    <div className="pp-rv-top">
-                      <b>{r.name || t('rv_anon')}</b>
-                      <Stars value={r.rating} size={14} />
-                      {r.createdAt && <span>{new Date(r.createdAt).toLocaleDateString()}</span>}
-                    </div>
-                    {r.text && <p>{r.text}</p>}
+              {reviews.map((r, i) => (
+                <div className="pp-rv" key={r.id || i}>
+                  <div className="pp-rv-top">
+                    <b>{r.name || t('rv_anon')}</b>
+                    <Stars value={r.rating} size={14} />
+                    {r.createdAt && <span>{new Date(r.createdAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>}
                   </div>
-                ))
-              )}
+                  {r.text && <p>{r.text}</p>}
+                </div>
+              ))}
             </div>
             <ReviewForm onSubmit={handleReviewSubmit} />
           </div>
@@ -571,10 +786,11 @@ function ProductPage({ product, shop, onBack, onAddToBasket, showToast }) {
 /* ===== Main Page ===== */
 
 export default function StorefrontPage() {
-  const { handle } = useParams();
+  const { handle, productId: urlProductId } = useParams();
   const navigate = useNavigate();
   const [, setTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
   const [shop, setShop] = useState(null);
   const [shopConfig, setShopConfig] = useState(null);
   const [products, setProducts] = useState([]);
@@ -582,6 +798,7 @@ export default function StorefrontPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [sort, setSort] = useState('default');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productNotFound, setProductNotFound] = useState(false);
   const [tab, setTab] = useState('products');
   const fetchShopByHandle = useShopStore((s) => s.fetchShopByHandle);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
@@ -607,6 +824,11 @@ export default function StorefrontPage() {
           await fetchProducts(shopData.id);
           const storeProducts = useShopStore.getState().products;
           setProducts(storeProducts);
+          if (urlProductId) {
+            const found = storeProducts.find(p => String(p.id) === String(urlProductId));
+            if (found) setSelectedProduct(found);
+            else setProductNotFound(true);
+          }
           try {
             const configRes = await api.get(`/shops/${shopData.id}/config`);
             setShopConfig(configRes.data);
@@ -615,12 +837,61 @@ export default function StorefrontPage() {
           }
         }
       } catch (e) {
-        navigate('/', { replace: true });
+        setNotFound(true);
       }
       setLoading(false);
     }
     load();
   }, [handle, fetchShopByHandle, fetchProducts, navigate]);
+
+  useEffect(() => {
+    if (!shop) return;
+    const lang = getLang();
+    const langAttr = lang === 'ru' ? 'ru' : lang === 'uz' ? 'uz' : 'en';
+    document.documentElement.lang = langAttr;
+
+    function setMeta(prop, content) {
+      if (!content) return;
+      let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(prop.startsWith('og:') || prop.startsWith('twitter:') ? 'property' : 'name', prop);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    }
+
+    const prodName = selectedProduct ? getProductName(selectedProduct) : null;
+    const prodPrice = selectedProduct ? fmtPrice(selectedProduct.price) : null;
+    const coverImg = selectedProduct?.images?.[0]?.url || shop.logoUrl || shop.coverUrl || '';
+    const pageUrl = selectedProduct
+      ? `${window.location.origin}/${handle}/p/${selectedProduct.id}`
+      : `${window.location.origin}/${handle}`;
+
+    if (selectedProduct) {
+      document.title = `${prodName} — ${prodPrice} | ${shop.name}`;
+      setMeta('og:title', prodName);
+      setMeta('og:description', `${prodPrice} · ${shop.name}`);
+    } else {
+      const count = products.filter(p => p.visible !== false).length;
+      document.title = `${shop.name} | rasta`;
+      setMeta('og:title', shop.name);
+      setMeta('og:description', `${count} ${plural(count, 'product')} · ${shop.location || ''}`);
+    }
+    setMeta('og:type', selectedProduct ? 'product' : 'website');
+    setMeta('og:url', pageUrl);
+    setMeta('og:image', coverImg);
+    setMeta('og:site_name', shop.name);
+    setMeta('og:locale', lang === 'ru' ? 'ru_RU' : lang === 'uz' ? 'uz_UZ' : 'en_US');
+    setMeta('twitter:card', 'summary_large_image');
+    setMeta('description', selectedProduct ? `${prodName} — ${prodPrice}` : `${shop.name} — ${shop.location || ''}`);
+
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
+    canonical.href = pageUrl;
+
+    return () => { document.title = 'rastashops — Your shop, your link'; };
+  }, [shop, selectedProduct, products, handle]);
 
   const themeId = shopConfig?.theme?.toLowerCase() || 'minimal';
   const paletteId = shopConfig?.palette || 'ivory';
@@ -706,7 +977,20 @@ export default function StorefrontPage() {
     );
   }
 
-  if (!shop) return null;
+  if (notFound || !shop) {
+    return (
+      <div className="storefront" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <meta name="robots" content="noindex" />
+          <div style={{ marginBottom: '1rem', color: '#999' }}>{I.eye({ width: 48, height: 48 })}</div>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{t('nf_shop_t')}</h1>
+          <p style={{ color: '#666', marginBottom: '0.25rem' }}>{t('nf_shop_d')}</p>
+          <p style={{ color: '#999', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{t('nf_tried')}: <code>/{handle}</code></p>
+          <a href="/" style={{ color: 'var(--primary, #6366f1)', fontWeight: 600 }}>{t('nf_go_home')}</a>
+        </div>
+      </div>
+    );
+  }
 
   // Order success screen
   if (completedOrder) {
@@ -722,6 +1006,21 @@ export default function StorefrontPage() {
     );
   }
 
+  // Product not found (deep link to nonexistent product)
+  if (productNotFound) {
+    return (
+      <div className="storefront" style={{ ...styleVars, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <meta name="robots" content="noindex" />
+          <div style={{ marginBottom: '1rem', color: '#999' }}>{I.eye({ width: 48, height: 48 })}</div>
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{t('nf_product_t')}</h1>
+          <p style={{ color: '#666', marginBottom: '1.5rem' }}>{t('nf_product_d')}</p>
+          <Link to={`/${handle}`} style={{ color: 'var(--s-accent, var(--primary, #6366f1))', fontWeight: 600 }}>{t('nf_go_shop')}</Link>
+        </div>
+      </div>
+    );
+  }
+
   // Product page (full page, not drawer/modal)
   if (selectedProduct) {
     return (
@@ -729,7 +1028,8 @@ export default function StorefrontPage() {
         <ProductPage
           product={selectedProduct}
           shop={shop}
-          onBack={() => setSelectedProduct(null)}
+          handle={handle}
+          onBack={() => { setSelectedProduct(null); navigate(`/${handle}`); }}
           onAddToBasket={addToBasket}
           showToast={showToast}
         />
@@ -737,7 +1037,7 @@ export default function StorefrontPage() {
         {basket.length > 0 && !showCheckout && (
           <div className="basket-dock">
             <span className="basket-dock__summary">
-              {basket.reduce((s, b) => s + b.qty, 0)} {t('co_items')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
+              {basket.reduce((s, b) => s + b.qty, 0)} {plural(basket.reduce((s, b) => s + b.qty, 0), 'item')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
             </span>
             <button className="btn btn--primary btn--sm" onClick={() => setShowCheckout(true)}>
               {t('co_checkout')} &rarr;
@@ -776,7 +1076,7 @@ export default function StorefrontPage() {
       <div className="sf-container">
         <div className="sf-header">
           {shop.logoUrl ? (
-            <img src={shop.logoUrl} alt={shop.name} className="sf-header__avatar" />
+            <img src={shop.logoUrl} alt={shop.name} className="sf-header__avatar" loading="eager" decoding="async" width={72} height={72} />
           ) : (
             <div className="sf-header__avatar sf-header__avatar--placeholder">
               {shop.initials || shop.name?.charAt(0)}
@@ -788,7 +1088,7 @@ export default function StorefrontPage() {
               {shop.handle && <span>@{shop.handle}</span>}
               {shop.location && <><span className="sf-meta-dot">&middot;</span><span>{shop.location}</span></>}
               <span className="sf-meta-dot">&middot;</span>
-              <span>{filtered.length} {t('sf_products').toLowerCase()}</span>
+              <span>{filtered.length} {plural(filtered.length, 'product')}</span>
             </p>
             <div className="sf-header__tags">
               <span className="sf-tag-pill">{t('co_delivery')}</span>
@@ -859,16 +1159,24 @@ export default function StorefrontPage() {
                 >
                   {t('sf_all')}
                 </button>
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    className={`sf-cat-pill ${categoryFilter === cat ? 'sf-cat-pill--active' : ''}`}
-                    onClick={() => setCategoryFilter(cat === categoryFilter ? '' : cat)}
-                    type="button"
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {categories.map((cat) => {
+                  const lang = getLang();
+                  const leafName = catLabel(cat, lang);
+                  const isDuplicate = categories.some(c => c !== cat && catLabel(c, lang) === leafName);
+                  const path = catPathIds(cat);
+                  const parentName = isDuplicate && path.length >= 2 ? catLabel(path[path.length - 2], lang) : '';
+                  const chipLabel = parentName ? `${leafName} · ${parentName}` : leafName;
+                  return (
+                    <button
+                      key={cat}
+                      className={`sf-cat-pill ${categoryFilter === cat ? 'sf-cat-pill--active' : ''}`}
+                      onClick={() => setCategoryFilter(cat === categoryFilter ? '' : cat)}
+                      type="button"
+                    >
+                      {chipLabel}
+                    </button>
+                  );
+                })}
               </div>
               <select
                 className="sf-filters__sort"
@@ -891,14 +1199,15 @@ export default function StorefrontPage() {
                   const state = stockState(product);
                   const bg = toneColor(product);
                   return (
-                    <div
+                    <Link
                       key={product.id}
                       className={`sf-product-card sf-product-card--${layout}`}
-                      onClick={() => setSelectedProduct(product)}
+                      to={`/${handle}/p/${product.id}`}
+                      onClick={(e) => { e.preventDefault(); setSelectedProduct(product); navigate(`/${handle}/p/${product.id}`); }}
                     >
                       <div className="sf-product-card__img">
                         {product.images?.length > 0 ? (
-                          <img src={product.images[0].url} alt={name} />
+                          <img src={product.images[0].url} alt={name} loading="lazy" decoding="async" width={400} height={400} />
                         ) : (
                           <div className="sf-product-card__no-img--toned" style={{ background: bg }}>
                             {name?.charAt(0)}
@@ -913,7 +1222,7 @@ export default function StorefrontPage() {
                           <div className="sf-product-card__sizes">
                             {product.variants.slice(0, 4).map((v, i) => (
                               <span key={i} className="sf-product-card__size">
-                                {parseVariantLabel(v.optionsJson)}
+                                {parseVariantLabel(v.optionsJson, product.catId)}
                               </span>
                             ))}
                             {product.variants.length > 4 && (
@@ -922,7 +1231,7 @@ export default function StorefrontPage() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -938,13 +1247,36 @@ export default function StorefrontPage() {
             {shop.phone && <p><strong>{t('ob_phone_contact')}:</strong> {shop.phone}</p>}
           </div>
         )}
+
+        {/* Footer */}
+        <footer className="sf-footer">
+          <div className="sf-footer__contacts">
+            {shop.telegram && (
+              <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                Telegram
+              </a>
+            )}
+            {shop.instagram && (
+              <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                Instagram
+              </a>
+            )}
+            {shop.phone && (
+              <a href={`tel:${shop.phone}`}>{shop.phone}</a>
+            )}
+          </div>
+          {shop.location && <p className="sf-footer__location">{shop.location}</p>}
+          <p className="sf-footer__platform">
+            <a href="https://rasta.uz" target="_blank" rel="noopener noreferrer">rasta.uz</a>
+          </p>
+        </footer>
       </div>
 
       {/* Basket dock */}
       {basket.length > 0 && !showCheckout && (
         <div className="basket-dock">
           <span className="basket-dock__summary">
-            {basket.reduce((s, b) => s + b.qty, 0)} {t('co_items')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
+            {basket.reduce((s, b) => s + b.qty, 0)} {plural(basket.reduce((s, b) => s + b.qty, 0), 'item')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
           </span>
           <button className="btn btn--primary btn--sm" onClick={() => setShowCheckout(true)}>
             {t('co_checkout')} &rarr;

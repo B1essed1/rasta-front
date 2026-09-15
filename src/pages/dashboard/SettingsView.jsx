@@ -133,7 +133,7 @@ export default function SettingsView() {
         </div>
 
         <div className="settings-section">
-          <h3>Contact</h3>
+          <h3>{t('ob_phone_contact')}</h3>
           <div className="form-row form-row--3">
             <div className="form-group">
               <label className="form-label">{t('ob_telegram')}</label>

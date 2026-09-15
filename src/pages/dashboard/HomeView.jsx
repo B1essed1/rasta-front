@@ -52,17 +52,22 @@ export default function HomeView() {
   const at = (x) => (x?.createdAt ? new Date(x.createdAt).getTime() : 0);
   const monthSales = (sales || []).filter((s) => at(s) >= monthAgo);
 
-  const rev =
-    monthSales.reduce((n, s) => n + Number(s.total || 0), 0);
-
-  // The sales API returns sale headers without line items, so a real
-  // items-sold figure is only available if the payload ever carries lines.
+  const salesRev = monthSales.reduce((n, s) => n + Number(s.total || 0), 0);
   const soldFromLines = monthSales.reduce((n, s) => {
     const lines = s.lines || s.items;
     if (!Array.isArray(lines)) return n;
     return n + lines.reduce((m, l) => m + ((l.qty || 0) - (l.returned || 0)), 0);
   }, 0);
-  const sold = soldFromLines;
+
+  const monthOrders = (orders || []).filter((o) => at(o) >= monthAgo);
+  const ordersRev = monthOrders.reduce((n, o) => n + Number(o.total || o.goodsTotal || 0), 0);
+  const ordersSold = monthOrders.reduce((n, o) => {
+    const lines = o.items || [];
+    return n + lines.reduce((m, l) => m + (l.qty || 0), 0);
+  }, 0);
+
+  const rev = salesRev || ordersRev;
+  const sold = soldFromLines || ordersSold;
 
   const visitors = Number(stats?.visitors ?? stats?.views ?? 0);
   const rawViews = stats?.productViews;
