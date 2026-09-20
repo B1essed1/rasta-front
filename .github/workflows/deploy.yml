@@ -1,0 +1,109 @@
+name: Build & deploy frontend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+env:
+  SSH_PORT: "22"
+  # The server's host PUBLIC key. Not a secret, so it lives here where it is
+  # version-controlled and auditable rather than in a repository secret.
+  KNOWN_HOSTS: "178.105.45.4 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBi/gOfESry9nqCTIGxhqz+x/zn8KCMOpPXg4eyZbbNq"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned deliberately: package.json has no engines field, and the
+          # Dockerfile this replaces built on node:20-alpine.
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # No lint, no tests, no typecheck exist in this repo, so the build is the
+      # only gate. (.oxlintrc.json is orphaned template debris -- oxlint is not
+      # a dependency and running it would pull an unpinned version.)
+      - run: npm run build
+
+      - name: Sanity-check the bundle
+        run: |
+          test -s dist/index.html
+          test -d dist/assets
+          ls -la dist dist/assets
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Never StrictHostKeyChecking=no -- that accepts any MITM silently.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          ssh-keygen -lf ~/.ssh/known_hosts
+
+      - name: Upload to the landing zone
+        env:
+          SSH_HOST: ${{ secrets.HOST }}
+          SSH_USER: ${{ secrets.USERNAME }}
+        run: |
+          # Never rsync onto the live root: rsync is atomic per file but not
+          # across a directory set, so a browser could request a content-hashed
+          # /assets/index-<hash>.js that has not landed yet and get index.html
+          # with a 200 instead ("Expected a JavaScript module but server
+          # responded with MIME type text/html"). Land here, then swap a symlink.
+          rsync -az --delete --no-perms --no-owner --no-group \
+            -e "ssh -p $SSH_PORT" \
+            dist/ "$SSH_USER@$SSH_HOST:/srv/rasta/frontend/incoming/"
+
+      - name: Release
+        env:
+          SSH_HOST: ${{ secrets.HOST }}
+          SSH_USER: ${{ secrets.USERNAME }}
+        run: |
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'sudo -n /usr/local/bin/rasta-deploy-frontend'
+
+      - name: Smoke test
+        continue-on-error: true
+        run: |
+          # Soft until DNS + the Cloudflare Origin CA cert are in place. Once
+          # they are, these three are the checks that matter:
+          #   /                        -> 200  (SPA shell)
+          #   /some-shop-handle        -> 200  (BrowserRouter fallback; the
+          #                                     top-level /:handle route means
+          #                                     unknown paths must NOT 404)
+          #   /assets/does-not-exist.js-> 404  (a missing asset must fail loudly,
+          #                                     not be masked by that fallback)
+          base=https://labaratory.rastashops.com
+          for path in "/" "/some-shop-handle" "/assets/does-not-exist.js"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$base$path" || echo 000)
+            echo "$path -> $code"
+          done
