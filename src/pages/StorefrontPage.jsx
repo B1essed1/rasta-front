@@ -4,6 +4,7 @@ import LangPill from '../components/ui/LangPill';
 import EmptyState from '../components/ui/EmptyState';
 import { t, onLangChange, fmtPrice, fill, plural } from '../i18n';
 import { useShopStore } from '../store/shopStore';
+import { useAuthStore } from '../store/authStore';
 import { getTheme, applyThemeVars } from '../data/themes';
 import { getPalette, applyPaletteVars } from '../data/palettes';
 import {
@@ -802,6 +803,9 @@ export default function StorefrontPage() {
   const [tab, setTab] = useState('products');
   const fetchShopByHandle = useShopStore((s) => s.fetchShopByHandle);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
+  const fetchMyShops = useShopStore((s) => s.fetchMyShops);
+  const token = useAuthStore((s) => s.token);
+  const [isOwner, setIsOwner] = useState(false);
 
   // Basket
   const [basket, setBasket] = useState([]); // [{productId, variantId, name, label, qty, unitPrice}]
@@ -843,6 +847,13 @@ export default function StorefrontPage() {
     }
     load();
   }, [handle, fetchShopByHandle, fetchProducts, navigate]);
+
+  useEffect(() => {
+    if (!token || !shop) { setIsOwner(false); return; }
+    fetchMyShops().then(shops => {
+      setIsOwner(shops.some(s => s.id === shop.id));
+    });
+  }, [token, shop?.id, fetchMyShops]);
 
   useEffect(() => {
     if (!shop) return;
@@ -1115,6 +1126,11 @@ export default function StorefrontPage() {
             )}
           </div>
           <div className="sf-header__actions">
+            {isOwner && (
+              <Link to="/dashboard" className="sf-btn sf-btn-line">
+                {I.back ? I.back({ width: 15, height: 15 }) : '←'} {t('ob_go_dashboard')}
+              </Link>
+            )}
             <LangPill />
             <button className="sf-btn sf-btn-line" onClick={handleShare}>
               &#8599; {t('sf_share')}
