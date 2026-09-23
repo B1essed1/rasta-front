@@ -2,7 +2,7 @@
 .lp{overflow:hidden;}
 .lp section{position:relative;}
 .hero{padding:64px 0 40px;}
-.hero-grid{display:grid; grid-template-columns:1.05fr 1fr; gap:54px; align-items:center;}
+.hero-grid{display:grid; grid-template-columns:1fr; gap:36px; align-items:center;}
 .hero h1{font-family:var(--font-display); font-weight:700; font-size:clamp(38px,5.2vw,62px);
   line-height:1.02; letter-spacing:-0.035em; margin:20px 0 0; text-wrap:balance;}
 .hero-sub{margin-top:22px; font-size:19px; line-height:1.55; color:var(--soft); max-width:46ch;}
@@ -52,7 +52,7 @@
 .sect-head h2{font-family:var(--font-display); font-weight:700; font-size:clamp(30px,4vw,46px);
   letter-spacing:-0.03em; line-height:1.05; margin-top:16px; text-wrap:balance;}
 .sect-head p{margin-top:16px; font-size:18px; color:var(--soft); line-height:1.55;}
-.feat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:18px;}
+.feat-grid{display:grid; grid-template-columns:1fr; gap:18px;}
 .feat{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:24px;
   transition:transform .18s, box-shadow .18s;}
 .feat:hover{transform:translateY(-3px); box-shadow:var(--shadow);}
@@ -62,8 +62,8 @@
 .feat.alt .ic{background:var(--saffron-tint); color:#b06f1e;}
 .feat h3{font-size:18.5px; font-weight:650; letter-spacing:-0.01em;}
 .feat p{margin-top:9px; color:var(--soft); font-size:14.5px; line-height:1.5;}
-.themes-sect{background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:28px; margin:0; padding:54px 0;}
-.theme-row{display:grid; grid-template-columns:repeat(4,1fr); gap:18px;}
+.themes-sect{background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:20px; margin:0; padding:54px 0;}
+.theme-row{display:grid; grid-template-columns:1fr; gap:18px;}
 .theme-card{border-radius:16px; overflow:hidden; cursor:pointer; border:1px solid var(--line);
   transition:transform .2s, box-shadow .2s; background:var(--tbg);}
 .theme-card:hover{transform:translateY(-5px); box-shadow:var(--shadow);}
@@ -94,8 +94,8 @@
 .pnav-links a.nav-explore{display:inline-flex; align-items:center; gap:6px; color:var(--primary-700);
   background:var(--primary-tint); font-weight:650;}
 .pnav-links a.nav-explore:hover{background:var(--primary); color:#fff;}
-.explore-band{display:grid; grid-template-columns:1.05fr 1fr; gap:34px; align-items:center;
-  background:var(--ink); color:#fff; border-radius:28px; padding:44px; position:relative; overflow:hidden;}
+.explore-band{display:grid; grid-template-columns:1fr; gap:34px; align-items:center;
+  background:var(--ink); color:#fff; border-radius:28px; padding:30px 22px; position:relative; overflow:hidden;}
 .explore-band::after{content:""; position:absolute; inset:0; pointer-events:none;
   background-image:repeating-linear-gradient(135deg,#ffffff0d 0 2px, transparent 2px 16px);}
 .explore-band .kicker{color:#fff; position:relative;}
@@ -113,7 +113,7 @@
   border:2px solid #fff; overflow:hidden; display:flex; align-items:center; justify-content:center;
   font-size:9px; font-weight:700; color:#fff; background:rgba(0,0,0,.15);}
 .eb-shop b{position:relative; z-index:2; color:#fff; font-size:13px; font-weight:650; line-height:1.15;}
-.steps{display:grid; grid-template-columns:repeat(3,1fr); gap:22px; counter-reset:s;}
+.steps{display:grid; grid-template-columns:1fr; gap:22px; counter-reset:s;}
 .step{position:relative; padding-top:14px;}
 .step::before{counter-increment:s; content:counter(s,decimal-leading-zero); font-family:var(--font-display);
   font-weight:700; font-size:15px; color:var(--primary-700); background:var(--primary-tint);
@@ -121,9 +121,9 @@
 .step h3{font-size:21px; font-weight:650; letter-spacing:-0.015em;}
 .step p{margin-top:8px; color:var(--soft); font-size:15.5px; line-height:1.5;}
 .step .barline{position:absolute; top:31px; left:46px; right:-22px; height:1.5px;
-  background:linear-gradient(90deg,var(--line),transparent);}
+  background:linear-gradient(90deg,var(--line),transparent); display:none;}
 .steps .step:last-child .barline{display:none;}
-.cta-band{background:var(--primary); border-radius:28px; padding:56px; text-align:center; color:#fff; position:relative; overflow:hidden;}
+.cta-band{background:var(--primary); border-radius:28px; padding:38px 22px; text-align:center; color:#fff; position:relative; overflow:hidden;}
 .cta-band::after{content:""; position:absolute; inset:0;
   background-image:repeating-linear-gradient(135deg, #ffffff10 0 2px, transparent 2px 16px); pointer-events:none;}
 .cta-band h2{font-family:var(--font-display); font-weight:700; font-size:clamp(28px,3.6vw,42px); letter-spacing:-0.03em; position:relative;}
@@ -139,7 +139,7 @@
 .foot-col a{display:block; color:var(--ink-2); font-size:14.5px; padding:5px 0;}
 .foot-col a:hover{color:var(--primary-700);}
 .pricing-sect{padding-top:10px;}
-.ob-plans{display:grid; grid-template-columns:1fr 1fr; gap:18px; max-width:880px; margin:0 auto;}
+.ob-plans{display:grid; grid-template-columns:1fr; gap:18px; max-width:880px; margin:0 auto;}
 .ob-plan{background:#fff; border:1.5px solid var(--line); border-radius:var(--radius); padding:28px; position:relative; cursor:pointer; transition:border-color .15s, box-shadow .15s;}
 .ob-plan:hover{border-color:var(--soft);}
 .ob-plan.on{border-color:var(--primary); box-shadow:0 0 0 1px var(--primary);}
@@ -182,17 +182,16 @@
 @keyframes navDown{from{opacity:0; transform:translateY(-100%);} to{opacity:1; transform:none;}}
 @keyframes sheen{to{left:140%;}}
 @keyframes popIn{from{opacity:0; transform:scale(.9) translateY(8px);} to{opacity:1; transform:none;}}
-@media(max-width:920px){
+@media(min-width:561px){
   .feat-grid,.theme-row{grid-template-columns:repeat(2,1fr);}
-  .hero-grid{grid-template-columns:1fr; gap:36px;}
-  .steps{grid-template-columns:1fr;}
-  .step .barline{display:none;}
+  .cta-band{padding:56px;}
+  .themes-sect{border-radius:28px;}
+  .explore-band{grid-template-columns:1.05fr 1fr; padding:44px;}
+  .ob-plans{grid-template-columns:1fr 1fr;}
 }
-@media(max-width:560px){
-  .feat-grid,.theme-row{grid-template-columns:1fr;}
-  .cta-band{padding:38px 22px;}
-  .themes-sect{border-radius:20px;}
-  .explore-band{grid-template-columns:1fr; padding:30px 22px;}
-  .eb-shops{grid-template-columns:1fr 1fr 1fr;}
-  .ob-plans{grid-template-columns:1fr;}
+@media(min-width:921px){
+  .feat-grid,.theme-row{grid-template-columns:repeat(4,1fr);}
+  .hero-grid{grid-template-columns:1.05fr 1fr; gap:54px;}
+  .steps{grid-template-columns:repeat(3,1fr);}
+  .step .barline{display:block;}
 }

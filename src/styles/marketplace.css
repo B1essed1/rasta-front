@@ -4,7 +4,7 @@
   background: var(--gray-50);
 }
 .marketplace__content {
-  padding-top: 88px;
+  padding-top: 80px;
   padding-bottom: 60px;
 }
 .marketplace__title {
@@ -47,7 +47,7 @@
 /* ===== Shop Grid ===== */
 .marketplace__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
   gap: 20px;
 }
 .marketplace__loading,
@@ -111,8 +111,8 @@
   border-radius: 100px;
 }
 
-/* ===== Responsive ===== */
-@media (max-width: 640px) {
-  .marketplace__content { padding-top: 80px; }
-  .marketplace__grid { grid-template-columns: 1fr; }
+/* ===== Responsive: mobile-first ===== */
+@media (min-width: 641px) {
+  .marketplace__content { padding-top: 88px; }
+  .marketplace__grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 }
