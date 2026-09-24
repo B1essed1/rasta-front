@@ -5,6 +5,7 @@ import Auth from './pages/Auth';
 import Onboarding from './pages/Onboarding';
 import Marketplace from './pages/Marketplace';
 import StorefrontPage from './pages/StorefrontPage';
+import BioLinkPage from './pages/BioLinkPage';
 import Dashboard from './pages/dashboard/Dashboard';
 import HomeView from './pages/dashboard/HomeView';
 import ProductsView from './pages/dashboard/ProductsView';
@@ -13,7 +14,8 @@ import SalesView from './pages/dashboard/SalesView';
 import DesignView from './pages/dashboard/DesignView';
 import SettingsView from './pages/dashboard/SettingsView';
 import ReviewsView from './pages/dashboard/ReviewsView';
-import { ChatsView, InventoryView, ScanView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
+import { ChatsView, ScanView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
+import InventoryView from './pages/dashboard/InventoryView';
 import ToastHost from './components/ui/ToastHost';
 
 function ProtectedRoute({ children }) {
@@ -51,6 +53,7 @@ export default function App() {
           <Route path="scan" element={<ScanView />} />
           <Route path="*" element={<DashboardNotFound />} />
         </Route>
+        <Route path="/:handle/link" element={<BioLinkPage />} />
         <Route path="/:handle" element={<StorefrontPage />} />
         <Route path="/:handle/p/:productId" element={<StorefrontPage />} />
       </Routes>

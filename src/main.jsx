@@ -13,6 +13,7 @@ import './styles/app2.css';
 // (.opt-chip, .buy-box, .qty-pick, .sf-btn) at equal specificity and loads after
 // storefront.css, which broke the product page size picker ("S0 items").
 // Scope it under the chat root before importing it with ChatsView.
+import './styles/bio.css';
 import './styles/compat.css';
 
 import React from 'react';

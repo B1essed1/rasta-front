@@ -72,11 +72,15 @@ h1,h2,h3,h4,p{margin:0;}
 .pnav-right{margin-left:auto; display:flex; align-items:center; gap:10px;}
 
 /* language pill */
-.lang{display:inline-flex; background:#fff; border:1px solid var(--line); border-radius:999px; padding:3px;
-  box-shadow:var(--shadow-sm);}
-.lang button{padding:5px 11px; border-radius:999px; font-size:13px; font-weight:600; color:var(--soft);
-  letter-spacing:0.02em; transition:.12s;}
+.lang{display:inline-flex; background:#fff; border:1px solid var(--line); border-radius:999px; padding:2px;
+  box-shadow:var(--shadow-sm); flex-shrink:0;}
+.lang button{padding:4px 8px; border-radius:999px; font-size:12px; font-weight:600; color:var(--soft);
+  letter-spacing:0.02em; transition:.12s; border:none; background:none; cursor:pointer;}
 .lang button.on{background:var(--ink); color:#fff;}
+@media(min-width:641px){
+  .lang{padding:3px;}
+  .lang button{padding:5px 11px; font-size:13px;}
+}
 
 /* ---------- prototype switcher (bottom) ---------- */
 .switcher{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:90;
