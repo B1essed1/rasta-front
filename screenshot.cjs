@@ -9,7 +9,7 @@ delete process.env.https_proxy;
 process.env.NO_PROXY = '*';
 process.env.no_proxy = '*';
 
-const DESIGN_URL = "https://b04c05a3-674f-47e4-852c-12dbdfa9c5ec.claudeusercontent.com/v1/design/projects/b04c05a3-674f-47e4-852c-12dbdfa9c5ec/serve/rasta.html?t=2c1a28174f285758d1b8ad97ec1997c0ca0d53b1dfe75a42dbf14185fa49862e.aba3ee41-ffb8-4866-96bd-944994a1f14b.7f2db480-e175-4e15-85ad-41f4fad91dea.1790323920&direct=1";
+const DESIGN_URL = process.argv[2];
 
 (async () => {
   const browser = await puppeteer.launch({
@@ -18,54 +18,73 @@ const DESIGN_URL = "https://b04c05a3-674f-47e4-852c-12dbdfa9c5ec.claudeuserconte
   });
   const dir = path.join(__dirname, 'screenshots');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
 
-  // Load design
   try {
     await page.goto(DESIGN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
     await new Promise(r => setTimeout(r, 3000));
   } catch (e) {
-    console.log('NAV_WARN:', e.message);
+    console.log('NAV:', e.message);
     await new Promise(r => setTimeout(r, 3000));
   }
 
-  // Click Dashboard in the switcher
+  // Go to Dashboard
   await page.evaluate(() => {
     const btns = document.querySelectorAll('.switcher button');
     for (const btn of btns) { if (btn.textContent.toLowerCase().includes('dashboard')) { btn.click(); return; } }
   });
   await new Promise(r => setTimeout(r, 2000));
 
-  // Click Inventory tab in the dashboard sidebar
+  // Click Inventory tab
   await page.evaluate(() => {
     const btns = document.querySelectorAll('.db-nav button');
-    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('inventor') || btn.textContent.toLowerCase().includes('склад') || btn.textContent.toLowerCase().includes('ombor')) { btn.click(); return true; } }
-    return false;
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('inventor') || btn.textContent.toLowerCase().includes('склад') || btn.textContent.toLowerCase().includes('ombor')) { btn.click(); return; } }
   });
   await new Promise(r => setTimeout(r, 1500));
+  await page.screenshot({ path: path.join(dir, 'design-inv-stock.png'), fullPage: false });
+  console.log('OK: design-inv-stock');
 
-  await page.screenshot({ path: path.join(dir, 'design-inventory.png'), fullPage: false });
-  console.log('OK: design-inventory');
+  // Click History tab
+  const clickedHist = await page.evaluate(() => {
+    const btns = document.querySelectorAll('.inv-tabs button');
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('histor') || btn.textContent.toLowerCase().includes('истори') || btn.textContent.toLowerCase().includes('tarix')) { btn.click(); return true; } }
+    return false;
+  });
+  console.log('Clicked History:', clickedHist);
+  await new Promise(r => setTimeout(r, 1500));
+  await page.screenshot({ path: path.join(dir, 'design-inv-history.png'), fullPage: false });
+  console.log('OK: design-inv-history');
 
-  // Click Design tab
+  // Click Sales tab
   await page.evaluate(() => {
     const btns = document.querySelectorAll('.db-nav button');
-    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('design') || btn.textContent.toLowerCase().includes('дизайн') || btn.textContent.toLowerCase().includes('dizayn')) { btn.click(); return true; } }
-    return false;
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('sales') || btn.textContent.toLowerCase().includes('продаж') || btn.textContent.toLowerCase().includes('sotuv')) { btn.click(); return; } }
   });
   await new Promise(r => setTimeout(r, 1500));
+  await page.screenshot({ path: path.join(dir, 'design-sales.png'), fullPage: false });
+  console.log('OK: design-sales');
 
-  // Scroll down for bio section
+  // Click an Adjust modal - click qty button on first row
   await page.evaluate(() => {
-    const body = document.querySelector('.db-body');
-    if (body) body.scrollTop = body.scrollHeight;
+    const btns = document.querySelectorAll('.db-nav button');
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('inventor') || btn.textContent.toLowerCase().includes('склад') || btn.textContent.toLowerCase().includes('ombor')) { btn.click(); return; } }
+  });
+  await new Promise(r => setTimeout(r, 1500));
+  // back to stock tab
+  await page.evaluate(() => {
+    const btns = document.querySelectorAll('.inv-tabs button');
+    if (btns[0]) btns[0].click();
   });
   await new Promise(r => setTimeout(r, 1000));
-
-  await page.screenshot({ path: path.join(dir, 'design-dashboard-design.png'), fullPage: false });
-  console.log('OK: design-dashboard-design');
+  // click first qty-btn
+  await page.evaluate(() => {
+    const btn = document.querySelector('.qty-btn');
+    if (btn) btn.click();
+  });
+  await new Promise(r => setTimeout(r, 1000));
+  await page.screenshot({ path: path.join(dir, 'design-inv-adjust.png'), fullPage: false });
+  console.log('OK: design-inv-adjust');
 
   await browser.close();
   console.log('DONE');

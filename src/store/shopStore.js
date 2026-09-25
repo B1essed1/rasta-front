@@ -55,6 +55,7 @@ export const useShopStore = create((set, get) => ({
   orders: [],
   sales: [],
   reviews: [],
+  movements: [],
   stats: null,
   loading: false,
   error: null,
@@ -322,6 +323,15 @@ export const useShopStore = create((set, get) => ({
       set({ reviews: res.data });
     } catch (e) {
       console.error(e);
+    }
+  },
+
+  async fetchMovements() {
+    try {
+      const res = await api.get(`/shops/${get().shop.id}/inventory/movements`);
+      set({ movements: res.data });
+    } catch (e) {
+      set({ movements: [] });
     }
   },
 

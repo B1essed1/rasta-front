@@ -195,25 +195,34 @@ function reasonLabel(r) {
 
 function HistoryView() {
   const shop = useShopStore((s) => s.shop);
-  const sales = useShopStore((s) => s.sales);
-  const fetchSales = useShopStore((s) => s.fetchSales);
+  const movements = useShopStore((s) => s.movements);
+  const products = useShopStore((s) => s.products);
+  const fetchMovements = useShopStore((s) => s.fetchMovements);
+  const [reason, setReason] = useState('all');
+  const [limit, setLimit] = useState(40);
 
-  useEffect(() => { if (shop?.id) fetchSales(); }, [shop?.id]);
+  useEffect(() => { if (shop?.id) fetchMovements(); }, [shop?.id]);
+
+  const productMap = useMemo(() => {
+    const map = {};
+    products.forEach((p) => {
+      (p.variants || []).forEach((v) => { map[v.id] = { p, v }; });
+    });
+    return map;
+  }, [products]);
 
   const items = useMemo(() => {
-    return (sales || []).map((s) => ({
-      id: s.id,
-      delta: -(s.quantity || 1),
-      reason: 'SALE',
-      at: s.createdAt ? new Date(s.createdAt).getTime() : Date.now(),
-      name: s.productName || '—',
-      total: s.total,
-    })).sort((a, b) => b.at - a.at).slice(0, 50);
-  }, [sales]);
+    return (movements || []).map((m) => ({
+      ...m,
+      at: m.createdAt ? new Date(m.createdAt).getTime() : 0,
+      name: productMap[m.variantId] ? getProductName(productMap[m.variantId].p) + (parseVariantLabel(productMap[m.variantId].v.optionsJson) ? ' · ' + parseVariantLabel(productMap[m.variantId].v.optionsJson) : '') : '—',
+    })).sort((a, b) => b.at - a.at);
+  }, [movements, productMap]);
 
-  if (!items.length) {
-    return <div className="stk-empty card" style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--soft)' }}>{t('h_empty')}</div>;
-  }
+  const filtered = reason === 'all' ? items : items.filter((m) => m.reason === reason || m.reason === reason.toUpperCase());
+  const cnt = (k) => k === 'all' ? items.length : items.filter((m) => (m.reason || '').toUpperCase() === k.toUpperCase()).length;
+  const inN = filtered.filter((m) => m.delta > 0).reduce((s, m) => s + m.delta, 0);
+  const outN = filtered.filter((m) => m.delta < 0).reduce((s, m) => s - m.delta, 0);
 
   const dayKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
   const now = Date.now();
@@ -222,11 +231,11 @@ function HistoryView() {
     const k = dayKey(ts);
     if (k === today) return t('h_today');
     if (k === yday) return t('h_yday');
-    return new Date(ts).toLocaleDateString(getLang() === 'ru' ? 'ru-RU' : getLang() === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit' });
+    return new Date(ts).toLocaleDateString(getLang() === 'ru' ? 'ru-RU' : getLang() === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: 'short' });
   };
 
   const groups = [];
-  items.forEach((m) => {
+  filtered.slice(0, limit).forEach((m) => {
     const k = dayKey(m.at);
     let g = groups[groups.length - 1];
     if (!g || g.k !== k) { g = { k, label: dayLabel(m.at), items: [], net: 0 }; groups.push(g); }
@@ -234,13 +243,48 @@ function HistoryView() {
     g.net += m.delta;
   });
 
+  const reasons = [
+    ['all', t('h_all')], ['SALE', t('inv_r_sale')], ['RESTOCK', t('inv_r_restock')],
+    ['CORRECTION', t('inv_r_correction')], ['LOSS', t('inv_r_loss2')], ['RETURN', t('inv_r_return')],
+  ];
+
   return (
     <div className="hist">
-      <div className="hist-sum">
-        <div><span>{t('h_in')}</span><b className="up">+{items.filter((m) => m.delta > 0).reduce((s, m) => s + m.delta, 0)}</b></div>
-        <div><span>{t('h_out')}</span><b className="down">−{items.filter((m) => m.delta < 0).reduce((s, m) => s - m.delta, 0)}</b></div>
-        <div><span>{t('inv_tab_hist')}</span><b>{items.length} <i style={{ fontStyle: 'normal', fontSize: 13, color: 'var(--soft)' }}>{t('h_moves')}</i></b></div>
+      <div className="inv-bar">
+        <div className="inline-search grow">
+          {I.search({ width: 16, height: 16 })}
+          <input placeholder={t('sf_search') || 'Search'} disabled />
+        </div>
+        <select className="mini-select" defaultValue="30">
+          <option value="7">7 {t('h_today')?.includes('день') ? 'дней' : 'days'}</option>
+          <option value="30">30 {t('h_today')?.includes('день') ? 'дней' : 'days'}</option>
+          <option value="all">{t('g_all')}</option>
+        </select>
       </div>
+
+      <div className="chip-row hist-chips">
+        {reasons.map(([k, l]) => {
+          const n = cnt(k);
+          return (
+            <button key={k} className={`pick-chip${reason === k ? ' on' : ''}${!n && reason !== k ? ' zero' : ''}`} onClick={() => { setReason(k); setLimit(40); }}>
+              {l} <i>{n}</i>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="hist-sum">
+        <div><span>{t('h_in')}</span><b className="up">+{inN}</b></div>
+        <div><span>{t('h_out')}</span><b className="down">−{outN}</b></div>
+        <div><span>{t('inv_tab_hist')}</span><b>{filtered.length} <i style={{ fontStyle: 'normal', fontSize: 13, color: 'var(--soft)' }}>{t('h_moves')}</i></b></div>
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="stk-empty card" style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--soft)' }}>
+          {t('h_empty')}
+        </div>
+      )}
+
       <div className="hist-days">
         {groups.map((g) => (
           <div key={g.k} className="hist-day card">
@@ -253,7 +297,7 @@ function HistoryView() {
                 <span className={`mv-delta ${m.delta > 0 ? 'up' : 'down'}`}>{m.delta > 0 ? '+' + m.delta : m.delta}</span>
                 <div className="mv-main">
                   <b>{m.name}</b>
-                  <span>{reasonLabel(m.reason)}{m.total ? ' · ' + fmtPrice(m.total) : ''}</span>
+                  <span>{reasonLabel(m.reason)}{m.unitCost ? ' @ ' + fmtNum(m.unitCost) : ''}{m.note ? ' · ' + m.note : ''}</span>
                 </div>
                 <span className="mv-at">{new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
@@ -261,6 +305,12 @@ function HistoryView() {
           </div>
         ))}
       </div>
+
+      {filtered.length > limit && (
+        <button className="btn btn-soft hist-more" onClick={() => setLimit(limit + 40)}>
+          {t('h_more')} · {filtered.length - limit}
+        </button>
+      )}
     </div>
   );
 }
