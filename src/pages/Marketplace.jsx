@@ -108,9 +108,16 @@ export default function Marketplace() {
                 <div className="shop-card__body">
                   <h3 className="shop-card__name">{shop.name}</h3>
                   <p className="shop-card__handle">rastashops.com/{shop.handle}</p>
-                  {shop.location && (
-                    <span className="shop-card__location">{shop.location}</span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                    {shop.location && (
+                      <span className="shop-card__location">{shop.location}</span>
+                    )}
+                    {shop.rating > 0 && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--soft, #6f655a)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span style={{ color: '#e09a36' }}>&#9733;</span> {Number(shop.rating).toFixed(1)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Link>
             ))}

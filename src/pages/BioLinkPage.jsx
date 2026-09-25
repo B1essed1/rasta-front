@@ -4,8 +4,14 @@ import LangPill from '../components/ui/LangPill';
 import { t, onLangChange, fmtPrice, getLang } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import api from '../api/client';
+import { I } from '../components/ui/Icons';
 import { BIO_BGS, getBioConfig, bioVars } from '../data/bio';
 import '../styles/bio.css';
+
+const BioIcons = {
+  ig: (p) => <svg viewBox="0 0 24 24" fill="none" {...p}><rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" strokeWidth="1.7"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.7"/><circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/></svg>,
+  phone: (p) => <svg viewBox="0 0 24 24" fill="none" {...p}><path d="M5 4h4l1.5 4.5-2.2 1.6a13 13 0 0 0 5.6 5.6l1.6-2.2L20 15v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>,
+};
 
 function getProductName(product) {
   return product.nameEn || product.nameUz || product.nameRu || '';
@@ -62,31 +68,32 @@ export default function BioLinkPage() {
   const vars = bioVars(cfg);
   const isDark = bg.dark;
 
+  const shopType = shop.type ? t(`type_${shop.type}`) || shop.type : '';
   const links = [];
   links.push({
     key: 'shop', primary: true,
     label: t('bio_open_shop'),
     sub: `rastashops.com/${handle}`,
     href: `/${handle}`,
-    icon: '🛍️',
+    icon: I.store({ width: 22, height: 22 }),
   });
   if (shop.instagram) links.push({
     key: 'ig', label: 'Instagram',
     sub: `@${shop.instagram.replace('@', '')}`,
     href: `https://instagram.com/${shop.instagram.replace('@', '')}`,
-    icon: '📷',
+    icon: BioIcons.ig({ width: 19, height: 19 }),
   });
   if (shop.telegram) links.push({
     key: 'tg', label: 'Telegram',
     sub: `@${shop.telegram.replace('@', '')}`,
     href: `https://t.me/${shop.telegram.replace('@', '')}`,
-    icon: '✈️',
+    icon: I.tg({ width: 19, height: 19 }),
   });
   if (shop.phone) links.push({
     key: 'ph', label: t('bio_call'),
     sub: shop.phone,
     href: `tel:${shop.phone}`,
-    icon: '📞',
+    icon: BioIcons.phone({ width: 19, height: 19 }),
   });
 
   return (
@@ -106,9 +113,9 @@ export default function BioLinkPage() {
             </div>
           )}
           <h1 className="bio-name">{shop.name}</h1>
-          {shop.tagline && <p className="bio-tag">{shop.tagline}</p>}
+          {shop.tagline && <p className="bio-tag">{typeof shop.tagline === 'object' ? (shop.tagline[getLang()] || shop.tagline.en || shop.tagline.uz || shop.tagline.ru || '') : shop.tagline}</p>}
           <div className="bio-meta">
-            {shop.location && <span>{shop.location}</span>}
+            {[shop.location, shopType].filter(Boolean).join(' · ')}
           </div>
         </div>
 
@@ -126,9 +133,9 @@ export default function BioLinkPage() {
                   <i>{l.sub}</i>
                 </span>
                 {l.primary && products.length > 0 && (
-                  <span className="bio-sl-badge">{t('bio_featured')}</span>
+                  <span className="bio-sl-badge">{I.bag({ width: 12, height: 12 })} {t('bio_featured')}</span>
                 )}
-                <span className="bio-btn-go">{'→'}</span>
+                <span className="bio-btn-go">{I.arrow({ width: l.primary ? 17 : 15, height: l.primary ? 17 : 15 })}</span>
               </Tag>
             );
           })}
