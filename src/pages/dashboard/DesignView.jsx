@@ -4,6 +4,9 @@ import { useShopStore } from '../../store/shopStore';
 import { themes, getTheme, applyThemeVars } from '../../data/themes';
 import { palettes, getPalette, applyPaletteVars } from '../../data/palettes';
 import { toast } from '../../components/ui/ToastHost';
+import { BIO_BGS, BIO_TPLS, BIO_RADII, BIO_FONTS, getBioConfig, bioVars } from '../../data/bio';
+import { I } from '../../components/ui/Icons';
+import api from '../../api/client';
 
 const layouts = [
   { id: 'grid', label: 'Grid' },
@@ -221,6 +224,147 @@ export default function DesignView() {
           </div>
         </div>
       </div>
+
+      {/* Bio Studio */}
+      <BioStudio shopId={shop?.id} handle={shop?.handle} />
+    </div>
+  );
+}
+
+function BioStudio({ shopId, handle }) {
+  const [bioJson, setBioJson] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!shopId) return;
+    api.get(`/shops/${shopId}/config`).then((res) => {
+      setBioJson(res.data?.bioJson || null);
+    }).catch(() => {});
+  }, [shopId]);
+
+  const cfg = getBioConfig(bioJson);
+  const vars = bioVars(cfg);
+
+  function pickTpl(tplId) {
+    const tpl = BIO_TPLS.find((x) => x.id === tplId) || BIO_TPLS[0];
+    const newJson = JSON.stringify({ tpl: tplId, bg: tpl.bg, btn: tpl.btn, radius: tpl.radius, font: tpl.font });
+    setBioJson(newJson);
+    saveBio(newJson);
+  }
+
+  function patchBio(patch) {
+    let raw = {};
+    try { raw = bioJson ? JSON.parse(bioJson) : {}; } catch {}
+    const updated = { ...raw, ...patch };
+    const newJson = JSON.stringify(updated);
+    setBioJson(newJson);
+    saveBio(newJson);
+  }
+
+  async function saveBio(json) {
+    if (!shopId) return;
+    setSaving(true);
+    try {
+      await api.put(`/shops/${shopId}/config`, { bioJson: json });
+    } catch {}
+    setSaving(false);
+  }
+
+  return (
+    <div style={{ marginTop: 28, background: '#fff', border: '1px solid var(--line, #e7e0d5)', borderRadius: 16, padding: 24 }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{t('sh_bio')}</h3>
+      <p style={{ fontSize: 13, color: '#888', marginBottom: 4 }}>{t('sh_bio_d')}</p>
+      {handle && (
+        <p style={{ fontSize: 13, marginBottom: 16 }}>
+          <a href={`/${handle}/link`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary, #6366f1)', fontWeight: 600 }}>
+            {I.eye({ width: 14, height: 14 })} rastashops.com/{handle}/link
+          </a>
+        </p>
+      )}
+
+      {/* Template picker */}
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_theme')}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(94px, 1fr))', gap: 10, marginBottom: 20 }}>
+        {BIO_TPLS.map((tpl) => {
+          const tplVars = bioVars({ bg: tpl.bg, btn: tpl.btn, radius: tpl.radius, font: tpl.font });
+          const isActive = cfg.tpl === tpl.id;
+          return (
+            <button
+              key={tpl.id}
+              onClick={() => pickTpl(tpl.id)}
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 6, padding: 5,
+                borderRadius: 13, border: isActive ? '2px solid var(--primary, #1b1714)' : '2px solid transparent',
+                background: isActive ? '#fff' : '#f1ede6', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <span style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                width: '100%', aspectRatio: '4/5', borderRadius: 10,
+                background: tplVars['--b-bg'], padding: '11px 11px 8px', justifyContent: 'center',
+              }}>
+                <span style={{ width: 20, height: 20, borderRadius: '50%', background: tplVars['--b-prim'], opacity: 0.9 }} />
+                <span style={{ width: '46%', height: 6, borderRadius: 3, background: tplVars['--b-ink'], opacity: 0.75 }} />
+                <span style={{ width: '100%', height: 12, borderRadius: `calc(${tplVars['--b-r']} / 2.6)`, background: tplVars['--b-prim'] }} />
+                <span style={{ width: '100%', height: 12, borderRadius: `calc(${tplVars['--b-r']} / 2.6)`, background: tplVars['--b-card'] }} />
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 12, fontWeight: 600, paddingBottom: 2 }}>
+                {isActive && I.check({ width: 13, height: 13 })} {tpl.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Customisation */}
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_accent')}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+        {Object.keys(BIO_BGS).map((id) => (
+          <button
+            key={id}
+            onClick={() => patchBio({ bg: id })}
+            style={{
+              width: 34, height: 34, borderRadius: '50%', background: BIO_BGS[id].base,
+              border: cfg.bg === id ? '2px solid #1b1714' : '2px solid rgba(0,0,0,.12)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            {cfg.bg === id && <span style={{ color: BIO_BGS[id].ink }}>{I.check({ width: 14, height: 14 })}</span>}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{t('db_font')}</label>
+          <select value={cfg.font} onChange={(e) => patchBio({ font: e.target.value })} className="form-input" style={{ width: '100%' }}>
+            <option value="soft">Bricolage</option>
+            <option value="grotesk">Space Grotesk</option>
+            <option value="serif">Serif</option>
+            <option value="outfit">Outfit</option>
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Corners</label>
+          <select value={cfg.radius} onChange={(e) => patchBio({ radius: e.target.value })} className="form-input" style={{ width: '100%' }}>
+            <option value="square">Square</option>
+            <option value="round">Rounded</option>
+            <option value="pill">Pill</option>
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Buttons</label>
+          <select value={cfg.btn} onChange={(e) => patchBio({ btn: e.target.value })} className="form-input" style={{ width: '100%' }}>
+            <option value="soft">Soft</option>
+            <option value="fill">Filled</option>
+            <option value="outline">Outline</option>
+            <option value="hard">Bold</option>
+            <option value="glass">Glass</option>
+          </select>
+        </div>
+      </div>
+
+      {saving && <span style={{ fontSize: 12, color: '#888' }}>{t('loading')}</span>}
     </div>
   );
 }
