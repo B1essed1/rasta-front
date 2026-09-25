@@ -1,7 +1,7 @@
 /* Fonts — identical to the design harness (design-src/dash.html) */
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,300..600&family=Outfit:wght@300..800&family=Space+Grotesk:wght@400..700&display=swap');
 
-/* ===== rastashops.com — platform chrome & shared styles ===== */
+/* ===== labaratory.rastashops.com — platform chrome & shared styles ===== */
 /* ---------------------------------------------------------------------------
    PART 1 — ported verbatim from design-src/app.css. This is the source of
    truth for the design tokens. Do not edit; re-sync from the design instead.

@@ -434,7 +434,7 @@ export const useShopStore = create((set, get) => ({
       status,
       live: status === 'LIVE',
       handle,
-      url: handle ? `rastashops.com/${handle}` : '',
+      url: handle ? `labaratory.rastashops.com/${handle}` : '',
       publicUrl: handle ? `${window.location.origin}/${handle}` : '',
     };
   },

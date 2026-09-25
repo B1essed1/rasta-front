@@ -9,6 +9,8 @@ delete process.env.https_proxy;
 process.env.NO_PROXY = '*';
 process.env.no_proxy = '*';
 
+const DESIGN_URL = "https://b04c05a3-674f-47e4-852c-12dbdfa9c5ec.claudeusercontent.com/v1/design/projects/b04c05a3-674f-47e4-852c-12dbdfa9c5ec/serve/rasta.html?t=2c1a28174f285758d1b8ad97ec1997c0ca0d53b1dfe75a42dbf14185fa49862e.aba3ee41-ffb8-4866-96bd-944994a1f14b.7f2db480-e175-4e15-85ad-41f4fad91dea.1790323920&direct=1";
+
 (async () => {
   const browser = await puppeteer.launch({
     headless: 'new',
@@ -20,64 +22,50 @@ process.env.no_proxy = '*';
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
 
-  // Login first — set a token in localStorage
-  await page.goto('http://localhost:5173/login', { waitUntil: 'networkidle2', timeout: 30000 });
+  // Load design
+  try {
+    await page.goto(DESIGN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+    await new Promise(r => setTimeout(r, 3000));
+  } catch (e) {
+    console.log('NAV_WARN:', e.message);
+    await new Promise(r => setTimeout(r, 3000));
+  }
+
+  // Click Dashboard in the switcher
+  await page.evaluate(() => {
+    const btns = document.querySelectorAll('.switcher button');
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('dashboard')) { btn.click(); return; } }
+  });
+  await new Promise(r => setTimeout(r, 2000));
+
+  // Click Inventory tab in the dashboard sidebar
+  await page.evaluate(() => {
+    const btns = document.querySelectorAll('.db-nav button');
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('inventor') || btn.textContent.toLowerCase().includes('склад') || btn.textContent.toLowerCase().includes('ombor')) { btn.click(); return true; } }
+    return false;
+  });
+  await new Promise(r => setTimeout(r, 1500));
+
+  await page.screenshot({ path: path.join(dir, 'design-inventory.png'), fullPage: false });
+  console.log('OK: design-inventory');
+
+  // Click Design tab
+  await page.evaluate(() => {
+    const btns = document.querySelectorAll('.db-nav button');
+    for (const btn of btns) { if (btn.textContent.toLowerCase().includes('design') || btn.textContent.toLowerCase().includes('дизайн') || btn.textContent.toLowerCase().includes('dizayn')) { btn.click(); return true; } }
+    return false;
+  });
+  await new Promise(r => setTimeout(r, 1500));
+
+  // Scroll down for bio section
+  await page.evaluate(() => {
+    const body = document.querySelector('.db-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  });
   await new Promise(r => setTimeout(r, 1000));
 
-  // Try to login via the API and set the token
-  const loginResult = await page.evaluate(async () => {
-    try {
-      // Send OTP
-      await fetch('http://localhost:8080/api/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: '+998901234567' }),
-      });
-      // Verify with test code
-      const res = await fetch('http://localhost:8080/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: '+998901234567', code: '123456' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const token = data.token || data.data?.token;
-        const user = data.user || data.data?.user;
-        if (token) {
-          localStorage.setItem('rasta_token', token);
-          localStorage.setItem('rasta_user', JSON.stringify(user));
-          return { ok: true, token: token.substring(0, 20) + '...' };
-        }
-      }
-      return { ok: false, status: res.status };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-  });
-  console.log('Login:', JSON.stringify(loginResult));
-
-  if (loginResult.ok) {
-    // Navigate to inventory
-    await page.goto('http://localhost:5173/dashboard/inventory', { waitUntil: 'networkidle2', timeout: 30000 });
-    await new Promise(r => setTimeout(r, 2000));
-    await page.screenshot({ path: path.join(dir, 'inventory-new.png'), fullPage: false });
-    console.log('OK: inventory-new');
-
-    // Design view
-    await page.goto('http://localhost:5173/dashboard/design', { waitUntil: 'networkidle2', timeout: 30000 });
-    await new Promise(r => setTimeout(r, 2000));
-    // Scroll down to see bio section
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await new Promise(r => setTimeout(r, 500));
-    await page.screenshot({ path: path.join(dir, 'design-bio-section.png'), fullPage: false });
-    console.log('OK: design-bio-section');
-  } else {
-    console.log('Login failed, taking unauthenticated screenshots');
-    await page.goto('http://localhost:5173/dashboard/inventory', { waitUntil: 'networkidle2', timeout: 30000 });
-    await new Promise(r => setTimeout(r, 2000));
-    await page.screenshot({ path: path.join(dir, 'inventory-noauth.png'), fullPage: false });
-    console.log('OK: inventory-noauth (redirected to login)');
-  }
+  await page.screenshot({ path: path.join(dir, 'design-dashboard-design.png'), fullPage: false });
+  console.log('OK: design-dashboard-design');
 
   await browser.close();
   console.log('DONE');

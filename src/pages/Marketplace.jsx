@@ -107,7 +107,7 @@ export default function Marketplace() {
                 </div>
                 <div className="shop-card__body">
                   <h3 className="shop-card__name">{shop.name}</h3>
-                  <p className="shop-card__handle">rastashops.com/{shop.handle}</p>
+                  <p className="shop-card__handle">labaratory.rastashops.com/{shop.handle}</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                     {shop.location && (
                       <span className="shop-card__location">{shop.location}</span>

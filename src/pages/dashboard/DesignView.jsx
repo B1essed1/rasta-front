@@ -192,7 +192,7 @@ export default function DesignView() {
                 <h3 style={{ fontFamily: previewFont.family, color: previewPalette.ink }}>
                   {shop?.name || 'My Shop'}
                 </h3>
-                <span style={{ color: previewPalette.soft }}>rastashops.com/{shop?.handle || 'myshop'}</span>
+                <span style={{ color: previewPalette.soft }}>labaratory.rastashops.com/{shop?.handle || 'myshop'}</span>
               </div>
             </div>
             <div className={`design-preview__grid design-preview__grid--${config.layout}`}>
@@ -287,7 +287,7 @@ function BioStudio({ shopId, handle }) {
       {handle && (
         <div className="hint" style={{ marginTop: -2 }}>
           <a href={`/${handle}/link`} target="_blank" rel="noopener noreferrer" className="share-url">
-            rastashops.com/{handle}/link
+            labaratory.rastashops.com/{handle}/link
           </a>
         </div>
       )}
@@ -391,7 +391,7 @@ function BioStudio({ shopId, handle }) {
         <div className="te-preview-wrap">
           <div className="te-preview-bar">
             <div className="tl"><i /><i /><i /></div>
-            <div className="u">rastashops.com/{handle}/link</div>
+            <div className="u">labaratory.rastashops.com/{handle}/link</div>
           </div>
           <div className="te-preview scroll-y">
             <div
@@ -451,7 +451,7 @@ function BioStudio({ shopId, handle }) {
                     </div>
                   </div>
                 )}
-                <div className="bio-foot">{t('bio_made')} <b>rastashops.com</b></div>
+                <div className="bio-foot">{t('bio_made')} <b>labaratory.rastashops.com</b></div>
               </div>
             </div>
           </div>
