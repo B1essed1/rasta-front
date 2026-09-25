@@ -7,6 +7,16 @@ function getProductName(product) {
   return product.nameEn || product.nameUz || product.nameRu || '';
 }
 
+function parseVariantLabel(optionsJson) {
+  if (!optionsJson) return '';
+  try {
+    const obj = typeof optionsJson === 'string' ? JSON.parse(optionsJson) : optionsJson;
+    return Object.values(obj).join(' · ');
+  } catch {
+    return optionsJson;
+  }
+}
+
 /* ---- grid override: 5 columns instead of the design's 8 ---- */
 const GRID_COLS = 'minmax(0,1fr) 80px 110px 110px 40px';
 
@@ -39,7 +49,7 @@ function RestockModal({ product, variant, onClose, onRestock }) {
     }
   }
 
-  const vLabel = variant.optionsJson || '';
+  const vLabel = parseVariantLabel(variant.optionsJson);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -330,7 +340,7 @@ export default function InventoryView() {
                       {/* variant name */}
                       <div className="stk-c-prod" style={{ paddingLeft: 0 }}>
                         <div className="stk-name">
-                          <b style={{ fontSize: 12.5, fontWeight: 600 }}>{v.optionsJson || '---'}</b>
+                          <b style={{ fontSize: 12.5, fontWeight: 600 }}>{parseVariantLabel(v.optionsJson) || '---'}</b>
                           {v.barcode && <span>{v.barcode}</span>}
                         </div>
                       </div>
