@@ -33,6 +33,14 @@ function fmtNum(n) {
   return Number(n || 0).toLocaleString('ru-RU').replace(/[, ]/g, ' ');
 }
 
+function variantImage(product, variant) {
+  const images = product.images || [];
+  const byVariant = images.find((img) => img.variantId === variant.id);
+  if (byVariant) return byVariant.url;
+  const defaultImg = images.find((img) => !img.variantId) || images[0];
+  return defaultImg?.url || null;
+}
+
 function RestockModal({ product, variant, onClose, onRestock }) {
   const [qty, setQty] = useState('');
   const [note, setNote] = useState('');
@@ -202,8 +210,8 @@ export default function InventoryView() {
                 <span className="stk-c-sel"></span>
                 <div className="stk-c-prod">
                   <div className="stk-photo" style={{ background: r.p.tone || '#e8e8e4' }}>
-                    {r.p.images?.[0]?.url
-                      ? <img src={r.p.images[0].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {variantImage(r.p, r.v)
+                      ? <img src={variantImage(r.p, r.v)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>{name.charAt(0)}</span>}
                   </div>
                   <div className="stk-name">
