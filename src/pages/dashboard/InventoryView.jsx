@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { t, onLangChange, fmtPrice, getLang } from '../../i18n';
 import { useShopStore, totalQty, stockState, DEFAULT_THRESHOLD } from '../../store/shopStore';
 import { I } from '../../components/ui/Icons';
+import { toast } from '../../components/ui/ToastHost';
 
 function getProductName(p) {
   return p.nameEn || p.nameUz || p.nameRu || '';
@@ -35,10 +36,84 @@ function fmtNum(n) {
 
 function variantImage(product, variant) {
   const images = product.images || [];
-  const byVariant = images.find((img) => img.variantId === variant.id);
-  if (byVariant) return byVariant.url;
-  const defaultImg = images.find((img) => !img.variantId) || images[0];
-  return defaultImg?.url || null;
+  return (images.find((img) => img.variantId === variant.id) || images.find((img) => !img.variantId) || images[0])?.url || null;
+}
+
+function AdjustModal({ product, variant, onClose, onAdjust }) {
+  const [kind, setKind] = useState('correction');
+  const [count, setCount] = useState(Math.max(0, variant.qty || 0));
+  const [n, setN] = useState(1);
+  const [note, setNote] = useState('');
+
+  const target = kind === 'correction' ? count : kind === 'loss' ? Math.max(0, (variant.qty || 0) - n) : (variant.qty || 0) + n;
+  const delta = target - (variant.qty || 0);
+
+  const kinds = [
+    { id: 'correction', label: t('adj_recount'), desc: t('adj_recount_d'), icon: I.undo },
+    { id: 'loss', label: t('adj_loss'), desc: t('adj_loss_d'), icon: I.warn },
+    { id: 'return', label: t('adj_return'), desc: t('adj_return_d'), icon: I.box },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className="modal-header">
+          <h3 className="modal-title">{t('adj_title')}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
+        </div>
+        <div style={{ padding: '20px 24px' }}>
+          <div className="rsm-prod">
+            <div className="rsm-photo" style={{ background: product.tone || '#e8e8e4' }}>
+              {variantImage(product, variant)
+                ? <img src={variantImage(product, variant)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>{getProductName(product).charAt(0)}</span>}
+            </div>
+            <div>
+              <b style={{ fontSize: 14 }}>{getProductName(product)}</b>
+              {parseVariantLabel(variant.optionsJson) && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--soft)' }}>{parseVariantLabel(variant.optionsJson)}</span>}
+            </div>
+          </div>
+
+          <div className="rsm-label">{t('adj_title')}</div>
+          <div className="adj-kinds">
+            {kinds.map((k) => (
+              <button key={k.id} className={`adj-kind${kind === k.id ? ' on' : ''}`} onClick={() => { setKind(k.id); setN(1); }}>
+                <span className="adj-ic">{k.icon({ width: 18, height: 18 })}</span>
+                <div><b>{k.label}</b><span>{k.desc}</span></div>
+              </button>
+            ))}
+          </div>
+
+          <div className="rsm-label">
+            {kind === 'correction' ? t('adj_count') : kind === 'loss' ? t('adj_lost') : t('adj_back')}
+          </div>
+          <div className="adj-qty">
+            {kind === 'correction' ? (
+              <input type="number" min="0" value={count} onChange={(e) => setCount(Math.max(0, parseInt(e.target.value) || 0))} style={{ width: 80, textAlign: 'center', fontSize: 16, fontWeight: 700, padding: '8px 12px', border: '1.5px solid var(--line)', borderRadius: 10 }} />
+            ) : (
+              <input type="number" min="1" value={n} onChange={(e) => setN(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: 80, textAlign: 'center', fontSize: 16, fontWeight: 700, padding: '8px 12px', border: '1.5px solid var(--line)', borderRadius: 10 }} />
+            )}
+            <span className="adj-now">{t('inv_qty')}: <b>{variant.qty || 0}</b></span>
+          </div>
+
+          <input className="qp-note adj-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('inv_note')} />
+
+          <div className="rsm-foot">
+            <div className="rsm-sum">
+              <span>{variant.qty || 0} → <b>{target}</b></span>
+              {delta !== 0 && <i className={delta > 0 ? 'up' : 'down'}>{delta > 0 ? '+' + delta : delta}</i>}
+            </div>
+            <button className="btn btn-accent btn-sm" disabled={!delta} onClick={() => {
+              onAdjust(variant.id, product.id, delta, kind === 'return' ? 'RETURN' : kind === 'loss' ? 'LOSS' : 'CORRECTION', note);
+              onClose();
+            }}>
+              {t('adj_btn')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function RestockModal({ product, variant, onClose, onRestock }) {
@@ -67,10 +142,10 @@ function RestockModal({ product, variant, onClose, onRestock }) {
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <div style={{ padding: '20px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-            <div className="stk-photo" style={{ background: product.tone || '#e8e8e4' }}>
-              {product.images?.[0]?.url
-                ? <img src={product.images[0].url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div className="rsm-prod">
+            <div className="rsm-photo" style={{ background: product.tone || '#e8e8e4' }}>
+              {variantImage(product, variant)
+                ? <img src={variantImage(product, variant)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>{getProductName(product).charAt(0)}</span>}
             </div>
             <div>
@@ -101,26 +176,114 @@ function RestockModal({ product, variant, onClose, onRestock }) {
   );
 }
 
+function RowMenu({ row, onAdjust, onRestock, onClose }) {
+  return (
+    <>
+      <div className="row-menu-scrim" onClick={onClose} />
+      <div className="row-menu">
+        <button onClick={() => { onClose(); onAdjust(row); }}>{I.edit({ width: 15, height: 15 })} {t('adj_title')}</button>
+        <button onClick={() => { onClose(); onRestock(row); }}>{I.plus({ width: 15, height: 15 })} {t('inv_restock')}</button>
+      </div>
+    </>
+  );
+}
+
+function reasonLabel(r) {
+  const map = { SALE: t('inv_r_sale'), RESTOCK: t('inv_r_restock'), CORRECTION: t('inv_r_correction'), LOSS: t('inv_r_loss2'), RETURN: t('inv_r_return') };
+  return map[r] || map[r?.toUpperCase()] || r;
+}
+
+function HistoryView() {
+  const shop = useShopStore((s) => s.shop);
+  const sales = useShopStore((s) => s.sales);
+  const fetchSales = useShopStore((s) => s.fetchSales);
+
+  useEffect(() => { if (shop?.id) fetchSales(); }, [shop?.id]);
+
+  const items = useMemo(() => {
+    return (sales || []).map((s) => ({
+      id: s.id,
+      delta: -(s.quantity || 1),
+      reason: 'SALE',
+      at: s.createdAt ? new Date(s.createdAt).getTime() : Date.now(),
+      name: s.productName || '—',
+      total: s.total,
+    })).sort((a, b) => b.at - a.at).slice(0, 50);
+  }, [sales]);
+
+  if (!items.length) {
+    return <div className="stk-empty card" style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 32, textAlign: 'center', color: 'var(--soft)' }}>{t('h_empty')}</div>;
+  }
+
+  const dayKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+  const now = Date.now();
+  const today = dayKey(now), yday = dayKey(now - 86400000);
+  const dayLabel = (ts) => {
+    const k = dayKey(ts);
+    if (k === today) return t('h_today');
+    if (k === yday) return t('h_yday');
+    return new Date(ts).toLocaleDateString(getLang() === 'ru' ? 'ru-RU' : getLang() === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit' });
+  };
+
+  const groups = [];
+  items.forEach((m) => {
+    const k = dayKey(m.at);
+    let g = groups[groups.length - 1];
+    if (!g || g.k !== k) { g = { k, label: dayLabel(m.at), items: [], net: 0 }; groups.push(g); }
+    g.items.push(m);
+    g.net += m.delta;
+  });
+
+  return (
+    <div className="hist">
+      <div className="hist-sum">
+        <div><span>{t('h_in')}</span><b className="up">+{items.filter((m) => m.delta > 0).reduce((s, m) => s + m.delta, 0)}</b></div>
+        <div><span>{t('h_out')}</span><b className="down">−{items.filter((m) => m.delta < 0).reduce((s, m) => s - m.delta, 0)}</b></div>
+        <div><span>{t('inv_tab_hist')}</span><b>{items.length} <i style={{ fontStyle: 'normal', fontSize: 13, color: 'var(--soft)' }}>{t('h_moves')}</i></b></div>
+      </div>
+      <div className="hist-days">
+        {groups.map((g) => (
+          <div key={g.k} className="hist-day card">
+            <div className="hist-day-h">
+              <b>{g.label}</b>
+              <span className={g.net > 0 ? 'up' : g.net < 0 ? 'down' : ''}>{g.net > 0 ? '+' + g.net : g.net}</span>
+            </div>
+            {g.items.map((m) => (
+              <div key={m.id} className="mv-row">
+                <span className={`mv-delta ${m.delta > 0 ? 'up' : 'down'}`}>{m.delta > 0 ? '+' + m.delta : m.delta}</span>
+                <div className="mv-main">
+                  <b>{m.name}</b>
+                  <span>{reasonLabel(m.reason)}{m.total ? ' · ' + fmtPrice(m.total) : ''}</span>
+                </div>
+                <span className="mv-at">{new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function InventoryView() {
   const [, setTick] = useState(0);
+  const [view, setView] = useState('stock');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [restockTarget, setRestockTarget] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [menu, setMenu] = useState(null);
   const shop = useShopStore((s) => s.shop);
   const products = useShopStore((s) => s.products);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
   const restockVariant = useShopStore((s) => s.restockVariant);
+  const adjustStock = useShopStore((s) => s.adjustStock);
 
   useEffect(() => onLangChange(() => setTick((n) => n + 1)), []);
   useEffect(() => { if (shop?.id) fetchProducts(); }, [shop?.id, fetchProducts]);
 
   const rows = useMemo(() => {
     const out = [];
-    products.forEach((p) => {
-      (p.variants || []).forEach((v) => {
-        out.push({ p, v, state: variantState(v) });
-      });
-    });
+    products.forEach((p) => (p.variants || []).forEach((v) => out.push({ p, v, state: variantState(v) })));
     return out;
   }, [products]);
 
@@ -146,7 +309,7 @@ export default function InventoryView() {
   if (!products.length) {
     return (
       <div>
-        <div className="db-sec-head"><div><h2>{t('db_inventory')}</h2><div className="sub">{t('inv_no_match')}</div></div></div>
+        <div className="db-sec-head"><div><h2>{t('db_inventory')}</h2></div></div>
         <div className="stock-table"><div className="stk-empty">{I.box({ width: 28, height: 28 })} {t('inv_no_match')}</div></div>
       </div>
     );
@@ -162,100 +325,148 @@ export default function InventoryView() {
         <div className="head-acts">
           <button className="btn btn-soft btn-sm" onClick={() => {
             const target = rows.find((r) => r.state === 'out' || r.state === 'low') || rows[0];
-            if (target) setRestockTarget({ product: target.p, variant: target.v });
+            if (target) setModal({ k: 'restock', p: target.p, v: target.v });
           }}>
             {I.box({ width: 16, height: 16 })} {t('inv_restock')}
           </button>
-        </div>
-      </div>
-
-      <div className="inv-bar">
-        <div className="inline-search grow">
-          {I.search({ width: 16, height: 16 })}
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('sf_search') || 'Search by name or barcode'} />
-        </div>
-        <div className="chip-row">
-          <button className={`pick-chip${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}>
-            {t('g_all')} <i>{counts.all}</i>
-          </button>
-          <button className={`pick-chip${filter === 'low' ? ' on' : ''}`} onClick={() => setFilter('low')}>
-            {t('inv_low_stock')} <i>{counts.low}</i>
-          </button>
-          <button className={`pick-chip${filter === 'out' ? ' on' : ''}`} onClick={() => setFilter('out')}>
-            {t('inv_sold_out')} <i>{counts.out}</i>
+          <button className="btn btn-soft btn-sm" onClick={() => {
+            const target = rows[0];
+            if (target) setModal({ k: 'adjust', p: target.p, v: target.v });
+          }}>
+            {I.edit({ width: 16, height: 16 })} {t('adj_title')}
           </button>
         </div>
       </div>
 
-      <div className="stock-table">
-        <div className="stk-head">
-          <span className="stk-c-sel"></span>
-          <span className="stk-c-prod">{t('db_products')}</span>
-          <span className="stk-c-bc">{t('inv_qty')}</span>
-          <span className="stk-c-qty">{t('inv_qty')}</span>
-          <span className="stk-c-cost">AVG COST</span>
-          <span className="stk-c-st">STATUS</span>
-          <span className="stk-c-last"></span>
-          <span className="stk-c-more"></span>
-        </div>
+      <div className="inv-tabs">
+        <button className={view === 'stock' ? 'on' : ''} onClick={() => setView('stock')}>
+          {I.box({ width: 16, height: 16 })} {t('inv_tab_stock')}
+        </button>
+        <button className={view === 'history' ? 'on' : ''} onClick={() => setView('history')}>
+          {I.undo ? I.undo({ width: 16, height: 16 }) : I.clock({ width: 16, height: 16 })} {t('inv_tab_hist')}
+        </button>
+      </div>
 
-        {shown.length === 0 ? (
-          <div className="stk-empty">{t('inv_no_match')}</div>
-        ) : (
-          shown.map((r) => {
-            const name = getProductName(r.p);
-            const vLabel = parseVariantLabel(r.v.optionsJson);
-            return (
-              <div key={r.v.id} className="stk-row">
-                <span className="stk-c-sel"></span>
-                <div className="stk-c-prod">
-                  <div className="stk-photo" style={{ background: r.p.tone || '#e8e8e4' }}>
-                    {variantImage(r.p, r.v)
-                      ? <img src={variantImage(r.p, r.v)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>{name.charAt(0)}</span>}
+      {view === 'history' && <HistoryView />}
+
+      {view === 'stock' && (
+        <>
+          <div className="inv-bar">
+            <div className="inline-search grow">
+              {I.search({ width: 16, height: 16 })}
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('sf_search') || 'Search'} />
+            </div>
+            <div className="chip-row">
+              <button className={`pick-chip${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}>
+                {t('g_all')} <i>{counts.all}</i>
+              </button>
+              <button className={`pick-chip${filter === 'low' ? ' on' : ''}`} onClick={() => setFilter('low')}>
+                {t('inv_low_stock')} <i>{counts.low}</i>
+              </button>
+              <button className={`pick-chip${filter === 'out' ? ' on' : ''}`} onClick={() => setFilter('out')}>
+                {t('inv_sold_out')} <i>{counts.out}</i>
+              </button>
+            </div>
+          </div>
+
+          <div className="stock-table">
+            <div className="stk-head">
+              <span className="stk-c-sel"></span>
+              <span className="stk-c-prod">{t('db_products')}</span>
+              <span className="stk-c-bc">{t('inv_qty')}</span>
+              <span className="stk-c-qty">{t('inv_qty')}</span>
+              <span className="stk-c-cost">AVG COST</span>
+              <span className="stk-c-st">STATUS</span>
+              <span className="stk-c-last"></span>
+              <span className="stk-c-more"></span>
+            </div>
+
+            {shown.length === 0 ? (
+              <div className="stk-empty">{t('inv_no_match')}</div>
+            ) : (
+              shown.map((r) => {
+                const name = getProductName(r.p);
+                const vLabel = parseVariantLabel(r.v.optionsJson);
+                const imgUrl = variantImage(r.p, r.v);
+                return (
+                  <div key={r.v.id} className="stk-row">
+                    <span className="stk-c-sel"></span>
+                    <div className="stk-c-prod">
+                      <div className="stk-photo" style={{ background: r.p.tone || '#e8e8e4' }}>
+                        {imgUrl
+                          ? <img src={imgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>{name.charAt(0)}</span>}
+                      </div>
+                      <div className="stk-name">
+                        <b>{name}</b>
+                        <span>{vLabel}</span>
+                      </div>
+                    </div>
+                    <span className="stk-c-bc">
+                      {r.v.barcode
+                        ? <span className="bc-btn">{I.barcode({ width: 14, height: 14 })} {r.v.barcode}</span>
+                        : <span className="bc-btn empty">{I.barcode({ width: 14, height: 14 })} —</span>}
+                    </span>
+                    <span className="stk-c-qty">
+                      <button
+                        className={`qty-btn${(r.v.qty || 0) <= 0 ? ' zero' : ''}`}
+                        title={t('adj_title')}
+                        onClick={() => setModal({ k: 'adjust', p: r.p, v: r.v })}
+                      >
+                        {r.v.qty || 0}
+                      </button>
+                    </span>
+                    <span className={`stk-c-cost${r.v.avgCost == null ? ' none' : ''}`}>
+                      {r.v.avgCost != null ? fmtNum(r.v.avgCost) : '—'}
+                    </span>
+                    <span className="stk-c-st">
+                      <StatusPill state={r.state} />
+                    </span>
+                    <span className="stk-c-last"></span>
+                    <span className="stk-c-more">
+                      <button className="icon-btn sm" title={t('inv_restock')} onClick={() => setModal({ k: 'restock', p: r.p, v: r.v })}>
+                        {I.plus({ width: 16, height: 16 })}
+                      </button>
+                      <button className="icon-btn sm" onClick={() => setMenu(menu === r.v.id ? null : r.v.id)}>
+                        {I.more ? I.more({ width: 17, height: 17 }) : '⋯'}
+                      </button>
+                      {menu === r.v.id && (
+                        <RowMenu
+                          row={r}
+                          onAdjust={(row) => setModal({ k: 'adjust', p: row.p, v: row.v })}
+                          onRestock={(row) => setModal({ k: 'restock', p: row.p, v: row.v })}
+                          onClose={() => setMenu(null)}
+                        />
+                      )}
+                    </span>
                   </div>
-                  <div className="stk-name">
-                    <b>{name}</b>
-                    <span>{vLabel}</span>
-                  </div>
-                </div>
-                <span className="stk-c-bc">
-                  {r.v.barcode
-                    ? <span className="bc-btn">{I.barcode({ width: 14, height: 14 })} {r.v.barcode}</span>
-                    : <span className="bc-btn empty">{I.barcode({ width: 14, height: 14 })} —</span>}
-                </span>
-                <span className="stk-c-qty">
-                  <button
-                    className={`qty-btn${(r.v.qty || 0) <= 0 ? ' zero' : ''}`}
-                    onClick={() => setRestockTarget({ product: r.p, variant: r.v })}
-                  >
-                    {r.v.qty || 0}
-                  </button>
-                </span>
-                <span className={`stk-c-cost${r.v.avgCost == null ? ' none' : ''}`}>
-                  {r.v.avgCost != null ? fmtNum(r.v.avgCost) : '—'}
-                </span>
-                <span className="stk-c-st">
-                  <StatusPill state={r.state} />
-                </span>
-                <span className="stk-c-last"></span>
-                <span className="stk-c-more">
-                  <button className="icon-btn sm" title={t('inv_restock')} onClick={() => setRestockTarget({ product: r.p, variant: r.v })}>
-                    {I.plus({ width: 15, height: 15 })}
-                  </button>
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
+                );
+              })
+            )}
+          </div>
+        </>
+      )}
 
-      {restockTarget && (
+      {modal?.k === 'restock' && (
         <RestockModal
-          product={restockTarget.product}
-          variant={restockTarget.variant}
-          onClose={() => setRestockTarget(null)}
-          onRestock={(vId, pId, qty, cost, note) => restockVariant(vId, pId, qty, cost, note)}
+          product={modal.p}
+          variant={modal.v}
+          onClose={() => setModal(null)}
+          onRestock={async (vId, pId, qty, cost, note) => {
+            await restockVariant(vId, pId, qty, cost, note);
+            toast(t('inv_done'));
+          }}
+        />
+      )}
+      {modal?.k === 'adjust' && (
+        <AdjustModal
+          product={modal.p}
+          variant={modal.v}
+          onClose={() => setModal(null)}
+          onAdjust={async (vId, pId, delta, reason, note) => {
+            await adjustStock(vId, pId, delta, reason, note);
+            toast(t('inv_done'));
+          }}
         />
       )}
     </div>
