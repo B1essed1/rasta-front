@@ -1,18 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { t, onLangChange, fmtPrice } from '../../i18n';
 import { useShopStore, totalQty, stockState } from '../../store/shopStore';
-import EmptyState from '../../components/ui/EmptyState';
 import { I } from '../../components/ui/Icons';
 
 function getProductName(product) {
   return product.nameEn || product.nameUz || product.nameRu || '';
 }
 
-function StockBadge({ state }) {
+/* ---- grid override: 5 columns instead of the design's 8 ---- */
+const GRID_COLS = 'minmax(0,1fr) 80px 110px 110px 40px';
+
+function StatusPill({ state }) {
+  const cls = state === 'in' ? 'ok' : state === 'low' ? 'low' : 'out';
   const labels = { in: t('inv_in_stock'), low: t('inv_low_stock'), sold: t('inv_sold_out') };
-  return <span className={`sf-stock-badge sf-stock-badge--${state}`}>{labels[state]}</span>;
+  return (
+    <span className={`st-pill ${cls}`}>
+      <i />{labels[state]}
+    </span>
+  );
 }
 
+/* ---- Restock modal ---- */
 function RestockModal({ product, variant, onClose, onRestock }) {
   const [qty, setQty] = useState('');
   const [note, setNote] = useState('');
@@ -35,49 +43,69 @@ function RestockModal({ product, variant, onClose, onRestock }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0 }}>{t('inv_restock')}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}>&times;</button>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+        <div className="modal-header">
+          <h3 className="modal-title">{t('inv_restock')}</h3>
+          <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
-        <p style={{ color: '#666', margin: '0 0 4px', fontSize: 14 }}>
-          <b>{getProductName(product)}</b>
-          {vLabel && <span style={{ color: '#999' }}> — {vLabel}</span>}
-        </p>
-        <p style={{ color: '#888', fontSize: 13, margin: '0 0 16px' }}>
-          {t('inv_qty')}: {variant.qty || 0} {t('inv_units')}
-        </p>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{t('inv_add_stock')}</label>
-            <input
-              type="number"
-              min="1"
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              placeholder="0"
-              className="form-input"
-              autoFocus
-              style={{ width: '100%' }}
-            />
+        <div style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+            <div
+              className="stk-photo"
+              style={{ background: product.tone || '#e8e8e4' }}
+            >
+              {product.images?.[0]?.url ? (
+                <img
+                  src={product.images[0].url}
+                  alt={getProductName(product)}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15 }}>
+                  {getProductName(product).charAt(0)}
+                </span>
+              )}
+            </div>
+            <div>
+              <b style={{ fontSize: 14 }}>{getProductName(product)}</b>
+              {vLabel && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--soft)' }}>{vLabel}</span>}
+              <span style={{ display: 'block', fontSize: 12.5, color: 'var(--faint)' }}>
+                {t('inv_qty')}: {variant.qty || 0} {t('inv_units')}
+              </span>
+            </div>
           </div>
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{t('inv_note')}</label>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="form-input"
-              style={{ width: '100%' }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn btn-soft btn-sm" onClick={onClose}>{t('g_cancel')}</button>
-            <button type="submit" className="btn btn-accent btn-sm" disabled={!qty || parseInt(qty, 10) <= 0 || saving}>
-              {I.plus({ width: 14, height: 14 })} {t('inv_restock')}
-            </button>
-          </div>
-        </form>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>{t('inv_add_stock')}</label>
+              <input
+                type="number"
+                min="1"
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                placeholder="0"
+                className="form-input"
+                autoFocus
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>{t('inv_note')}</label>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="form-input"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-soft btn-sm" onClick={onClose}>{t('g_cancel')}</button>
+              <button type="submit" className="btn btn-accent btn-sm" disabled={!qty || parseInt(qty, 10) <= 0 || saving}>
+                {I.plus({ width: 14, height: 14 })} {t('inv_restock')}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -86,6 +114,7 @@ function RestockModal({ product, variant, onClose, onRestock }) {
 export default function InventoryView() {
   const [, setTick] = useState(0);
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [restockTarget, setRestockTarget] = useState(null);
   const shop = useShopStore((s) => s.shop);
   const products = useShopStore((s) => s.products);
@@ -95,6 +124,7 @@ export default function InventoryView() {
   useEffect(() => onLangChange(() => setTick((n) => n + 1)), []);
   useEffect(() => { if (shop?.id) fetchProducts(); }, [shop?.id, fetchProducts]);
 
+  /* ---- counts for filter chips ---- */
   const counts = useMemo(() => {
     let sold = 0, low = 0, inStock = 0;
     products.forEach((p) => {
@@ -106,13 +136,40 @@ export default function InventoryView() {
     return { sold, low, inStock, total: products.length };
   }, [products]);
 
+  /* ---- filtered + searched list ---- */
   const filtered = useMemo(() => {
-    if (filter === 'all') return products;
-    return products.filter((p) => stockState(p) === filter);
-  }, [products, filter]);
+    let list = products;
+    if (filter !== 'all') list = list.filter((p) => stockState(p) === filter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((p) => {
+        const name = getProductName(p).toLowerCase();
+        if (name.includes(q)) return true;
+        // also search variant barcodes
+        return (p.variants || []).some((v) => v.barcode && v.barcode.toLowerCase().includes(q));
+      });
+    }
+    return list;
+  }, [products, filter, search]);
 
+  /* ---- early return: no products at all ---- */
   if (!products.length) {
-    return <EmptyState icon="&#128230;" title={t('db_inventory')} description={t('pr_empty_t')} />;
+    return (
+      <div>
+        <div className="db-sec-head">
+          <div>
+            <h2>{t('db_inventory')}</h2>
+            <div className="sub">0 {t('inv_total_items')}</div>
+          </div>
+        </div>
+        <div className="stock-table">
+          <div className="stk-empty">
+            {I.box({ width: 32, height: 32, style: { opacity: 0.35, marginBottom: 8 } })}
+            <div>{t('inv_no_match')}</div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   async function handleRestock(variantId, productId, qty, unitCost, note) {
@@ -121,91 +178,204 @@ export default function InventoryView() {
 
   return (
     <div>
+      {/* ---- header ---- */}
       <div className="db-sec-head">
         <div>
           <h2>{t('db_inventory')}</h2>
           <div className="sub">{counts.total} {t('inv_total_items')}</div>
         </div>
-      </div>
-
-      <div className="mini-stats four" style={{ marginBottom: 20 }}>
-        <div className="mini-stat" onClick={() => setFilter('all')} style={{ cursor: 'pointer', opacity: filter === 'all' ? 1 : 0.6 }}>
-          <div className="ms-val">{counts.total}</div>
-          <div className="ms-lab">{t('g_all')}</div>
-        </div>
-        <div className="mini-stat" onClick={() => setFilter('in')} style={{ cursor: 'pointer', opacity: filter === 'in' ? 1 : 0.6 }}>
-          <div className="ms-val" style={{ color: '#1a7f37' }}>{counts.inStock}</div>
-          <div className="ms-lab">{t('inv_in_stock')}</div>
-        </div>
-        <div className="mini-stat" onClick={() => setFilter('low')} style={{ cursor: 'pointer', opacity: filter === 'low' ? 1 : 0.6 }}>
-          <div className="ms-val" style={{ color: '#b45309' }}>{counts.low}</div>
-          <div className="ms-lab">{t('inv_low_stock')}</div>
-        </div>
-        <div className="mini-stat" onClick={() => setFilter('sold')} style={{ cursor: 'pointer', opacity: filter === 'sold' ? 1 : 0.6 }}>
-          <div className="ms-val" style={{ color: '#6b6b6b' }}>{counts.sold}</div>
-          <div className="ms-lab">{t('inv_sold_out')}</div>
+        <div className="head-acts">
+          <button className="btn btn-accent btn-sm" onClick={() => {
+            // open restock for the first variant of the first low/out product, or first product
+            const target = products.find((p) => stockState(p) === 'sold' || stockState(p) === 'low') || products[0];
+            if (target) {
+              const v = (target.variants || [])[0];
+              if (v) setRestockTarget({ product: target, variant: v });
+            }
+          }}>
+            {I.plus({ width: 15, height: 15 })} {t('inv_restock')}
+          </button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>{t('inv_no_match')}</div>
-      ) : (
-        <div className="stock-table">
-          {filtered.map((product) => {
+      {/* ---- filter bar ---- */}
+      <div className="inv-bar">
+        <div className="inline-search grow">
+          {I.barcode({ width: 16, height: 16, style: { opacity: 0.4, flexShrink: 0 } })}
+          <input
+            type="text"
+            placeholder={t('inv_qty') + ' / ' + t('db_inventory') + '...'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <button className={`pick-chip${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}>
+          {t('g_all')} <i>{counts.total}</i>
+        </button>
+        <button className={`pick-chip${filter === 'low' ? ' on' : ''}`} onClick={() => setFilter('low')}>
+          {t('inv_low_stock')} <i>{counts.low}</i>
+        </button>
+        <button className={`pick-chip${filter === 'sold' ? ' on' : ''}`} onClick={() => setFilter('sold')}>
+          {t('inv_sold_out')} <i>{counts.sold}</i>
+        </button>
+      </div>
+
+      {/* ---- stock table ---- */}
+      <div className="stock-table">
+        {/* table header */}
+        <div className="stk-head" style={{ gridTemplateColumns: GRID_COLS }}>
+          <span>Product</span>
+          <span>{t('inv_qty')}</span>
+          <span>Cost</span>
+          <span>Status</span>
+          <span></span>
+        </div>
+
+        {/* table rows */}
+        {filtered.length === 0 ? (
+          <div className="stk-empty">
+            {I.search({ width: 24, height: 24, style: { opacity: 0.3, marginBottom: 6 } })}
+            <div>{t('inv_no_match')}</div>
+          </div>
+        ) : (
+          filtered.map((product) => {
             const name = getProductName(product);
             const state = stockState(product);
             const total = totalQty(product);
             const variants = product.variants || [];
+            const hasMulti = variants.length > 1;
+
+            // average cost across variants
+            const avgCost = variants.length
+              ? variants.reduce((s, v) => s + (Number(v.avgCost) || 0), 0) / variants.length
+              : 0;
 
             return (
-              <div key={product.id} className="stk-row" style={{ background: '#fff', border: '1px solid var(--line, #e7e0d5)', borderRadius: 12, padding: 16, marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: variants.length > 1 ? 12 : 0 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', background: product.tone || '#e8e8e4', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {product.images?.[0]?.url ? (
-                      <img src={product.images[0].url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{name.charAt(0)}</span>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{name}</div>
-                    <div style={{ fontSize: 13, color: '#888', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {total} {t('inv_units')} <StockBadge state={state} />
+              <React.Fragment key={product.id}>
+                {/* main product row */}
+                <div className="stk-row" style={{ gridTemplateColumns: GRID_COLS }}>
+                  {/* product cell */}
+                  <div className="stk-c-prod">
+                    <div className="stk-photo" style={{ background: product.tone || '#e8e8e4' }}>
+                      {product.images?.[0]?.url ? (
+                        <img
+                          src={product.images[0].url}
+                          alt={name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 15 }}>
+                          {name.charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="stk-name">
+                      <b>{name}</b>
+                      {hasMulti && <span>{variants.length} variants</span>}
                     </div>
                   </div>
-                  {variants.length === 1 && (
+
+                  {/* qty cell */}
+                  <div className="stk-c-qty">
                     <button
-                      className="btn btn-soft btn-sm"
-                      onClick={() => setRestockTarget({ product, variant: variants[0] })}
+                      className={`qty-btn${total === 0 ? ' zero' : ''}`}
+                      onClick={() => {
+                        if (!hasMulti && variants[0]) {
+                          setRestockTarget({ product, variant: variants[0] });
+                        }
+                      }}
+                      title={hasMulti ? '' : t('inv_restock')}
                     >
-                      {I.plus({ width: 14, height: 14 })} {t('inv_restock')}
+                      {total}
                     </button>
-                  )}
+                  </div>
+
+                  {/* cost cell */}
+                  <div className={`stk-c-cost${avgCost === 0 ? ' none' : ''}`}>
+                    {avgCost > 0 ? fmtPrice(avgCost) : '---'}
+                  </div>
+
+                  {/* status cell */}
+                  <div className="stk-c-st">
+                    <StatusPill state={state} />
+                  </div>
+
+                  {/* actions cell */}
+                  <div className="stk-c-more">
+                    {!hasMulti && variants[0] && (
+                      <button
+                        className="icon-btn sm"
+                        title={t('inv_restock')}
+                        onClick={() => setRestockTarget({ product, variant: variants[0] })}
+                      >
+                        {I.plus({ width: 15, height: 15 })}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {variants.length > 1 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 56 }}>
-                    {variants.map((v) => (
-                      <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderTop: '1px solid var(--line-2, #efe9df)' }}>
-                        <span style={{ flex: 1, color: '#555' }}>{v.optionsJson || '—'}</span>
-                        <span style={{ fontWeight: 600, minWidth: 40, textAlign: 'right' }}>{v.qty || 0}</span>
-                        <span style={{ color: '#999', fontSize: 12 }}>{t('inv_units')}</span>
+
+                {/* variant sub-rows for multi-variant products */}
+                {hasMulti && variants.map((v) => {
+                  const vState = (v.qty || 0) === 0 ? 'sold' : (v.qty || 0) <= (v.threshold || 5) ? 'low' : 'in';
+                  return (
+                    <div
+                      key={v.id}
+                      className="stk-row"
+                      style={{
+                        gridTemplateColumns: GRID_COLS,
+                        background: 'var(--paper)',
+                        paddingLeft: 62,
+                      }}
+                    >
+                      {/* variant name */}
+                      <div className="stk-c-prod" style={{ paddingLeft: 0 }}>
+                        <div className="stk-name">
+                          <b style={{ fontSize: 12.5, fontWeight: 600 }}>{v.optionsJson || '---'}</b>
+                          {v.barcode && <span>{v.barcode}</span>}
+                        </div>
+                      </div>
+
+                      {/* qty */}
+                      <div className="stk-c-qty">
                         <button
-                          className="btn btn-soft btn-sm"
-                          style={{ padding: '3px 8px', fontSize: 12 }}
+                          className={`qty-btn${(v.qty || 0) === 0 ? ' zero' : ''}`}
                           onClick={() => setRestockTarget({ product, variant: v })}
+                          title={t('inv_restock')}
                         >
-                          {I.plus({ width: 12, height: 12 })}
+                          {v.qty || 0}
                         </button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
+                      {/* cost */}
+                      <div className={`stk-c-cost${!v.avgCost ? ' none' : ''}`}>
+                        {v.avgCost ? fmtPrice(v.avgCost) : '---'}
+                      </div>
+
+                      {/* status */}
+                      <div className="stk-c-st">
+                        <StatusPill state={vState} />
+                      </div>
+
+                      {/* action */}
+                      <div className="stk-c-more">
+                        <button
+                          className="icon-btn sm"
+                          title={t('inv_restock')}
+                          onClick={() => setRestockTarget({ product, variant: v })}
+                        >
+                          {I.plus({ width: 15, height: 15 })}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            );
+          })
+        )}
+      </div>
+
+      {/* ---- restock modal ---- */}
       {restockTarget && (
         <RestockModal
           product={restockTarget.product}
