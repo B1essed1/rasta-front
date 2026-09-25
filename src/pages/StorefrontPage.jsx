@@ -1283,7 +1283,7 @@ export default function StorefrontPage() {
           </div>
           {shop.location && <p className="sf-footer__location">{shop.location}</p>}
           <p className="sf-footer__platform">
-            <a href="https://rasta.uz" target="_blank" rel="noopener noreferrer">rasta.uz</a>
+            <a href="https://rastashops.com" target="_blank" rel="noopener noreferrer">rastashops.com</a>
           </p>
         </footer>
       </div>

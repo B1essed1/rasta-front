@@ -401,7 +401,7 @@ function ReviewStep({ data }) {
         </div>
         <div className="ob-review__item">
           <span className="ob-review__label">{t('ob_handle')}</span>
-          <span className="ob-review__value">rasta.uz/{data.handle || '—'}</span>
+          <span className="ob-review__value">rastashops.com/{data.handle || '—'}</span>
         </div>
         <div className="ob-review__item">
           <span className="ob-review__label">{t('ob_category')}</span>
@@ -481,7 +481,7 @@ export default function Onboarding() {
         <div className="ob-page__card ob-congrats">
           <div className="ob-congrats__icon">&#127881;</div>
           <h2>{t('ob_congrats')}</h2>
-          <p>rasta.uz/{data.handle}</p>
+          <p>rastashops.com/{data.handle}</p>
           <div className="ob-congrats__actions">
             <button className="btn btn--primary" onClick={() => navigate('/dashboard')}>
               {t('ob_go_dashboard')}

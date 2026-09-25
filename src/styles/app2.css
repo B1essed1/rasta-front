@@ -1,4 +1,4 @@
-/* ===== rasta.uz v2 — inventory, POS, sales, settings, auth, shared bits ===== */
+/* ===== rastashops.com v2 — inventory, POS, sales, settings, auth, shared bits ===== */
 
 /* ---- toast ---- */
 .toast-host{position:fixed; left:50%; bottom:86px; transform:translateX(-50%); z-index:400; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;}

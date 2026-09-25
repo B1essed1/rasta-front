@@ -64,7 +64,7 @@ function ShopSwitcher({ shop, shops, tone, onPick }) {
       </div>
       <div className="nm">
         <b>{shop?.name || ''}</b>
-        <span>rasta.uz/{shop?.handle || ''}</span>
+        <span>rastashops.com/{shop?.handle || ''}</span>
       </div>
       <span className="cv">{I.layers({ width: 16, height: 16 })}</span>
       {open && (

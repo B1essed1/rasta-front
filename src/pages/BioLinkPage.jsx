@@ -122,7 +122,7 @@ export default function BioLinkPage() {
   links.push({
     key: 'shop', primary: true,
     label: t('bio_open_shop'),
-    sub: `rasta.uz/${handle}`,
+    sub: `rastashops.com/${handle}`,
     href: `/${handle}`,
     icon: '🛍️',
   });
@@ -214,7 +214,7 @@ export default function BioLinkPage() {
         )}
 
         <div className="bio-foot">
-          {t('bio_made')} <a href="https://rasta.uz"><b>rasta.uz</b></a>
+          {t('bio_made')} <a href="https://rastashops.com"><b>rastashops.com</b></a>
         </div>
       </div>
     </div>

@@ -44,7 +44,7 @@ export default function HomeView() {
 
   const lang = getLang();
   const handle = shop?.handle || '';
-  const url = 'rasta.uz/' + handle;
+  const url = 'rastashops.com/' + handle;
   const live = (shop?.status || 'DRAFT').toUpperCase() === 'LIVE';
 
   // ---- this month -------------------------------------------------------

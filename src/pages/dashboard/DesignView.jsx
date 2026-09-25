@@ -189,7 +189,7 @@ export default function DesignView() {
                 <h3 style={{ fontFamily: previewFont.family, color: previewPalette.ink }}>
                   {shop?.name || 'My Shop'}
                 </h3>
-                <span style={{ color: previewPalette.soft }}>rasta.uz/{shop?.handle || 'myshop'}</span>
+                <span style={{ color: previewPalette.soft }}>rastashops.com/{shop?.handle || 'myshop'}</span>
               </div>
             </div>
             <div className={`design-preview__grid design-preview__grid--${config.layout}`}>
