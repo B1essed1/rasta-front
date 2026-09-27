@@ -1,0 +1,60 @@
+/* ============================================================================
+   responsive.css — phone/tablet adaptation
+   ============================================================================
+
+   Loaded LAST, after compat.css, so every rule here wins the cascade without
+   a single desktop rule being edited. Everything below is inside a
+   `max-width` query, so by construction nothing here can change the layout
+   above 1024px: the desktop design stays the source of truth.
+
+   This is NOT a mobile-first rewrite. Desktop is authored elsewhere; this file
+   only adapts it downwards.
+
+   Breakpoints — the codebase already had ten ad-hoc values (980/920/900/768/
+   760/720/680/640/560/520). Those are left alone; new work uses these three:
+
+     --bp-tablet : 1024px   two-column shells collapse
+     --bp-mobile :  768px   sidebar becomes a drawer, grids go 1-2 up
+     --bp-phone  :  480px   single column, tightened spacing
+
+   CSS custom properties cannot be used in media queries, so the numbers are
+   written literally. They are recorded here as the canonical scale.
+   ============================================================================ */
+
+:root {
+  /* Documentation + usable for non-media-query maths (e.g. container widths). */
+  --bp-tablet: 1024px;
+  --bp-mobile: 768px;
+  --bp-phone: 480px;
+
+  /* Minimum comfortable tap target. WCAG 2.5.8 asks for 24px; 44px is the
+     iOS HIG figure and the one that actually feels right under a thumb. */
+  --tap: 44px;
+}
+
+/* ---------------------------------------------------------------------------
+   Global safety net
+   ---------------------------------------------------------------------------
+   A single element wider than the viewport makes the entire page scroll
+   sideways, which is the most common and most jarring mobile failure. These
+   rules stop the usual culprits (media, long unbroken strings) without
+   hiding overflow, which would silently clip real content.
+   --------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  html, body {
+    overflow-x: hidden;
+    /* Prevent iOS Safari inflating font sizes in landscape. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  img, svg, video, canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Shop handles, product names and URLs are user-supplied and can be long
+     enough to push a card wider than the screen. */
+  h1, h2, h3, p, a, span, td, th, li, button {
+    overflow-wrap: break-word;
+  }
+}

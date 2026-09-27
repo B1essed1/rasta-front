@@ -15,6 +15,9 @@ import './styles/app2.css';
 // Scope it under the chat root before importing it with ChatsView.
 import './styles/bio.css';
 import './styles/compat.css';
+// Last on purpose: every rule in here is inside a max-width query, so it can
+// only ever adapt the design downwards and never touches the desktop cascade.
+import './styles/responsive.css';
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
