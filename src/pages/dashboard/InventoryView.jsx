@@ -730,15 +730,20 @@ export default function InventoryView() {
     });
   }, [rows, filter, search]);
 
-  // handlers
+  const fetchMovements = useShopStore((s) => s.fetchMovements);
+
   async function handleRestock(vId, pId, qty, cost, note) {
     await restockVariant(vId, pId, qty, cost, note);
     toast(t('inv_done'));
+    fetchProducts();
+    fetchMovements();
   }
 
   async function handleAdjust(vId, pId, delta, reason, note) {
     await adjustStock(vId, pId, delta, reason, note);
     toast(t('inv_done'));
+    fetchProducts();
+    fetchMovements();
   }
 
   // empty state
