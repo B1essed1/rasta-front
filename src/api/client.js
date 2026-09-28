@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.PROD ? 'https://dev-api.rastashops.com/api' : '/api',
   headers: { 'Content-Type': 'application/json' },
 });
 
