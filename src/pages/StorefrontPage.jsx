@@ -537,23 +537,26 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
   const swatchAttr = pickAttrs.find(a => a.swatch) || null;
   const colorPick = swatchAttr ? sel[swatchAttr.id] : null;
   const variantImages = useMemo(() => {
-    if (!chosen && !colorPick) return [];
-    // First try exact variant match
+    // If a color is picked, show that color's images
     if (chosen) {
       const exact = allImages.filter(img => img.variantId === chosen.id);
       if (exact.length) return exact;
     }
-    // Then try matching any variant with the same colour
-    if (colorPick) {
+    if (colorPick && swatchAttr) {
       const colorVariantIds = (product.variants || [])
         .filter(v => (v.options || {})[swatchAttr.id] === colorPick)
         .map(v => v.id);
       const byColor = allImages.filter(img => img.variantId && colorVariantIds.includes(img.variantId));
       if (byColor.length) return byColor;
     }
+    // No color selected — pick the first variant that has images
+    const variantsWithImages = (product.variants || []).filter(v => allImages.some(img => img.variantId === v.id));
+    if (variantsWithImages.length) {
+      return allImages.filter(img => img.variantId === variantsWithImages[0].id);
+    }
     return [];
   }, [allImages, chosen, colorPick, product.variants, swatchAttr]);
-  const galleryImages = variantImages.length > 0 ? variantImages : (defaultImages.length > 0 ? defaultImages : allImages);
+  const galleryImages = variantImages.length > 0 ? variantImages : defaultImages;
 
   // Reset on product change
   useEffect(() => { setGalIdx(0); setSel({}); setQty(1); }, [product.id]);
