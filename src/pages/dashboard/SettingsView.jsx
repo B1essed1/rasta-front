@@ -344,6 +344,8 @@ export default function SettingsView() {
         coverUrl: shop.coverUrl || '',
         tagline: shop.tagline || { uz: '', ru: '', en: '' },
         status: shop.status || 'LIVE',
+        address: shop.address || '',
+        landmark: shop.landmark || '',
       });
     }
   }, [shop]);

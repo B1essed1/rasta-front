@@ -146,6 +146,8 @@ export const useShopStore = create((set, get) => ({
         instagram: data.instagram,
         telegram: data.telegram,
         phone: data.phone,
+        address: data.address || undefined,
+        landmark: data.landmark || undefined,
       };
       const res = await api.put(`/shops/${get().shop.id}`, payload);
       set({ shop: res.data, loading: false });
