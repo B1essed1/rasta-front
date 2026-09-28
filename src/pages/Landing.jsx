@@ -227,20 +227,51 @@ export default function Landing() {
                   labaratory.rastashops.com/<b>lolaatelier</b>
                 </span>
               </div>
-              <div className="site-view ph" style={{ '--ph-tone': '#e8d5c4', padding: '24px' }}>
-                <div style={{ height: '60px', borderRadius: '10px', marginBottom: '16px', background: 'linear-gradient(135deg, #c7b09a 0%, #e8d5c4 100%)' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                  <div className="ph" style={{ '--ph-tone': '#c7b09a', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff' }}>LA</div>
-                  <span style={{ fontWeight: 600, fontSize: '15px' }}>Lola Atelier</span>
+              <div className="site-view" style={{ padding: '14px 16px', background: '#faf8f4', overflow: 'hidden' }}>
+                {/* Search + filter bar */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e7e0d5', borderRadius: 999, padding: '8px 14px', fontSize: 13, color: '#9a9085' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    {t('sf_search')}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e7e0d5', borderRadius: 999, padding: '8px 12px', fontSize: 12, fontWeight: 600, color: '#6f655a', whiteSpace: 'nowrap' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+                    Filtrlar
+                  </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {['#e8d5c4', '#d4bfab', '#c9a88e', '#bfa48c'].map((c, i) => (
-                    <div key={i} className="ph" style={{ '--ph-tone': c, aspectRatio: '1', borderRadius: '10px' }}>
-                      <span style={{ position: 'absolute', bottom: '6px', left: '6px', fontSize: '11px', fontWeight: 600, color: '#fff', background: 'rgba(0,0,0,.45)', padding: '2px 7px', borderRadius: '6px', zIndex: 1 }}>
-                        {['120k', '89k', '245k', '67k'][i]}
-                      </span>
+                {/* Quick action pill */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e7e0d5', borderRadius: 12, padding: '8px 14px', fontSize: 13, fontWeight: 600, color: '#1b1714', marginBottom: 14 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E4573B" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                  {t('db_add')}
+                </div>
+                {/* Product grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { name: 'Bahor midi ko\'ylagi', price: '640 000', bg: 'linear-gradient(145deg,#c9a88e,#a0826a)', letter: 'B' },
+                    { name: 'Keng zig\'ir shim', price: '410 000', bg: 'linear-gradient(145deg,#d4c4b0,#b8a896)', letter: 'K' },
+                  ].map((p, i) => (
+                    <div key={i} style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: '1px solid #e7e0d5' }}>
+                      <div style={{ aspectRatio: '3/4', background: p.bg, position: 'relative' }}>
+                        <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.3)', fontSize: 48, fontWeight: 700 }}>{p.letter}</span>
+                      </div>
+                      <div style={{ padding: '8px 10px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 650, color: '#1b1714', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#E4573B', marginTop: 2 }}>{p.price} so'm</div>
+                      </div>
                     </div>
                   ))}
+                </div>
+                {/* Bottom row with badges */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, overflow: 'hidden' }}>
+                  <div style={{ flex: 1, height: 56, borderRadius: 12, background: 'linear-gradient(145deg,#7a9a6e,#5a7a4e)', position: 'relative' }}>
+                    <span style={{ position: 'absolute', bottom: 6, left: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: '#1a7f37', padding: '2px 7px', borderRadius: 6 }}>{t('sf_in_stock')}</span>
+                  </div>
+                  <div style={{ flex: 1, height: 56, borderRadius: 12, background: 'linear-gradient(145deg,#b8a896,#9a8876)', position: 'relative', overflow: 'hidden' }}>
+                    <span style={{ position: 'absolute', bottom: 6, right: 8, fontSize: 10, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,.5)', padding: '3px 8px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg>
+                      {t('db_inventory')}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
