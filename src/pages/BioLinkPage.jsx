@@ -141,6 +141,22 @@ export default function BioLinkPage() {
           })}
         </div>
 
+        {/* Location */}
+        {shop.location && (
+          <div className="bio-shelf" style={{ marginTop: 22 }}>
+            <div className="bio-shelf-t">{t('ob_city')}</div>
+            <div className="bio-btn" style={{ cursor: 'default' }}>
+              <span className="bio-btn-ic">
+                <svg viewBox="0 0 24 24" fill="none" width="19" height="19"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><circle cx="12" cy="10" r="2.4" stroke="currentColor" strokeWidth="1.7"/></svg>
+              </span>
+              <span className="bio-btn-tx">
+                <b>{shop.location}</b>
+                {shop.address && <i>{shop.address}</i>}
+              </span>
+            </div>
+          </div>
+        )}
+
         {products.length > 0 && (
           <div className="bio-shelf">
             <div className="bio-shelf-t">{t('bio_featured')}</div>
