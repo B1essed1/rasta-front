@@ -558,8 +558,20 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
   }, [allImages, chosen, colorPick, product.variants, swatchAttr]);
   const galleryImages = variantImages.length > 0 ? variantImages : defaultImages;
 
-  // Reset on product change
-  useEffect(() => { setGalIdx(0); setSel({}); setQty(1); }, [product.id]);
+  // Reset on product change — pre-select the first color that has images
+  useEffect(() => {
+    setGalIdx(0); setQty(1);
+    const initial = {};
+    if (swatchAttr && (offered[swatchAttr.id] || []).length) {
+      const allImgs = product.images || [];
+      const firstColorWithImg = (offered[swatchAttr.id] || []).find(colorVal => {
+        const vids = (product.variants || []).filter(v => (v.options || {})[swatchAttr.id] === colorVal).map(v => v.id);
+        return allImgs.some(img => img.variantId && vids.includes(img.variantId));
+      });
+      if (firstColorWithImg) initial[swatchAttr.id] = firstColorWithImg;
+    }
+    setSel(initial);
+  }, [product.id]);
   useEffect(() => { setQty(q => Math.min(Math.max(1, q), maxQty)); }, [chosen?.id, maxQty]);
   useEffect(() => { setGalIdx(0); }, [JSON.stringify(sel)]);
 
