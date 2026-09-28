@@ -206,9 +206,9 @@
   .sect-head{text-align:center;}
   .sect-head h2{text-align:center;}
   .sect-head p{text-align:center; margin-left:auto; margin-right:auto;}
-  .site-card{transform:rotate(0); margin:0 auto;}
+  .site-card{transform:rotate(0); margin:0 auto; max-width:100%; width:100%; box-sizing:border-box;}
   .float-badge{display:none;}
-  .site-view{height:280px;}
+  .site-view{height:260px; overflow:hidden;}
   .cta-band{padding:38px 22px; border-radius:20px;}
   .explore-band{grid-template-columns:1fr; padding:30px 22px; text-align:center;}
   .explore-band p{max-width:none; margin-left:auto; margin-right:auto;}
