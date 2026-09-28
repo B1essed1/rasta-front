@@ -195,18 +195,19 @@
 .nm-acts .btn{height:50px; justify-content:center; font-size:15.5px;}
 
 @media(max-width:680px){
+  .lp{overflow-x:hidden; max-width:100vw;}
   .hero{padding:34px 0 28px; overflow:hidden;}
-  .hero-grid{grid-template-columns:1fr !important; gap:28px;}
-  .hero h1{font-size:clamp(32px,9.4vw,40px); text-align:center;}
+  .hero-grid{grid-template-columns:1fr !important; gap:28px; padding:0 18px; box-sizing:border-box; max-width:100vw; overflow:hidden;}
+  .hero h1{font-size:clamp(32px,9.4vw,40px); text-align:center; overflow-wrap:break-word;}
   .hero-sub{font-size:16.5px; margin-top:16px; max-width:none; text-align:center;}
-  .hero-cta{margin-top:22px; gap:10px; justify-content:center;}
-  .hero-cta .btn{flex:1 1 100%; justify-content:center; height:50px;}
+  .hero-cta{margin-top:22px; gap:10px; justify-content:center; width:100%; box-sizing:border-box;}
+  .hero-cta .btn{flex:1 1 100%; justify-content:center; height:50px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .hero-trust{margin-top:22px; flex-wrap:wrap; font-size:13px; justify-content:center;}
   .hero .kicker{text-align:center; justify-content:center;}
   .sect-head{text-align:center;}
   .sect-head h2{text-align:center;}
   .sect-head p{text-align:center; margin-left:auto; margin-right:auto;}
-  .site-card{transform:rotate(0); margin:0 auto; max-width:100%; width:100%; box-sizing:border-box;}
+  .site-card{transform:rotate(0); margin:0 auto; max-width:calc(100vw - 36px); width:100%; box-sizing:border-box; overflow:hidden;}
   .float-badge{display:none;}
   .site-view{height:260px; overflow:hidden;}
   .cta-band{padding:38px 22px; border-radius:20px;}
