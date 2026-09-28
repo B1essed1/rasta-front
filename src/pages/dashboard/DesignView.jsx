@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { t, onLangChange } from '../../i18n';
+import { t, onLangChange, fmtPrice } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import { themes, getTheme, applyThemeVars } from '../../data/themes';
 import { palettes, getPalette, applyPaletteVars } from '../../data/palettes';
@@ -26,6 +26,7 @@ const fonts = [
 export default function DesignView() {
   const [, setTick] = useState(0);
   const shop = useShopStore((s) => s.shop);
+  const products = useShopStore((s) => s.products);
   const shopConfig = useShopStore((s) => s.config);
   const fetchConfig = useShopStore((s) => s.fetchConfig);
   const updateConfig = useShopStore((s) => s.updateConfig);
@@ -196,30 +197,34 @@ export default function DesignView() {
               </div>
             </div>
             <div className={`design-preview__grid design-preview__grid--${config.layout}`}>
-              {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="design-preview__card"
-                  style={{
-                    backgroundColor: previewPalette.surface,
-                    borderRadius: previewTheme.radius,
-                    border: previewTheme.cardBorder,
-                    boxShadow: previewTheme.cardShadow,
-                  }}
-                >
-                  <div className="design-preview__card-img" style={{ backgroundColor: previewPalette.line }} />
-                  <div className="design-preview__card-body">
-                    <div
-                      className="design-preview__line"
-                      style={{ backgroundColor: previewPalette.ink, opacity: 0.2, width: '70%' }}
-                    />
-                    <div
-                      className="design-preview__line"
-                      style={{ backgroundColor: previewPalette.accent, opacity: 0.6, width: '40%' }}
-                    />
+              {(products || []).filter(p => p.visible !== false).slice(0, 4).map((p) => {
+                const name = p.nameEn || p.nameUz || p.nameRu || '';
+                const imgUrl = p.images?.[0]?.url;
+                return (
+                  <div
+                    key={p.id}
+                    className="design-preview__card"
+                    style={{
+                      backgroundColor: previewPalette.surface,
+                      borderRadius: previewTheme.radius,
+                      border: previewTheme.cardBorder,
+                      boxShadow: previewTheme.cardShadow,
+                    }}
+                  >
+                    <div className="design-preview__card-img" style={{ backgroundColor: p.tone || previewPalette.line }}>
+                      {imgUrl && <img src={imgUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                    </div>
+                    <div className="design-preview__card-body">
+                      <div style={{ fontSize: 11, fontWeight: 600, color: previewPalette.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {name}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: previewPalette.accent, marginTop: 2 }}>
+                        {fmtPrice(p.price)}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

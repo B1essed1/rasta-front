@@ -184,6 +184,121 @@ function LangTabs({ tagline, onChange }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Location settings with map                                         */
+/* ------------------------------------------------------------------ */
+const CITY_GEO = {
+  Toshkent: [41.2995, 69.2401], Samarqand: [39.6542, 66.9597],
+  Buxoro: [39.7747, 64.4286], Andijon: [40.7821, 72.3442],
+  Namangan: [40.9983, 71.6726], "Farg'ona": [40.3842, 71.7843],
+  Nukus: [42.4600, 59.6166], Qarshi: [38.8606, 65.7890],
+};
+
+function parseMapLink(s) {
+  s = decodeURIComponent(s || '');
+  let m;
+  if ((m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/))) return [+m[1], +m[2]];
+  if ((m = s.match(/[?&](?:q|query|ll|center)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/))) return [+m[1], +m[2]];
+  if ((m = s.match(/[?&](?:pt|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/))) return [+m[2], +m[1]];
+  if ((m = s.match(/(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/))) return [+m[1], +m[2]];
+  return null;
+}
+
+function LocationSection({ form, set }) {
+  const [hasLocation, setHasLocation] = useState(!!form.address);
+  const [mapLink, setMapLink] = useState('');
+  const [lat, setLat] = useState(null);
+  const [lng, setLng] = useState(null);
+
+  useEffect(() => {
+    const c = CITY_GEO[form.location] || CITY_GEO.Toshkent;
+    if (!lat) { setLat(c[0]); setLng(c[1]); }
+  }, [form.location]);
+
+  function applyLink(v) {
+    setMapLink(v);
+    const ll = parseMapLink(v);
+    if (ll) { setLat(ll[0]); setLng(ll[1]); toast(t('db_saved')); setMapLink(''); }
+  }
+
+  function useMyLocation() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setLat(+p.coords.latitude.toFixed(6)); setLng(+p.coords.longitude.toFixed(6)); toast(t('db_saved')); },
+      () => {}
+    );
+  }
+
+  const embedUrl = lat && lng
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.006},${lat - 0.004},${lng + 0.006},${lat + 0.004}&layer=mapnik&marker=${lat},${lng}`
+    : null;
+
+  return (
+    <div className="set-card">
+      <div className="set-title">{t('ob_city')}</div>
+      <div className="hint" style={{ marginTop: -6 }}>
+        {t('ob_city')}
+      </div>
+      <label className="switch-row" style={{ marginTop: 8, marginBottom: 12 }}>
+        <input type="checkbox" checked={hasLocation} onChange={(e) => setHasLocation(e.target.checked)} />
+        <span className="switch"><i /></span>
+        {t('ob_city')}
+      </label>
+
+      {hasLocation && (
+        <>
+          <div className="field-row">
+            <div className="field">
+              <label>{t('ob_city')}</label>
+              <input
+                value={form.address || ''}
+                onChange={(e) => set('address', e.target.value)}
+                placeholder="Street, building"
+              />
+            </div>
+            <div className="field">
+              <label>Landmark</label>
+              <input
+                value={form.landmark || ''}
+                onChange={(e) => set('landmark', e.target.value)}
+                placeholder="e.g. next to Korzinka"
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Map</label>
+            {embedUrl && (
+              <div style={{
+                width: '100%', height: 180, borderRadius: 12, overflow: 'hidden',
+                border: '1px solid var(--line, #e7e0d5)', marginBottom: 10,
+              }}>
+                <iframe
+                  title="map"
+                  src={embedUrl}
+                  style={{ width: '100%', height: '100%', border: 0 }}
+                  loading="lazy"
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={mapLink}
+                onChange={(e) => applyLink(e.target.value)}
+                placeholder="Paste Google or Yandex Maps link"
+                style={{ flex: 1 }}
+              />
+              <button className="btn btn-soft btn-sm" type="button" onClick={useMyLocation}>
+                {I.globe({ width: 15, height: 15 })} My location
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 export default function SettingsView() {
@@ -337,6 +452,9 @@ export default function SettingsView() {
           </div>
         </div>
       </div>
+
+      {/* ---- Location ---- */}
+      <LocationSection form={form} set={set} />
 
       {/* ---- Section 2: Look & design link ---- */}
       <div className="set-card">
