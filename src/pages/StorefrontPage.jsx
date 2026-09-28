@@ -553,7 +553,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
     }
     return [];
   }, [allImages, chosen, colorPick, product.variants, swatchAttr]);
-  const galleryImages = variantImages.length > 0 ? variantImages : defaultImages;
+  const galleryImages = variantImages.length > 0 ? variantImages : (defaultImages.length > 0 ? defaultImages : allImages);
 
   // Reset on product change
   useEffect(() => { setGalIdx(0); setSel({}); setQty(1); }, [product.id]);
