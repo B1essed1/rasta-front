@@ -124,10 +124,10 @@ h1,h2,h3,h4,p{margin:0;}
 .scroll-y::-webkit-scrollbar-thumb{background:#0000002a; border-radius:9px; border:2px solid transparent; background-clip:padding-box;}
 
 @media(max-width:760px){
-  .pnav-links{display:flex; margin-left:0; gap:2px;}
-  .pnav-links a:not(.nav-explore){display:none;}
-  .pnav-links a.nav-explore{padding:7px 11px; font-size:13px;}
+  .pnav-links{display:none !important;}
   .pnav-right .btn-ghost{display:none;}
+  .pnav-right .lang{display:none;}
+  .pnav-burger{display:flex !important;}
   .pnav-inner{height:60px; padding:0 16px; gap:10px;}
   .wrap{padding:0 18px;}
   .switcher .lab{display:none;}
