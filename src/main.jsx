@@ -18,6 +18,7 @@ import './styles/compat.css';
 // Last on purpose: every rule in here is inside a max-width query, so it can
 // only ever adapt the design downwards and never touches the desktop cascade.
 import './styles/responsive.css';
+import './styles/storefront-mobile.css';
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
