@@ -136,8 +136,10 @@ export const useShopStore = create((set, get) => ({
     try {
       const payload = {
         name: data.name,
+        tagline: data.tagline || undefined,
         location: data.city || data.location,
         type: data.type || undefined,
+        status: data.status || undefined,
         coverColor: data.coverColor,
         logoUrl: data.logoUrl,
         coverUrl: data.coverUrl,
