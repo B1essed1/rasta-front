@@ -206,53 +206,93 @@ function parseMapLink(s) {
 function LocationSection({ form, set }) {
   const [hasLocation, setHasLocation] = useState(!!form.address);
   const [mapLink, setMapLink] = useState('');
-  const [lat, setLat] = useState(null);
-  const [lng, setLng] = useState(null);
-
-  useEffect(() => {
+  const [lat, setLat] = useState(() => {
     const c = CITY_GEO[form.location] || CITY_GEO.Toshkent;
-    if (!lat) { setLat(c[0]); setLng(c[1]); }
-  }, [form.location]);
+    return c[0];
+  });
+  const [lng, setLng] = useState(() => {
+    const c = CITY_GEO[form.location] || CITY_GEO.Toshkent;
+    return c[1];
+  });
+  const [searching, setSearching] = useState(false);
 
   function applyLink(v) {
     setMapLink(v);
+    if (!v.trim()) return;
     const ll = parseMapLink(v);
-    if (ll) { setLat(ll[0]); setLng(ll[1]); toast(t('db_saved')); setMapLink(''); }
+    if (ll) {
+      setLat(ll[0]);
+      setLng(ll[1]);
+      toast(t('db_saved'));
+      setMapLink('');
+    }
+  }
+
+  function handleLinkBlur() {
+    if (mapLink.trim() && !parseMapLink(mapLink)) {
+      toast('Could not read location from link', 'error');
+    }
   }
 
   function useMyLocation() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-      (p) => { setLat(+p.coords.latitude.toFixed(6)); setLng(+p.coords.longitude.toFixed(6)); toast(t('db_saved')); },
-      () => {}
+      (p) => {
+        setLat(+p.coords.latitude.toFixed(6));
+        setLng(+p.coords.longitude.toFixed(6));
+        toast(t('db_saved'));
+      },
+      () => toast('Location access denied', 'error')
     );
   }
 
-  const embedUrl = lat && lng
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.006},${lat - 0.004},${lng + 0.006},${lat + 0.004}&layer=mapnik&marker=${lat},${lng}`
-    : null;
+  async function searchAddress() {
+    const query = [form.address, form.location].filter(Boolean).join(', ');
+    if (!query.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const data = await res.json();
+      if (data.length > 0) {
+        setLat(+data[0].lat);
+        setLng(+data[0].lon);
+        toast(t('db_saved'));
+      } else {
+        toast('Address not found', 'error');
+      }
+    } catch {
+      toast('Search failed', 'error');
+    }
+    setSearching(false);
+  }
+
+  const embedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.006},${lat - 0.004},${lng + 0.006},${lat + 0.004}&layer=mapnik&marker=${lat},${lng}`;
+  const yandexUrl = `https://yandex.uz/maps/?pt=${lng},${lat}&z=16&l=map`;
 
   return (
     <div className="set-card">
       <div className="set-title">{t('ob_city')}</div>
       <div className="hint" style={{ marginTop: -6 }}>
-        {t('ob_city')}
+        Where customers can find you or pick up orders.
       </div>
       <label className="switch-row" style={{ marginTop: 8, marginBottom: 12 }}>
         <input type="checkbox" checked={hasLocation} onChange={(e) => setHasLocation(e.target.checked)} />
         <span className="switch"><i /></span>
-        {t('ob_city')}
+        I have a shop or pickup point
       </label>
 
       {hasLocation && (
         <>
           <div className="field-row">
             <div className="field">
-              <label>{t('ob_city')}</label>
+              <label>Address</label>
               <input
                 value={form.address || ''}
                 onChange={(e) => set('address', e.target.value)}
-                placeholder="Street, building"
+                placeholder="Street, building number"
               />
             </div>
             <div className="field">
@@ -260,36 +300,50 @@ function LocationSection({ form, set }) {
               <input
                 value={form.landmark || ''}
                 onChange={(e) => set('landmark', e.target.value)}
-                placeholder="e.g. next to Korzinka"
+                placeholder="e.g. next to Korzinka, opposite metro"
               />
             </div>
           </div>
 
           <div className="field">
-            <label>Map</label>
-            {embedUrl && (
-              <div style={{
-                width: '100%', height: 180, borderRadius: 12, overflow: 'hidden',
-                border: '1px solid var(--line, #e7e0d5)', marginBottom: 10,
-              }}>
-                <iframe
-                  title="map"
-                  src={embedUrl}
-                  style={{ width: '100%', height: '100%', border: 0 }}
-                  loading="lazy"
-                />
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
+            <label>Map pin</label>
+            <div style={{
+              width: '100%', height: 200, borderRadius: 12, overflow: 'hidden',
+              border: '1px solid var(--line, #e7e0d5)', marginBottom: 10,
+            }}>
+              <iframe
+                key={`${lat}-${lng}`}
+                title="map"
+                src={embedUrl}
+                style={{ width: '100%', height: '100%', border: 0 }}
+                loading="lazy"
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-soft btn-sm" type="button" onClick={searchAddress} disabled={searching}>
+                {I.search({ width: 14, height: 14 })} {searching ? '...' : 'Find on map'}
+              </button>
+              <button className="btn btn-soft btn-sm" type="button" onClick={useMyLocation}>
+                {I.globe({ width: 14, height: 14 })} My location
+              </button>
+              <a href={yandexUrl} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
+                Open Yandex Maps
+              </a>
+            </div>
+            <div style={{ marginTop: 8 }}>
               <input
                 value={mapLink}
-                onChange={(e) => applyLink(e.target.value)}
-                placeholder="Paste Google or Yandex Maps link"
-                style={{ flex: 1 }}
+                onChange={(e) => setMapLink(e.target.value)}
+                onBlur={handleLinkBlur}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLink(mapLink); } }}
+                placeholder="Or paste a Google / Yandex Maps link here"
+                style={{ width: '100%' }}
               />
-              <button className="btn btn-soft btn-sm" type="button" onClick={useMyLocation}>
-                {I.globe({ width: 15, height: 15 })} My location
-              </button>
+              {mapLink.trim() && (
+                <button className="btn btn-accent btn-sm" type="button" style={{ marginTop: 6 }} onClick={() => applyLink(mapLink)}>
+                  Apply link
+                </button>
+              )}
             </div>
           </div>
         </>
