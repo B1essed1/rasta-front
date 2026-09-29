@@ -147,7 +147,9 @@ export default function BioLinkPage() {
             <div className="bio-shelf-t">{t('ob_city')}</div>
             <a
               className="bio-btn"
-              href={`https://yandex.uz/maps/?text=${encodeURIComponent([shop.address, shop.location].filter(Boolean).join(', '))}`}
+              href={shop.mapLat && shop.mapLng
+                ? `https://yandex.uz/maps/?pt=${shop.mapLng},${shop.mapLat}&z=16&l=map`
+                : `https://yandex.uz/maps/?text=${encodeURIComponent([shop.address, shop.location].filter(Boolean).join(', '))}`}
               target="_blank"
               rel="noopener noreferrer"
             >

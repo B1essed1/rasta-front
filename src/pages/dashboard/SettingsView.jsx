@@ -207,22 +207,30 @@ function LocationSection({ form, set }) {
   const [hasLocation, setHasLocation] = useState(!!form.address);
   const [mapLink, setMapLink] = useState('');
   const [lat, setLat] = useState(() => {
+    if (form.mapLat) return form.mapLat;
     const c = CITY_GEO[form.location] || CITY_GEO.Toshkent;
     return c[0];
   });
   const [lng, setLng] = useState(() => {
+    if (form.mapLng) return form.mapLng;
     const c = CITY_GEO[form.location] || CITY_GEO.Toshkent;
     return c[1];
   });
   const [searching, setSearching] = useState(false);
+
+  function setPin(newLat, newLng) {
+    setLat(newLat);
+    setLng(newLng);
+    set('mapLat', newLat);
+    set('mapLng', newLng);
+  }
 
   function applyLink(v) {
     setMapLink(v);
     if (!v.trim()) return;
     const ll = parseMapLink(v);
     if (ll) {
-      setLat(ll[0]);
-      setLng(ll[1]);
+      setPin(ll[0], ll[1]);
       toast(t('db_saved'));
       setMapLink('');
     }
@@ -238,8 +246,7 @@ function LocationSection({ form, set }) {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        setLat(+p.coords.latitude.toFixed(6));
-        setLng(+p.coords.longitude.toFixed(6));
+        setPin(+p.coords.latitude.toFixed(6), +p.coords.longitude.toFixed(6));
         toast(t('db_saved'));
       },
       () => toast('Location access denied', 'error')
@@ -257,8 +264,7 @@ function LocationSection({ form, set }) {
       );
       const data = await res.json();
       if (data.length > 0) {
-        setLat(+data[0].lat);
-        setLng(+data[0].lon);
+        setPin(+data[0].lat, +data[0].lon);
         toast(t('db_saved'));
       } else {
         toast('Address not found', 'error');
@@ -400,6 +406,8 @@ export default function SettingsView() {
         status: shop.status || 'LIVE',
         address: shop.address || '',
         landmark: shop.landmark || '',
+        mapLat: shop.mapLat || null,
+        mapLng: shop.mapLng || null,
       });
     }
   }, [shop]);

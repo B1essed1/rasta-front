@@ -148,6 +148,8 @@ export const useShopStore = create((set, get) => ({
         phone: clean(data.phone),
         address: clean(data.address),
         landmark: clean(data.landmark),
+        mapLat: data.mapLat || undefined,
+        mapLng: data.mapLng || undefined,
       };
       const res = await api.put(`/shops/${get().shop.id}`, payload);
       set({ shop: res.data, loading: false });
