@@ -134,20 +134,20 @@ export const useShopStore = create((set, get) => ({
   async updateShop(data) {
     set({ loading: true });
     try {
+      const clean = (v) => (v && v !== '' ? v : null);
       const payload = {
-        name: data.name,
-        tagline: data.tagline || undefined,
-        location: data.city || data.location,
-        type: data.type || undefined,
-        status: data.status || undefined,
-        coverColor: data.coverColor,
-        logoUrl: data.logoUrl,
-        coverUrl: data.coverUrl,
-        instagram: data.instagram,
-        telegram: data.telegram,
-        phone: data.phone,
-        address: data.address || undefined,
-        landmark: data.landmark || undefined,
+        name: data.name || undefined,
+        tagline: data.tagline && Object.values(data.tagline).some(v => v) ? data.tagline : undefined,
+        location: clean(data.city || data.location),
+        type: clean(data.type),
+        coverColor: clean(data.coverColor),
+        logoUrl: clean(data.logoUrl),
+        coverUrl: clean(data.coverUrl),
+        instagram: clean(data.instagram),
+        telegram: clean(data.telegram),
+        phone: clean(data.phone),
+        address: clean(data.address),
+        landmark: clean(data.landmark),
       };
       const res = await api.put(`/shops/${get().shop.id}`, payload);
       set({ shop: res.data, loading: false });
