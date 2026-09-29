@@ -7,17 +7,23 @@ import { toast } from '../../components/ui/ToastHost';
 /* ───────────────────────── helpers ───────────────────────── */
 
 function getProductName(p) {
+  if (!p) return '';
   const lang = getLang();
-  if (lang === 'uz') return p.nameUz || p.nameEn || p.nameRu || '';
-  if (lang === 'ru') return p.nameRu || p.nameEn || p.nameUz || '';
-  return p.nameEn || p.nameUz || p.nameRu || '';
+  if (lang === 'uz') return p.nameUz || p.nameEn || p.nameRu || p.name || '';
+  if (lang === 'ru') return p.nameRu || p.nameEn || p.nameUz || p.name || '';
+  return p.nameEn || p.nameUz || p.nameRu || p.name || '';
 }
 
 function parseVariantLabel(optionsJson) {
   if (!optionsJson) return '';
   try {
     const obj = typeof optionsJson === 'string' ? JSON.parse(optionsJson) : optionsJson;
-    return Object.values(obj).join(' · ');
+    return Object.entries(obj)
+      .map(([k, v]) => {
+        const val = String(v).charAt(0).toUpperCase() + String(v).slice(1);
+        return val;
+      })
+      .join(' · ');
   } catch {
     return String(optionsJson);
   }
