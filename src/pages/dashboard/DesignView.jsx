@@ -199,7 +199,7 @@ export default function DesignView() {
             <div className={`design-preview__grid design-preview__grid--${config.layout}`}>
               {(products || []).filter(p => p.visible !== false).slice(0, 4).map((p) => {
                 const name = p.nameEn || p.nameUz || p.nameRu || '';
-                const imgUrl = p.images?.[0]?.url;
+                const imgUrl = p.images?.[0]?.thumbnailUrl || p.images?.[0]?.url;
                 return (
                   <div
                     key={p.id}

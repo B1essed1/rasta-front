@@ -254,7 +254,7 @@ function BrandStep({ data, onChange }) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const url = await uploadImage(file);
+      const { url } = await uploadImage(file);
       onChange({ ...data, [field]: url });
     } catch {
       const reader = new FileReader();

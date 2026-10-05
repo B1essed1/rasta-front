@@ -173,7 +173,7 @@ export default function BioLinkPage() {
                 <Link key={p.id} to={`/${handle}/p/${p.id}`} className="bio-prod">
                   <span className="bio-pimg">
                     {p.images?.[0]?.url ? (
-                      <img src={p.images[0].url} alt={getProductName(p)} loading="lazy" />
+                      <img src={p.images[0].thumbnailUrl || p.images[0].url} alt={getProductName(p)} loading="lazy" />
                     ) : (
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: p.tone || bg.prim, color: '#fff', fontSize: '1.5rem', fontWeight: 700 }}>
                         {getProductName(p).charAt(0)}

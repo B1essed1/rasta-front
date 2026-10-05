@@ -19,7 +19,7 @@ function CoverUpload({ currentUrl, onUpload }) {
     if (!file) return;
     setUploading(true);
     try {
-      const url = await uploadImage(file);
+      const { url } = await uploadImage(file);
       onUpload(url);
     } catch {
       toast('Upload failed', 'error');
@@ -84,7 +84,7 @@ function LogoUpload({ currentUrl, onUpload, onRemove }) {
     if (!file) return;
     setUploading(true);
     try {
-      const url = await uploadImage(file);
+      const { url } = await uploadImage(file);
       onUpload(url);
     } catch {
       toast('Upload failed', 'error');

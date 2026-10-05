@@ -690,7 +690,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
                   <button key={img.id || k} type="button"
                     className={`pp-thumb${galIdx === k ? ' on' : ''}`}
                     onClick={() => setGalIdx(k)}
-                    style={{ backgroundImage: `url(${img.url})` }}
+                    style={{ backgroundImage: `url(${img.thumbnailUrl || img.url})` }}
                   />
                 ))}
               </div>
@@ -1238,7 +1238,7 @@ export default function StorefrontPage() {
                     >
                       <div className="sf-product-card__img">
                         {product.images?.length > 0 ? (
-                          <img src={product.images[0].url} alt={name} loading="lazy" decoding="async" width={400} height={400} />
+                          <img src={product.images[0].thumbnailUrl || product.images[0].url} alt={name} loading="lazy" decoding="async" width={400} height={400} />
                         ) : (
                           <div className="sf-product-card__no-img--toned" style={{ background: bg }}>
                             {name?.charAt(0)}

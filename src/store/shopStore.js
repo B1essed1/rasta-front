@@ -474,7 +474,7 @@ export const useShopStore = create((set, get) => ({
     const res = await api.post('/media', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
-    return res.data.url;
+    return { url: res.data.url, thumbnailUrl: res.data.thumbnailUrl };
   },
 
   // Images can only be attached once the product (and its variants) have ids,
@@ -486,7 +486,11 @@ export const useShopStore = create((set, get) => ({
     }
     for (const img of add) {
       await api.post(`/shops/${shopId}/products/${productId}/images`, null, {
-        params: { url: img.url, variantId: img.variantId || undefined },
+        params: {
+          url: img.url,
+          thumbnailUrl: img.thumbnailUrl || undefined,
+          variantId: img.variantId || undefined,
+        },
       });
     }
     try {

@@ -19,8 +19,8 @@ export default function PhotoSlot({ url, placeholder, onUploaded, onClear }) {
       const fd = new FormData();
       fd.append('file', file);
       const res = await api.post('/media', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const next = res.data?.url || res.data;
-      if (next) onUploaded(next);
+      const result = { url: res.data?.url || res.data, thumbnailUrl: res.data?.thumbnailUrl };
+      if (result.url) onUploaded(result);
     } finally {
       setBusy(false);
     }

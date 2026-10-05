@@ -185,7 +185,7 @@ export default function ProductModal({ open, onClose, product }) {
     setCatId(product.catId || firstLeaf);
     setVisible(product.visible !== false);
     const allImgs = product.images || [];
-    setPhotos(allImgs.filter(im => !im.variantId).map((im) => im.url).slice(0, PRODUCT_IMAGES_MAX));
+    setPhotos(allImgs.filter(im => !im.variantId).map((im) => ({ url: im.url, thumbnailUrl: im.thumbnailUrl })).slice(0, PRODUCT_IMAGES_MAX));
 
     // Hydrate per-variant photos: group by colour → array of urls
     const cp = {};
@@ -197,7 +197,7 @@ export default function ProductModal({ open, onClose, product }) {
         if (!colorId) return;
         if (!cp[colorId]) cp[colorId] = [];
         allImgs.filter(im => im.variantId === v.id).forEach(im => {
-          if (!cp[colorId].includes(im.url)) cp[colorId].push(im.url);
+          if (!cp[colorId].some(p => p.url === im.url)) cp[colorId].push({ url: im.url, thumbnailUrl: im.thumbnailUrl });
         });
       });
     }
@@ -280,10 +280,10 @@ export default function ProductModal({ open, onClose, product }) {
       const id = saved?.id || product?.id;
       if (id) {
         const before = (product?.images || []).filter(im => !im.variantId);
-        const keep = new Set(photos.filter(Boolean));
-        const removeIds = before.filter((im) => !keep.has(im.url)).map((im) => im.id);
+        const keepUrls = new Set(photos.filter(Boolean).map(p => p.url));
+        const removeIds = before.filter((im) => !keepUrls.has(im.url)).map((im) => im.id);
         const existing = new Set(before.map((im) => im.url));
-        const add = photos.filter((u) => u && !existing.has(u)).map((url) => ({ url }));
+        const add = photos.filter((p) => p && !existing.has(p.url)).map((p) => ({ url: p.url, thumbnailUrl: p.thumbnailUrl }));
 
         // Per-colour variant photos (each colour can have up to 4 images)
         const savedVariants = saved?.variants || product?.variants || [];
@@ -295,7 +295,7 @@ export default function ProductModal({ open, onClose, product }) {
           const opts = parseOptions(v);
           const cid = opts[swAttr.id];
           if (!cid) return true;
-          const kept = (colorPhotos[cid] || []).filter(Boolean);
+          const kept = (colorPhotos[cid] || []).filter(Boolean).map(p => p.url);
           return !kept.includes(im.url);
         }).map(im => im.id);
 
@@ -308,9 +308,9 @@ export default function ProductModal({ open, onClose, product }) {
               return opts[swAttr.id] === cid;
             });
             if (!matchingVariant) return;
-            (urls || []).filter(Boolean).forEach(url => {
-              if (!existingVarUrls.has(url)) {
-                varAdd.push({ url, variantId: matchingVariant.id });
+            (urls || []).filter(Boolean).forEach(p => {
+              if (!existingVarUrls.has(p.url)) {
+                varAdd.push({ url: p.url, thumbnailUrl: p.thumbnailUrl, variantId: matchingVariant.id });
               }
             });
           });
@@ -357,9 +357,9 @@ export default function ProductModal({ open, onClose, product }) {
             {Array.from({ length: Math.min(PRODUCT_IMAGES_MAX, Math.max(PRODUCT_IMAGES_MIN, photos.filter(Boolean).length + 1)) }).map((_, i) => (
               <div key={i} className={'img-cell' + (i === 0 ? ' main' : '')}>
                 <PhotoSlot
-                  url={photos[i] || null}
+                  url={photos[i]?.url || null}
                   placeholder={i === 0 ? t('db_cover') : t('db_drop')}
-                  onUploaded={(u) => setPhotos((s) => { const o = s.slice(); o[i] = u; return o; })}
+                  onUploaded={(result) => setPhotos((s) => { const o = s.slice(); o[i] = result; return o; })}
                   onClear={() => setPhotos((s) => { const o = s.slice(); o[i] = null; return o; })}
                 />
                 {i === 0 && <span className="img-tag">{t('db_cover')}</span>}
@@ -486,10 +486,10 @@ export default function ProductModal({ open, onClose, product }) {
                     {Array.from({ length: Math.min(PRODUCT_IMAGES_MAX, Math.max(PRODUCT_IMAGES_MIN, cPhotos.filter(Boolean).length + 1)) }).map((_, i) => (
                       <div key={`${cid}-${i}`} className="img-cell">
                         <PhotoSlot
-                          url={cPhotos[i] || null}
+                          url={cPhotos[i]?.url || null}
                           placeholder={i === 0 ? t('db_cover') : t('db_drop')}
-                          onUploaded={(u) => setColorPhotos(s => {
-                            const arr = (s[cid] || []).slice(); arr[i] = u; return { ...s, [cid]: arr };
+                          onUploaded={(result) => setColorPhotos(s => {
+                            const arr = (s[cid] || []).slice(); arr[i] = result; return { ...s, [cid]: arr };
                           })}
                           onClear={() => setColorPhotos(s => {
                             const arr = (s[cid] || []).slice(); arr[i] = null; return { ...s, [cid]: arr };
