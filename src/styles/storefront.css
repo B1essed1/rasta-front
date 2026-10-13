@@ -241,11 +241,14 @@
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 .sf-product-card__img {
+  position: relative;
   aspect-ratio: 1;
   overflow: hidden;
   background: var(--s-line, #e8e8e4);
 }
 .sf-product-card__img img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -457,7 +460,6 @@
   right: 8px;
   z-index: 2;
 }
-.sf-product-card__img { position: relative; }
 
 /* ===== Colored placeholder ===== */
 .sf-product-card__no-img--toned {
