@@ -462,18 +462,18 @@ function SpecTable({ product, lang }) {
 
 function ContactBlock({ shop }) {
   const rows = [
-    shop.telegram && ['Telegram', `@${shop.telegram.replace('@', '')}`, `https://t.me/${shop.telegram.replace('@', '')}`],
-    shop.instagram && ['Instagram', `@${shop.instagram.replace('@', '')}`, `https://instagram.com/${shop.instagram.replace('@', '')}`],
-    shop.phone && [t('ob_phone_contact'), shop.phone, `tel:${shop.phone}`],
+    shop.telegram && ['Telegram', `@${shop.telegram.replace('@', '')}`, `https://t.me/${shop.telegram.replace('@', '')}`, I.tg({ width: 18, height: 18 })],
+    shop.instagram && ['Instagram', `@${shop.instagram.replace('@', '')}`, `https://instagram.com/${shop.instagram.replace('@', '')}`, I.ig({ width: 18, height: 18 })],
+    shop.phone && [t('ob_phone_contact'), shop.phone, `tel:${shop.phone}`, I.tel({ width: 18, height: 18 })],
   ].filter(Boolean);
   if (!rows.length) return null;
   return (
     <div className="sf-contact-block">
       <div className="sf-sizes-label sf-up">{t('sf_reach')}</div>
       <div className="sf-contacts">
-        {rows.map(([label, display, href]) => (
+        {rows.map(([label, display, href, icon]) => (
           <div key={label} className="sf-contact">
-            <span>{label}</span>
+            <span className="sf-contact-icon">{icon} {label}</span>
             <b><a href={href} target={href.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{display}</a></b>
           </div>
         ))}
@@ -1125,17 +1125,19 @@ export default function StorefrontPage() {
               <div className="sf-header__contacts">
                 <span className="sf-contacts-label">{t('sf_reach')}:</span>
                 {shop.telegram && (
-                  <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                    @{shop.telegram.replace('@', '')}
+                  <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
+                    {I.tg({ width: 16, height: 16 })} @{shop.telegram.replace('@', '')}
                   </a>
                 )}
                 {shop.instagram && (
-                  <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                    @{shop.instagram.replace('@', '')}
+                  <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
+                    {I.ig({ width: 16, height: 16 })} @{shop.instagram.replace('@', '')}
                   </a>
                 )}
                 {shop.phone && (
-                  <a href={`tel:${shop.phone}`}>{shop.phone}</a>
+                  <a href={`tel:${shop.phone}`} className="sf-contact-link">
+                    {I.tel({ width: 16, height: 16 })} {shop.phone}
+                  </a>
                 )}
               </div>
             )}
@@ -1273,9 +1275,9 @@ export default function StorefrontPage() {
         {tab === 'about' && (
           <div className="sf-about">
             {shop.location && <p><strong>{t('ob_city')}:</strong> {shop.location}</p>}
-            {shop.telegram && <p><strong>Telegram:</strong> @{shop.telegram.replace('@', '')}</p>}
-            {shop.instagram && <p><strong>Instagram:</strong> @{shop.instagram.replace('@', '')}</p>}
-            {shop.phone && <p><strong>{t('ob_phone_contact')}:</strong> {shop.phone}</p>}
+            {shop.telegram && <p className="sf-about-contact">{I.tg({ width: 16, height: 16 })} <strong>Telegram:</strong> <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">@{shop.telegram.replace('@', '')}</a></p>}
+            {shop.instagram && <p className="sf-about-contact">{I.ig({ width: 16, height: 16 })} <strong>Instagram:</strong> <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">@{shop.instagram.replace('@', '')}</a></p>}
+            {shop.phone && <p className="sf-about-contact">{I.tel({ width: 16, height: 16 })} <strong>{t('ob_phone_contact')}:</strong> <a href={`tel:${shop.phone}`}>{shop.phone}</a></p>}
           </div>
         )}
 
@@ -1283,17 +1285,19 @@ export default function StorefrontPage() {
         <footer className="sf-footer">
           <div className="sf-footer__contacts">
             {shop.telegram && (
-              <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                Telegram
+              <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
+                {I.tg({ width: 18, height: 18 })} Telegram
               </a>
             )}
             {shop.instagram && (
-              <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                Instagram
+              <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
+                {I.ig({ width: 18, height: 18 })} Instagram
               </a>
             )}
             {shop.phone && (
-              <a href={`tel:${shop.phone}`}>{shop.phone}</a>
+              <a href={`tel:${shop.phone}`} className="sf-contact-link">
+                {I.tel({ width: 18, height: 18 })} {shop.phone}
+              </a>
             )}
           </div>
           {shop.location && <p className="sf-footer__location">{shop.location}</p>}

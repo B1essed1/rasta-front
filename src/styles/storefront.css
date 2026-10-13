@@ -104,6 +104,12 @@
   font-weight: 500;
 }
 .sf-header__contacts a:hover { text-decoration: underline; }
+.sf-contact-link { display: inline-flex; align-items: center; gap: 4px; }
+.sf-contact-link svg { flex-shrink: 0; }
+.sf-contact-icon { display: inline-flex; align-items: center; gap: 4px; }
+.sf-contact-icon svg { flex-shrink: 0; }
+.sf-about-contact { display: flex; align-items: center; gap: 6px; }
+.sf-about-contact svg { flex-shrink: 0; }
 .sf-header__handle {
   font-size: 0.875rem;
   color: var(--s-soft, #6b6b6b);
