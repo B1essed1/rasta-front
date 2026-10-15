@@ -47,14 +47,14 @@
 /* products */
 .bio-shelf{width:100%;margin-top:28px}
 .bio-shelf-t{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--b-sub);margin-bottom:11px}
-.bio-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bio-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
 .bio-prod{display:flex;flex-direction:column;gap:6px;padding:9px;border-radius:calc(var(--b-r,18px) * .6 + 6px);background:var(--b-card);color:var(--b-ink);border:1.5px solid transparent;cursor:pointer;font-family:inherit;text-align:left;text-decoration:none}
 .bio-style-soft .bio-prod{box-shadow:0 2px 10px rgba(0,0,0,.09)}
 .bio-style-outline .bio-prod{background:transparent;border-color:var(--b-bd)}
 .bio-style-hard .bio-prod{border:2px solid var(--b-ink);box-shadow:4px 4px 0 var(--b-ink)}
 .bio-style-glass .bio-prod{background:rgba(255,255,255,.5);backdrop-filter:blur(10px)}
 .bio-prod:hover{transform:translateY(-1.5px)}
-.bio-pimg{position:relative;display:block;aspect-ratio:4/5;border-radius:calc(var(--b-r,18px) * .35 + 3px);overflow:hidden;background:rgba(0,0,0,.07)}
-.bio-pimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.bio-pimg{position:relative;display:block;width:100%;padding-bottom:125%;border-radius:calc(var(--b-r,18px) * .35 + 3px);overflow:hidden;background:rgba(0,0,0,.07)}
+.bio-pimg img,.bio-pimg>span{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover}
 .bio-pname{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bio-pprice{font-size:13px;color:var(--b-sub);margin-top:-3px}
