@@ -537,7 +537,11 @@ export const useShopStore = create((set, get) => ({
         unitCost: unitCost || null,
         note: note || '',
       });
-      await get().fetchProducts(shopId);
+      // Both matter: the variant qty changed AND a stock_movements row was
+      // written. Refreshing only products leaves the History tab showing a
+      // stale list whenever it is already open (the header Restock/Adjust
+      // buttons render on both tabs, so HistoryView does not remount).
+      await Promise.all([get().fetchProducts(shopId), get().fetchMovements()]);
     } catch (e) {
       throw e;
     }
@@ -553,7 +557,7 @@ export const useShopStore = create((set, get) => ({
         reason: reason || 'CORRECTION',
         note: note || '',
       });
-      await get().fetchProducts(shopId);
+      await Promise.all([get().fetchProducts(shopId), get().fetchMovements()]);
     } catch (e) {
       throw e;
     }
