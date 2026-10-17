@@ -2,6 +2,7 @@
 // app2.css deliberately overrides app.css / dashboard.css — do not reorder.
 import './styles/app.css';
 import './styles/storefront.css';
+import './styles/storefront-design.css';
 import './styles/landing.css';
 import './styles/marketplace.css';
 import './styles/onboarding.css';

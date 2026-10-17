@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import LangPill from '../components/ui/LangPill';
-import EmptyState from '../components/ui/EmptyState';
 import { t, onLangChange, fmtPrice, fill, plural } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import { useAuthStore } from '../store/authStore';
-import { getTheme, applyThemeVars } from '../data/themes';
+import { getTheme, applyThemeVars, storefrontVars } from '../data/themes';
 import { getPalette, applyPaletteVars } from '../data/palettes';
 import {
-  catLabel, catPathIds, variantLabel as taxonomyVariantLabel,
+  catLabel, catPathIds, catEntry, catNode, catRoots, variantLabel as taxonomyVariantLabel,
   variantAttrs, specAttrs, sizeChartFor, offeredOptions, variantFor,
   optionReachable, attrValueName, attrValueHex,
 } from '../data/taxonomy';
 import { I } from '../components/ui/Icons';
 import { getLang } from '../i18n';
 import api from '../api/client';
+import {
+  ContactRows, SfLocation, SfCatBar, SfFilterSheet, SfResultBar, ProductCard, SfStockBadge, SFF_I,
+} from './StorefrontListing';
 import '../styles/storefront.css';
 
 /* ===== helpers ===== */
@@ -38,6 +40,45 @@ function getProductDesc(product) {
   return product.descEn || product.descUz || product.descRu || '';
 }
 
+const LANG_KEY = { uz: 'Uz', ru: 'Ru', en: 'En' };
+
+// the shopper's language first, then whichever translation the seller filled in
+function localName(product, lang) {
+  return product['name' + (LANG_KEY[lang] || 'En')] || getProductName(product);
+}
+
+function localDesc(product, lang) {
+  return product['desc' + (LANG_KEY[lang] || 'En')] || getProductDesc(product);
+}
+
+function localTagline(tagline, lang) {
+  if (!tagline || typeof tagline !== 'object') return tagline || '';
+  return tagline[lang] || tagline.uz || tagline.ru || tagline.en || '';
+}
+
+function fmtNum(n) {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/* ===== Topbar (design App.jsx) ===== */
+
+function StoreTopbar({ handle, isOwner }) {
+  return (
+    <div className="sf-topbar">
+      <Link to="/explore" className="sf-topback">{I.back({ width: 17, height: 17 })} {t('sf_bazaar')}</Link>
+      <span className="sf-topurl">{window.location.host}/{handle}</span>
+      <div className="sf-topright">
+        {isOwner && (
+          <Link to="/dashboard" className="btn btn-ghost btn-sm" aria-label={t('db_title')}>
+            {I.grid({ width: 15, height: 15 })} {t('db_title')}
+          </Link>
+        )}
+        <LangPill />
+      </div>
+    </div>
+  );
+}
+
 function parseVariantLabel(optionsJson, catId) {
   if (!optionsJson) return '';
   try {
@@ -57,15 +98,6 @@ function stockState(product) {
   if (total === 0) return 'sold';
   if (total <= 5) return 'low';
   return 'in';
-}
-
-function StockBadge({ state, overlay }) {
-  const label = state === 'in' ? t('sf_in_stock') : state === 'low' ? t('sf_low') : t('sf_sold');
-  return (
-    <span className={`sf-stock-badge sf-stock-badge--${state}${overlay ? ' sf-stock-badge--overlay' : ''}`}>
-      {label}
-    </span>
-  );
 }
 
 /* ===== Stars ===== */
@@ -509,8 +541,8 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
   const [reviews, setReviews] = useState([]);
   const touchX = React.useRef(null);
 
-  const name = getProductName(product);
-  const desc = getProductDesc(product);
+  const name = localName(product, lang);
+  const desc = localDesc(product, lang);
   const state = stockState(product);
   const bg = toneColor(product);
 
@@ -657,7 +689,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
           <div className="pp-media">
             <div className={`pp-gal${isSoldOut ? ' is-sold' : ''}`}
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-              <StockBadge state={state} />
+              <SfStockBadge state={state} />
               {galleryImages.length > 0 ? (
                 galleryImages.map((img, k) => (
                   <div key={img.id || k} className={`sf-gal-frame${galIdx === k ? ' on' : ''}`}>
@@ -811,11 +843,15 @@ export default function StorefrontPage() {
   const [shopConfig, setShopConfig] = useState(null);
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [sort, setSort] = useState('default');
+  const [cat, setCat] = useState('all');
+  const [attrSel, setAttrSel] = useState({});
+  const [price, setPrice] = useState({ min: '', max: '' });
+  const [hideSold, setHideSold] = useState(false);
+  const [fOpen, setFOpen] = useState(false);
+  const [sort, setSort] = useState('new');
+  const [copied, setCopied] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productNotFound, setProductNotFound] = useState(false);
-  const [tab, setTab] = useState('products');
   const fetchShopByHandle = useShopStore((s) => s.fetchShopByHandle);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
   const fetchMyShops = useShopStore((s) => s.fetchMyShops);
@@ -925,27 +961,95 @@ export default function StorefrontPage() {
   const palette = getPalette(paletteId);
   const themeVars = applyThemeVars(theme);
   const paletteVars = applyPaletteVars(palette);
-  const styleVars = { ...themeVars, ...paletteVars };
+  const styleVars = {
+    ...themeVars, ...paletteVars, ...storefrontVars(themeId, shopConfig?.font),
+  };
+  const lang = getLang();
 
-  const categories = useMemo(() => {
-    const cats = new Set();
-    products.forEach((p) => { if (p.catId) cats.add(p.catId); });
-    return Array.from(cats);
-  }, [products]);
+  // the listing works on visible products, decorated once with what the cards need
+  const catalog = useMemo(() => products
+    .filter((p) => p.visible !== false)
+    .map((p) => {
+      const np = normalizeProduct(p);
+      const multi = variantAttrs(np.catId).length > 0 && (np.variants || []).length > 1;
+      return {
+        ...np,
+        _name: localName(np, lang), _desc: localDesc(np, lang),
+        _stock: stockState(np), _tone: toneColor(np), _needsPick: multi,
+      };
+    }), [products, lang]);
+
+  const inCat = useCallback((p) => cat === 'all' || catPathIds(p.catId).includes(cat), [cat]);
+
+  // category tree: level-by-level drill-down, only branches that hold products
+  const catNav = useMemo(() => {
+    const used = {};
+    catalog.forEach((p) => catPathIds(p.catId).forEach((id) => { used[id] = (used[id] || 0) + 1; }));
+    const count = (id) => used[id] || 0;
+    const e = cat === 'all' ? null : catEntry(cat);
+    let level;
+    if (!e) level = catRoots().map((n) => n.id);
+    else if (!e.leaf) level = ((e.node.children) || []).map((n) => n.id);
+    else level = ((catNode(e.parent) || {}).children || []).map((n) => n.id);
+    level = level.filter(count);
+    return { level: level.map((id) => ({ id, name: catLabel(id, lang), n: count(id) })), count };
+  }, [catalog, lang, cat]);
+
+  // attribute filters, drawn from what this shop's products actually carry
+  const attrFilters = useMemo(() => {
+    const map = {};
+    catalog.filter(inCat).forEach((p) => {
+      variantAttrs(p.catId).forEach((a) => {
+        if (!a.values) return;
+        (p.variants || []).forEach((v) => {
+          const val = (v.options || {})[a.id];
+          if (!val) return;
+          map[a.id] = map[a.id] || { attr: a, values: [] };
+          if (!map[a.id].values.includes(val)) map[a.id].values.push(val);
+        });
+      });
+    });
+    return Object.keys(map).map((k) => map[k]).filter((x) => x.values.length > 1).slice(0, 4);
+  }, [catalog, inCat]);
 
   const filtered = useMemo(() => {
-    let list = products.filter((p) => p.visible !== false);
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((p) => getProductName(p).toLowerCase().includes(q));
-    }
-    if (categoryFilter) {
-      list = list.filter((p) => p.catId === categoryFilter);
-    }
-    if (sort === 'price-asc') list.sort((a, b) => (a.price || 0) - (b.price || 0));
-    if (sort === 'price-desc') list.sort((a, b) => (b.price || 0) - (a.price || 0));
-    return list;
-  }, [products, search, categoryFilter, sort]);
+    const q = search.trim().toLowerCase();
+    const out = catalog.filter((p) => {
+      if (!inCat(p)) return false;
+      const okAttrs = Object.keys(attrSel).every((aid) => {
+        const want = attrSel[aid] || [];
+        if (!want.length) return true;
+        return (p.variants || []).some((v) => want.includes((v.options || {})[aid]));
+      });
+      if (!okAttrs) return false;
+      if (hideSold && p._stock === 'sold') return false;
+      if (price.min && p.price < Number(price.min)) return false;
+      if (price.max && p.price > Number(price.max)) return false;
+      if (q && !(p._name + ' ' + getProductName(p) + ' ' + p._desc).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    if (sort === 'low') out.sort((a, b) => (a.price || 0) - (b.price || 0));
+    else if (sort === 'high') out.sort((a, b) => (b.price || 0) - (a.price || 0));
+    else out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || (b.id > a.id ? 1 : -1));
+    return out;
+  }, [catalog, inCat, search, sort, hideSold, attrSel, price]);
+
+  const pickCat = (id) => { setCat(id); setAttrSel({}); };
+  const clearFilters = () => { setAttrSel({}); setPrice({ min: '', max: '' }); setHideSold(false); };
+  const pills = [];
+  attrFilters.forEach(({ attr }) => (attrSel[attr.id] || []).forEach((v) => pills.push({
+    k: attr.id + v, lab: attrValueName(attr.id, v, lang), sw: attr.swatch ? attrValueHex(attr.id, v) : null,
+    off: () => setAttrSel((s) => ({ ...s, [attr.id]: (s[attr.id] || []).filter((x) => x !== v) })),
+  })));
+  if (price.min || price.max) {
+    pills.push({
+      k: 'price',
+      lab: (price.min ? fmtNum(price.min) : '0') + ' – ' + (price.max ? fmtNum(price.max) : '∞'),
+      off: () => setPrice({ min: '', max: '' }),
+    });
+  }
+  if (hideSold) pills.push({ k: 'sold', lab: t('sff_instock'), off: () => setHideSold(false) });
+  const nActive = pills.length;
 
   const layout = shopConfig?.layout?.toLowerCase() || 'grid';
 
@@ -986,11 +1090,32 @@ export default function StorefrontPage() {
 
   function handleShare() {
     const url = `${window.location.origin}/${handle}`;
-    if (navigator.share) {
-      navigator.share({ title: shop?.name, url });
-    } else {
-      navigator.clipboard.writeText(url);
-    }
+    try {
+      if (navigator.share) navigator.share({ title: shop?.name, url }).catch(() => {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(url);
+    } catch { /* share sheet dismissed / clipboard blocked */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  }
+
+  function openProduct(p) {
+    const raw = products.find((x) => x.id === p.id) || p;
+    setSelectedProduct(raw);
+    navigate(`/${handle}/p/${p.id}`);
+    window.scrollTo(0, 0);
+  }
+
+  // the card's own button: a product with a single variant goes straight to the basket
+  function quickAdd(p) {
+    const v = (p.variants || []).find((x) => (x.qty || 0) > 0) || (p.variants || [])[0];
+    addToBasket({
+      productId: p.id,
+      variantId: v?.id || null,
+      name: getProductName(p),
+      label: v ? parseVariantLabel(v.optionsJson, p.catId) : '',
+      qty: 1,
+      unitPrice: v?.price || p.price || 0,
+    });
   }
 
   /* ===== Renders ===== */
@@ -1022,7 +1147,7 @@ export default function StorefrontPage() {
   if (completedOrder) {
     return (
       <div className="storefront" style={styleVars}>
-        <div className="sf-container">
+        <div className="sf-wrap">
           <OrderSuccess
             order={completedOrder}
             onClose={() => { setCompletedOrder(null); setSelectedProduct(null); }}
@@ -1050,7 +1175,8 @@ export default function StorefrontPage() {
   // Product page (full page, not drawer/modal)
   if (selectedProduct) {
     return (
-      <div className="storefront" style={styleVars}>
+      <div className={`storefront ${themeId}`} style={styleVars}>
+        <StoreTopbar handle={handle} isOwner={isOwner} />
         <ProductPage
           product={selectedProduct}
           shop={shop}
@@ -1086,225 +1212,117 @@ export default function StorefrontPage() {
     );
   }
 
-  // Main listing
+  // Main listing — the design's Storefront.jsx
+  const paused = shop.status === 'PAUSED';
+  const tagline = localTagline(shop.tagline, lang);
+  const coverTone = shop.coverColor || palette.accent;
   return (
-    <div className="storefront" style={styleVars}>
-      {/* Cover */}
-      <div
-        className="sf-cover"
-        style={{
-          backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
-          backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || 'var(--s-line)'),
-        }}
-      />
-
-      {/* Header */}
-      <div className="sf-container">
-        <div className="sf-header">
-          {shop.logoUrl ? (
-            <img src={shop.logoUrl} alt={shop.name} className="sf-header__avatar" loading="eager" decoding="async" width={72} height={72} />
-          ) : (
-            <div className="sf-header__avatar sf-header__avatar--placeholder">
-              {shop.initials || shop.name?.charAt(0)}
+    <div className={`storefront ${themeId}`} style={styleVars}>
+      <StoreTopbar handle={handle} isOwner={isOwner} />
+      <div className={'sf-cover ph' + (shop.coverUrl ? ' has-img' : '')} style={{ '--ph-tone': coverTone }}>
+        {shop.coverUrl
+          ? <img className="sf-cover-img" src={shop.coverUrl} alt="" decoding="async" />
+          : <div className="sf-cover-wm">{shop.name}</div>}
+      </div>
+      <div className="sf-header">
+        <div className="sf-wrap">
+          <div className="sf-id">
+            <div className="sf-avatar" style={{ '--ph-tone': palette.accent }}>
+              {shop.logoUrl
+                ? <img src={shop.logoUrl} alt={shop.name} loading="eager" decoding="async" width={88} height={88} />
+                : <span className="sf-avatar-init">{shop.initials || shop.name?.charAt(0)}</span>}
             </div>
-          )}
-          <div className="sf-header__info">
-            <h1 className="sf-header__name">{shop.name}</h1>
-            <p className="sf-header__meta">
-              {shop.handle && <span>@{shop.handle}</span>}
-              {shop.location && <><span className="sf-meta-dot">&middot;</span><span>{shop.location}</span></>}
-              <span className="sf-meta-dot">&middot;</span>
-              <span>{filtered.length} {plural(filtered.length, 'product')}</span>
-            </p>
-            <div className="sf-header__tags">
-              <span className="sf-tag-pill">{t('co_delivery')}</span>
-              <span className="sf-tag-pill">{t('co_pay_cash')}</span>
-              <span className="sf-tag-pill">{t('co_pay_card')}</span>
+            <div className="sf-id-main">
+              <h1 className="sf-name sf-display">{shop.name}</h1>
+              <div className="sf-handle">
+                <span>@{shop.handle}</span>
+                {shop.location && <span className="pin">{I.store({ width: 14, height: 14 })} {shop.location}</span>}
+                <span>{catalog.length} {plural(catalog.length, 'product')}</span>
+              </div>
             </div>
+          </div>
+          {tagline && <div className="sf-tag">{tagline}</div>}
+          <div className="sf-info">
+            <span>{I.truck({ width: 16, height: 16 })} {t('sf_delivery_def')}</span>
+            <span>{I.cardp({ width: 16, height: 16 })} {t('sf_pay_def')}</span>
+          </div>
+          <SfLocation shop={shop} showToast={showToast} />
+          <div className="sf-reach">
             {(shop.telegram || shop.instagram || shop.phone) && (
-              <div className="sf-header__contacts">
-                <span className="sf-contacts-label">{t('sf_reach')}:</span>
-                {shop.telegram && (
-                  <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
-                    {I.tg({ width: 16, height: 16 })} @{shop.telegram.replace('@', '')}
-                  </a>
-                )}
-                {shop.instagram && (
-                  <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
-                    {I.ig({ width: 16, height: 16 })} @{shop.instagram.replace('@', '')}
-                  </a>
-                )}
-                {shop.phone && (
-                  <a href={`tel:${shop.phone}`} className="sf-contact-link">
-                    {I.tel({ width: 16, height: 16 })} {shop.phone}
-                  </a>
-                )}
+              <div className="sf-reach-l">
+                <div className="sf-sizes-label sf-up">{t('sf_contact')}</div>
+                <ContactRows shop={shop} />
               </div>
             )}
-          </div>
-          <div className="sf-header__actions">
-            {isOwner && (
-              <Link to="/dashboard" className="sf-btn sf-btn-line">
-                {I.back ? I.back({ width: 15, height: 15 }) : '←'} {t('ob_go_dashboard')}
-              </Link>
-            )}
-            <LangPill />
-            <button className="sf-btn sf-btn-line" onClick={handleShare}>
-              &#8599; {t('sf_share')}
+            <button className="sf-btn sf-btn-line" onClick={handleShare} type="button">
+              {copied ? I.check() : I.share()} {copied ? t('sf_copied') : t('sf_share')}
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Tabs */}
-        <div className="sf-tabs">
-          <button
-            className={`sf-tabs__btn ${tab === 'products' ? 'sf-tabs__btn--active' : ''}`}
-            onClick={() => setTab('products')}
-            type="button"
-          >
-            {t('sf_products')} ({filtered.length})
-          </button>
-          <button
-            className={`sf-tabs__btn ${tab === 'about' ? 'sf-tabs__btn--active' : ''}`}
-            onClick={() => setTab('about')}
-            type="button"
-          >
-            {t('sf_about')}
-          </button>
-        </div>
-
-        {tab === 'products' && (
-          <>
-            {/* Filters */}
-            <div className="sf-filters">
-              <input
-                type="text"
-                className="sf-filters__search"
-                placeholder={t('sf_search')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <div className="sf-filters__cats">
-                <button
-                  className={`sf-cat-pill ${!categoryFilter ? 'sf-cat-pill--active' : ''}`}
-                  onClick={() => setCategoryFilter('')}
-                  type="button"
-                >
-                  {t('sf_all')}
+      {paused ? (
+        <div className="sf-wrap"><div className="sf-closed">
+          <div className="sf-closed-ic">{I.store({ width: 26, height: 26 })}</div>
+          <b className="sf-display">{t('sf_closed_t')}</b>
+          <p>{t('sf_closed_d')}</p>
+        </div></div>
+      ) : catalog.length === 0 ? (
+        <div className="sf-wrap"><div className="sf-empty big">{t('sf_setting_up')}</div></div>
+      ) : (
+        <>
+          <div className="sf-toolbar">
+            <div className="sf-wrap sf-toolbar-in">
+              <div className="sff-row">
+                <div className="sf-search">
+                  {I.search()}
+                  <input placeholder={t('sf_search')} value={search} onChange={(e) => setSearch(e.target.value)} />
+                  {search && <button className="sff-qx" onClick={() => setSearch('')} aria-label="Clear" type="button">{I.x({ width: 14, height: 14 })}</button>}
+                </div>
+                <button className={'sff-btn' + (nActive ? ' on' : '')} onClick={() => setFOpen(true)} type="button">
+                  {SFF_I.sliders({ width: 18, height: 18 })}<span className="sff-btn-l">{t('sff_filters')}</span>{nActive > 0 && <b>{nActive}</b>}
                 </button>
-                {categories.map((cat) => {
-                  const lang = getLang();
-                  const leafName = catLabel(cat, lang);
-                  const isDuplicate = categories.some(c => c !== cat && catLabel(c, lang) === leafName);
-                  const path = catPathIds(cat);
-                  const parentName = isDuplicate && path.length >= 2 ? catLabel(path[path.length - 2], lang) : '';
-                  const chipLabel = parentName ? `${leafName} · ${parentName}` : leafName;
-                  return (
-                    <button
-                      key={cat}
-                      className={`sf-cat-pill ${categoryFilter === cat ? 'sf-cat-pill--active' : ''}`}
-                      onClick={() => setCategoryFilter(cat === categoryFilter ? '' : cat)}
-                      type="button"
-                    >
-                      {chipLabel}
-                    </button>
-                  );
-                })}
+                <select className="sf-sort sff-sort" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="sort">
+                  <option value="new">{t('sf_sort_new')}</option>
+                  <option value="low">{t('sf_sort_low')}</option>
+                  <option value="high">{t('sf_sort_high')}</option>
+                </select>
               </div>
-              <select
-                className="sf-filters__sort"
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-              >
-                <option value="default">{t('sf_all')}</option>
-                <option value="price-asc">{t('db_price')} &#8593;</option>
-                <option value="price-desc">{t('db_price')} &#8595;</option>
-              </select>
+              <SfCatBar nav={catNav} cat={cat} setCat={pickCat} lang={lang} />
             </div>
-
-            {/* Products */}
-            {filtered.length === 0 ? (
-              <EmptyState icon="&#128722;" title={t('sf_empty')} />
-            ) : (
-              <div className={`sf-products sf-products--${layout}`}>
-                {filtered.map((product) => {
-                  const name = getProductName(product);
-                  const state = stockState(product);
-                  const bg = toneColor(product);
-                  return (
-                    <Link
-                      key={product.id}
-                      className={`sf-product-card sf-product-card--${layout}`}
-                      to={`/${handle}/p/${product.id}`}
-                      onClick={(e) => { e.preventDefault(); setSelectedProduct(product); navigate(`/${handle}/p/${product.id}`); }}
-                    >
-                      <div className="sf-product-card__img">
-                        {product.images?.length > 0 ? (
-                          <img src={product.images[0].thumbnailUrl || product.images[0].url} alt={name} loading="lazy" decoding="async" width={400} height={400} />
-                        ) : (
-                          <div className="sf-product-card__no-img--toned" style={{ background: bg }}>
-                            {name?.charAt(0)}
-                          </div>
-                        )}
-                        <StockBadge state={state} overlay />
-                      </div>
-                      <div className="sf-product-card__info">
-                        <h3 className="sf-product-card__name">{name}</h3>
-                        <span className="sf-product-card__price">{fmtPrice(product.price)}</span>
-                        {product.variants?.length > 0 && (
-                          <div className="sf-product-card__sizes">
-                            {product.variants.slice(0, 4).map((v, i) => (
-                              <span key={i} className="sf-product-card__size">
-                                {parseVariantLabel(v.optionsJson, product.catId)}
-                              </span>
-                            ))}
-                            {product.variants.length > 4 && (
-                              <span className="sf-product-card__size">+{product.variants.length - 4}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-
-        {tab === 'about' && (
-          <div className="sf-about">
-            {shop.location && <p><strong>{t('ob_city')}:</strong> {shop.location}</p>}
-            {shop.telegram && <p className="sf-about-contact">{I.tg({ width: 16, height: 16 })} <strong>Telegram:</strong> <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">@{shop.telegram.replace('@', '')}</a></p>}
-            {shop.instagram && <p className="sf-about-contact">{I.ig({ width: 16, height: 16 })} <strong>Instagram:</strong> <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer">@{shop.instagram.replace('@', '')}</a></p>}
-            {shop.phone && <p className="sf-about-contact">{I.tel({ width: 16, height: 16 })} <strong>{t('ob_phone_contact')}:</strong> <a href={`tel:${shop.phone}`}>{shop.phone}</a></p>}
           </div>
-        )}
-
-        {/* Footer */}
-        <footer className="sf-footer">
-          <div className="sf-footer__contacts">
-            {shop.telegram && (
-              <a href={`https://t.me/${shop.telegram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
-                {I.tg({ width: 18, height: 18 })} Telegram
-              </a>
-            )}
-            {shop.instagram && (
-              <a href={`https://instagram.com/${shop.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="sf-contact-link">
-                {I.ig({ width: 18, height: 18 })} Instagram
-              </a>
-            )}
-            {shop.phone && (
-              <a href={`tel:${shop.phone}`} className="sf-contact-link">
-                {I.tel({ width: 18, height: 18 })} {shop.phone}
-              </a>
-            )}
+          <div className="sf-wrap">
+            <SfResultBar lang={lang} cat={cat} count={filtered.length} pills={pills} onClear={clearFilters} />
           </div>
-          {shop.location && <p className="sf-footer__location">{shop.location}</p>}
-          <p className="sf-footer__platform">
-            <a href="https://labaratory.rastashops.com" target="_blank" rel="noopener noreferrer">labaratory.rastashops.com</a>
-          </p>
-        </footer>
+          {fOpen && (
+            <SfFilterSheet lang={lang} filters={attrFilters} sel={attrSel} setSel={setAttrSel}
+              price={price} setPrice={setPrice} hideSold={hideSold} setHideSold={setHideSold}
+              sort={sort} setSort={setSort} count={filtered.length} onClear={clearFilters}
+              onClose={() => setFOpen(false)} />
+          )}
+
+          <div className="sf-products">
+            <div className="sf-wrap">
+              {filtered.length > 0 ? (
+                <div className={'lay-' + layout}>
+                  {filtered.map((p) => (
+                    <ProductCard key={p.id} p={p} layout={layout} href={`/${handle}/p/${p.id}`}
+                      onOpen={openProduct} onAdd={quickAdd} />
+                  ))}
+                </div>
+              ) : (
+                <div className="sf-empty">{t('sf_empty')}</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="sf-footer">
+        <div className="sf-wrap">
+          <span>@{shop.handle}{shop.location ? ` · ${shop.location}` : ''}</span>
+          <a className="pw" href="/">{I.store({ width: 15, height: 15 })} <span>{window.location.host}/{shop.handle}</span></a>
+        </div>
       </div>
 
       {/* Basket dock */}
