@@ -79,19 +79,16 @@ export default function BioLinkPage() {
   });
   if (shop.instagram) links.push({
     key: 'ig', label: 'Instagram',
-    sub: `@${shop.instagram.replace('@', '')}`,
     href: `https://instagram.com/${shop.instagram.replace('@', '')}`,
     icon: BioIcons.ig({ width: 19, height: 19 }),
   });
   if (shop.telegram) links.push({
     key: 'tg', label: 'Telegram',
-    sub: `@${shop.telegram.replace('@', '')}`,
     href: `https://t.me/${shop.telegram.replace('@', '')}`,
     icon: I.tg({ width: 19, height: 19 }),
   });
   if (shop.phone) links.push({
     key: 'ph', label: t('bio_call'),
-    sub: shop.phone,
     href: `tel:${shop.phone}`,
     icon: BioIcons.phone({ width: 19, height: 19 }),
   });
@@ -130,7 +127,7 @@ export default function BioLinkPage() {
                 <span className="bio-btn-ic">{l.icon}</span>
                 <span className="bio-btn-tx">
                   <b>{l.label}</b>
-                  <i>{l.sub}</i>
+                  {l.sub && <i>{l.sub}</i>}
                 </span>
                 {l.primary && products.length > 0 && (
                   <span className="bio-sl-badge">{I.bag({ width: 12, height: 12 })} {t('bio_featured')}</span>
