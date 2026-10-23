@@ -168,11 +168,12 @@ export default function BioLinkPage() {
             <div className="bio-grid">
               {products.map((p) => (
                 <Link key={p.id} to={`/${handle}/p/${p.id}`} className="bio-prod">
-                  <div className="bio-pimg">
+                  <div style={{ position: 'relative', width: '100%', paddingBottom: '125%', borderRadius: 'calc(var(--b-r,18px) * .35 + 3px)', overflow: 'hidden', background: 'rgba(0,0,0,.07)' }}>
                     {p.images?.[0]?.url ? (
-                      <img src={p.images[0].thumbnailUrl || p.images[0].url} alt={getProductName(p)} loading="lazy" />
+                      <img src={p.images[0].thumbnailUrl || p.images[0].url} alt={getProductName(p)} loading="lazy"
+                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }} />
                     ) : (
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: p.tone || bg.prim, color: '#fff', fontSize: '1.5rem', fontWeight: 700 }}>
+                      <span style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: p.tone || bg.prim, color: '#fff', fontSize: '1.5rem', fontWeight: 700 }}>
                         {getProductName(p).charAt(0)}
                       </span>
                     )}
