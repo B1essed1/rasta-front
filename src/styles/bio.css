@@ -54,7 +54,7 @@
 .bio-style-hard .bio-prod{border:2px solid var(--b-ink);box-shadow:4px 4px 0 var(--b-ink)}
 .bio-style-glass .bio-prod{background:rgba(255,255,255,.5);backdrop-filter:blur(10px)}
 .bio-prod:hover{transform:translateY(-1.5px)}
-.bio-pimg{position:relative;display:block;width:100%;aspect-ratio:4/5;border-radius:calc(var(--b-r,18px) * .35 + 3px);overflow:hidden;background:rgba(0,0,0,.07)}
-.bio-pimg img,.bio-pimg>span{display:block;width:100%;height:100%;object-fit:cover;object-position:top center}
+.bio-pimg{position:relative;width:100%;padding-bottom:125%;border-radius:calc(var(--b-r,18px) * .35 + 3px);overflow:hidden;background:rgba(0,0,0,.07)}
+.bio-pimg img,.bio-pimg>span{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
 .bio-pname{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bio-pprice{font-size:13px;color:var(--b-sub);margin-top:-3px}

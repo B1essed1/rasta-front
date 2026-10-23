@@ -171,7 +171,7 @@ export default function BioLinkPage() {
             <div className="bio-grid">
               {products.map((p) => (
                 <Link key={p.id} to={`/${handle}/p/${p.id}`} className="bio-prod">
-                  <span className="bio-pimg">
+                  <div className="bio-pimg">
                     {p.images?.[0]?.url ? (
                       <img src={p.images[0].thumbnailUrl || p.images[0].url} alt={getProductName(p)} loading="lazy" />
                     ) : (
@@ -179,7 +179,7 @@ export default function BioLinkPage() {
                         {getProductName(p).charAt(0)}
                       </span>
                     )}
-                  </span>
+                  </div>
                   <span className="bio-pname">{getProductName(p)}</span>
                   <span className="bio-pprice">{fmtPrice(p.price)}</span>
                 </Link>
