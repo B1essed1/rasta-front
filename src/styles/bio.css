@@ -47,12 +47,22 @@
 /* products */
 .bio-shelf{width:100%;margin-top:28px}
 .bio-shelf-t{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--b-sub);margin-bottom:11px}
-.bio-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
-.bio-prod{display:flex;flex-direction:column;gap:6px;padding:9px;border-radius:calc(var(--b-r,18px) * .6 + 6px);background:var(--b-card);color:var(--b-ink);border:1.5px solid transparent;cursor:pointer;font-family:inherit;text-align:left;text-decoration:none}
+
+.bio-grid{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;align-items:stretch;width:100%}
+
+.bio-prod{display:flex;flex-direction:column;min-width:0;height:100%;padding:8px;border-radius:calc(var(--b-r,18px) * .6 + 6px);background:var(--b-card);color:var(--b-ink);border:1.5px solid transparent;cursor:pointer;font-family:inherit;text-align:left;text-decoration:none;box-sizing:border-box;overflow:hidden}
 .bio-style-soft .bio-prod{box-shadow:0 2px 10px rgba(0,0,0,.09)}
 .bio-style-outline .bio-prod{background:transparent;border-color:var(--b-bd)}
 .bio-style-hard .bio-prod{border:2px solid var(--b-ink);box-shadow:4px 4px 0 var(--b-ink)}
 .bio-style-glass .bio-prod{background:rgba(255,255,255,.5);backdrop-filter:blur(10px)}
 .bio-prod:hover{transform:translateY(-1.5px)}
-.bio-pname{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bio-pprice{font-size:13px;color:var(--b-sub);margin-top:-3px}
+
+.bio-prod__img{width:100%;aspect-ratio:4/5;overflow:hidden;border-radius:calc(var(--b-r,18px) * .35 + 3px);flex-shrink:0;background:rgba(0,0,0,.07)}
+.bio-prod__img img{display:block;width:100%;height:100%;object-fit:cover;object-position:top center}
+.bio-prod__placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;font-weight:700}
+
+.bio-prod__info{display:flex;flex-direction:column;flex:1;min-width:0;padding-top:8px}
+.bio-prod__name{font-size:13px;line-height:1.4;font-weight:600;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-height:calc(1.4em * 2)}
+.bio-prod__price{font-size:13px;line-height:1.4;color:var(--b-sub);margin-top:4px}
+
+@media(max-width:360px){.bio-grid{gap:8px}.bio-prod{padding:6px}}

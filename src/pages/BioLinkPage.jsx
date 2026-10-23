@@ -168,18 +168,19 @@ export default function BioLinkPage() {
             <div className="bio-grid">
               {products.map((p) => (
                 <Link key={p.id} to={`/${handle}/p/${p.id}`} className="bio-prod">
-                  <div style={{
-                    width: '100%',
-                    paddingBottom: '125%',
-                    borderRadius: 'calc(var(--b-r,18px) * .35 + 3px)',
-                    backgroundImage: p.images?.[0]?.url ? `url(${p.images[0].thumbnailUrl || p.images[0].url})` : 'none',
-                    backgroundColor: p.images?.[0]?.url ? 'rgba(0,0,0,.07)' : (p.tone || bg.prim),
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'top center',
-                    backgroundRepeat: 'no-repeat',
-                  }} />
-                  <span className="bio-pname">{getProductName(p)}</span>
-                  <span className="bio-pprice">{fmtPrice(p.price)}</span>
+                  <div className="bio-prod__img">
+                    {p.images?.[0]?.url ? (
+                      <img src={p.images[0].thumbnailUrl || p.images[0].url} alt={getProductName(p)} loading="lazy" />
+                    ) : (
+                      <div className="bio-prod__placeholder" style={{ background: p.tone || bg.prim }}>
+                        {getProductName(p).charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="bio-prod__info">
+                    <span className="bio-prod__name">{getProductName(p)}</span>
+                    <span className="bio-prod__price">{fmtPrice(p.price)}</span>
+                  </div>
                 </Link>
               ))}
             </div>
