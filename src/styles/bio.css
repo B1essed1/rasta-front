@@ -1,5 +1,6 @@
 /* ===== Link in bio ===== */
 .bio-page{position:relative;min-height:100vh;background:var(--b-bg);font-family:var(--b-font);color:var(--b-ink);display:flex;justify-content:center;padding:40px 18px 60px}
+.bio-page a{color:inherit;text-decoration:none}
 .bio-card{position:relative;width:100%;max-width:440px;display:flex;flex-direction:column}
 .bio-head{display:flex;flex-direction:column;align-items:center;text-align:center}
 .bio-avatar{position:relative;border-radius:50%;overflow:hidden;background:var(--b-card);border:2px solid var(--b-bd);flex:none}
