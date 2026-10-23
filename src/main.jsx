@@ -15,6 +15,8 @@ import './styles/app2.css';
 // storefront.css, which broke the product page size picker ("S0 items").
 // Scope it under the chat root before importing it with ChatsView.
 import './styles/bio.css';
+import './styles/bio-vibes.css';
+import './styles/bio-concepts.css';
 import './styles/compat.css';
 // Last on purpose: every rule in here is inside a max-width query, so it can
 // only ever adapt the design downwards and never touches the desktop cascade.

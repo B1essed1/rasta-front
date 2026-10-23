@@ -4,7 +4,7 @@ import { useShopStore } from '../../store/shopStore';
 import { themes, getTheme, applyThemeVars } from '../../data/themes';
 import { palettes, getPalette, applyPaletteVars } from '../../data/palettes';
 import { toast } from '../../components/ui/ToastHost';
-import { BIO_BGS, BIO_TPLS, getBioConfig, bioVars } from '../../data/bio';
+import { BIO_BGS, BIO_TPLS, BIO_FONTS, BIO_RADII, VIBE_LAYOUTS, getBioConfig, bioVars } from '../../data/bio';
 import { I } from '../../components/ui/Icons';
 import api from '../../api/client';
 
@@ -236,6 +236,56 @@ export default function DesignView() {
   );
 }
 
+/* ── Structural mini-preview thumbnails ── */
+
+function ConceptThumb({ L, c }) {
+  const base = 'bio-thumb vt ct-' + L;
+  const st = bioVars(c);
+  if (L === 'os') return <span className={base} style={st}><span className="cto-w"><i className="bar" /><i className="row" /><i className="btn" /></span><span className="cto-ic"><i /><i /><i /></span><span className="cto-w s"><i className="bar" /><i className="grid" /></span><span className="cto-task" /></span>;
+  if (L === 'receipt') return <span className={base} style={st}><span className="ctr-p"><i className="c" /><i className="l" /><i className="l" /><i className="l" /><i className="t" /><i className="bc" /></span></span>;
+  if (L === 'chat') return <span className={base} style={st}><span className="ctc-h" /><i className="ctc-m in" /><i className="ctc-m in img" /><i className="ctc-m out" /><span className="ctc-k"><i className="big" /><i /><i /></span></span>;
+  if (L === 'ticket') return <span className={base} style={st}><span className="ctt-nm" /><i className="ctt-t big" /><i className="ctt-t c1" /><i className="ctt-t c2" /><i className="ctt-t c3" /></span>;
+  if (L === 'player') return <span className={base} style={st}><span className="cty-c"><span className="cty-art"><i className="rec" /><i className="sl" /></span><i className="cty-nm" /><i className="cty-pr" /><i className="cty-pl" /></span><i className="cty-tr" /><i className="cty-tr" /></span>;
+  if (L === 'cover') return <span className={base} style={st}><span className="ctz-mast" /><i className="ctz-l" /><i className="ctz-l" /><i className="ctz-l s" /><span className="ctz-b" /></span>;
+  return null;
+}
+
+function VibeThumb({ L, c }) {
+  const base = 'bio-thumb vt vt-' + L;
+  const st = bioVars(c);
+  if (L === 'bento') return <span className={base} style={st}><span className="vtb"><i className="id" /><i className="sh" /><i className="c1" /><i className="c2" /><i className="c3" /><i className="p" /></span></span>;
+  if (L === 'sticker') return <span className={base} style={st}><span className="vts-av" /><span className="vts-nm" /><i className="vts-b sh" /><i className="vts-b c1" /><i className="vts-b c2" /><i className="vts-b c3" /></span>;
+  if (L === 'marquee') return <span className={base} style={st}><span className="vtm-m" /><span className="vtm-nm" /><span className="vtm-nm s" /><i className="vtm-r big" /><i className="vtm-r" /><i className="vtm-r" /><span className="vtm-m b" /></span>;
+  if (L === 'aurora') return <span className={base} style={st}><i className="vta-b a" /><i className="vta-b b" /><i className="vta-b c" /><span className="vta-g"><span className="vta-av" /><span className="vta-nm" /><i className="vta-btn sh" /><i className="vta-btn" /><i className="vta-btn" /></span></span>;
+  if (L === 'ikat') return <span className={base} style={st}><span className="vti-band" /><span className="vti-arch" /><span className="vti-nm" /><i className="vti-btn sh" /><i className="vti-btn" /><span className="vti-band bt" /></span>;
+  if (L === 'scrap') return <span className={base} style={st}><span className="vtp-pol" /><span className="vtp-nm" /><i className="vtp-n sh" /><i className="vtp-n" /><i className="vtp-n r" /></span>;
+  return <ConceptThumb L={L} c={c} />;
+}
+
+function BioThumb({ tpl, over }) {
+  const def = BIO_TPLS.find(x => x.id === tpl) || BIO_TPLS[0];
+  const c = { tpl: def.id, layout: def.layout, bg: def.bg, btn: def.btn, radius: def.radius, font: def.font, ...(over || {}) };
+  const L = c.layout;
+  if (VIBE_LAYOUTS.includes(L)) return <VibeThumb L={L} c={c} />;
+  return (
+    <span className={'bio-thumb bio-btn-' + c.btn + ' th-' + L} style={bioVars(c)}>
+      {L === 'hero' && <span className="bt-cover" />}
+      {L === 'poster' && <span className="bt-poster" />}
+      {L !== 'editorial' && <span className="bt-av" style={L === 'poster' ? { marginTop: 'auto' } : null} />}
+      {L === 'editorial' && <span className="bt-av left" />}
+      <span className={'bt-nm' + (L === 'editorial' ? ' left' : '')} />
+      {L === 'tiles'
+        ? <span className="bt-tiles"><i className="primary" /><i /><i /></span>
+        : L === 'editorial'
+        ? <span className="bt-rows"><i /><i /><i /></span>
+        : <><span className="bt-btn primary" /><span className="bt-btn" /><span className="bt-btn" /></>}
+      {L === 'shelf' && <span className="bt-shelf"><i /><i /><i /></span>}
+    </span>
+  );
+}
+
+/* ── Bio Studio ── */
+
 function BioStudio({ shopId, handle }) {
   const [bioJson, setBioJson] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -248,11 +298,11 @@ function BioStudio({ shopId, handle }) {
   }, [shopId]);
 
   const cfg = getBioConfig(bioJson);
+  const bg = BIO_BGS[cfg.bg];
   const vars = bioVars(cfg);
 
   function pickTpl(tplId) {
-    const tpl = BIO_TPLS.find((x) => x.id === tplId) || BIO_TPLS[0];
-    const newJson = JSON.stringify({ tpl: tplId, bg: tpl.bg, btn: tpl.btn, radius: tpl.radius, font: tpl.font });
+    const newJson = JSON.stringify({ tpl: tplId });
     setBioJson(newJson);
     saveBio(newJson);
   }
@@ -262,6 +312,12 @@ function BioStudio({ shopId, handle }) {
     try { raw = bioJson ? JSON.parse(bioJson) : {}; } catch {}
     const updated = { ...raw, ...patch };
     const newJson = JSON.stringify(updated);
+    setBioJson(newJson);
+    saveBio(newJson);
+  }
+
+  function resetToTemplate() {
+    const newJson = JSON.stringify({ tpl: cfg.tpl });
     setBioJson(newJson);
     saveBio(newJson);
   }
@@ -277,7 +333,6 @@ function BioStudio({ shopId, handle }) {
 
   const shopData = useShopStore((s) => s.shop);
   const products = useShopStore((s) => s.products);
-  const bg = BIO_BGS[cfg.bg];
 
   function getProductName(p) {
     return p.nameEn || p.nameUz || p.nameRu || '';
@@ -285,111 +340,120 @@ function BioStudio({ shopId, handle }) {
 
   const previewProducts = (products || []).filter((p) => p.visible !== false).slice(0, 4);
 
+  const TPL_GROUPS = [
+    ['concept', t('st_bio_concept'), true],
+    ['vivid', t('st_bio_vivid'), false],
+    ['classic', t('st_bio_classic'), false],
+  ];
+
+  const FONT_OPTIONS = [
+    ['soft', 'Bricolage'],
+    ['grotesk', 'Space Grotesk'],
+    ['serif', 'Serif'],
+    ['outfit', 'Outfit'],
+    ['round', 'Unbounded'],
+    ['impact', 'Anton'],
+    ['hand', 'Caveat (handwritten)'],
+    ['pixel', 'VT323 (pixel)'],
+    ['mono', 'Space Mono'],
+  ];
+
   return (
     <div className="set-card" style={{ marginTop: 22 }}>
-      <div className="set-title">{t('sh_bio')}</div>
-      <div className="hint" style={{ marginTop: -6 }}>{t('sh_bio_d')}</div>
-      {handle && (
-        <div className="hint" style={{ marginTop: -2 }}>
-          <a href={`/${handle}/link`} target="_blank" rel="noopener noreferrer" className="share-url">
-            labaratory.rastashops.com/{handle}/link
-          </a>
-        </div>
-      )}
+      <div className="set-title">{t('st_bio')}</div>
+      <div className="hint" style={{ marginTop: -6 }}>{t('st_bio_d')}</div>
 
       <div className="theme-editor" style={{ marginTop: 16 }}>
         {/* Controls panel */}
         <div className="te-panel">
-          {/* Template picker */}
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_theme')}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(94px, 1fr))', gap: 10, marginBottom: 20 }}>
-            {BIO_TPLS.map((tpl) => {
-              const tplVars = bioVars({ bg: tpl.bg, btn: tpl.btn, radius: tpl.radius, font: tpl.font });
-              const isActive = cfg.tpl === tpl.id;
-              return (
-                <button
-                  key={tpl.id}
-                  onClick={() => pickTpl(tpl.id)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', gap: 6, padding: 5,
-                    borderRadius: 13, border: isActive ? '2px solid var(--primary, #1b1714)' : '2px solid transparent',
-                    background: isActive ? '#fff' : '#f1ede6', cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  <span style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                    width: '100%', aspectRatio: '4/5', borderRadius: 10,
-                    background: tplVars['--b-bg'], padding: '11px 11px 8px', justifyContent: 'center',
-                  }}>
-                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: tplVars['--b-prim'], opacity: 0.9 }} />
-                    <span style={{ width: '46%', height: 6, borderRadius: 3, background: tplVars['--b-ink'], opacity: 0.75 }} />
-                    <span style={{ width: '100%', height: 12, borderRadius: `calc(${tplVars['--b-r']} / 2.6)`, background: tplVars['--b-prim'] }} />
-                    <span style={{ width: '100%', height: 12, borderRadius: `calc(${tplVars['--b-r']} / 2.6)`, background: tplVars['--b-card'] }} />
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 12, fontWeight: 600, paddingBottom: 2 }}>
-                    {isActive && I.check({ width: 13, height: 13 })} {tpl.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {/* Template picker — grouped */}
+          <div className="bio-sub-t">{t('st_bio_tpl')}</div>
+          {TPL_GROUPS.map(([group, label, showNew]) => (
+            <div key={group} className="bio-tpl-group">
+              <div className="bio-tpl-gt">
+                {label}
+                {showNew && <em>{t('vb_new')}</em>}
+              </div>
+              <div className="bio-picker">
+                {BIO_TPLS
+                  .filter(x => (x.group || (x.vivid ? 'vivid' : 'classic')) === group)
+                  .map(x => (
+                    <button
+                      key={x.id}
+                      className={'bio-pick' + (cfg.tpl === x.id ? ' on' : '')}
+                      onClick={() => pickTpl(x.id)}
+                    >
+                      <BioThumb tpl={x.id} />
+                      <span className="bio-pick-nm">
+                        {cfg.tpl === x.id && I.check({ width: 13, height: 13 })} {x.name}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Customisation section */}
+          <div className="bio-sub-t">{t('st_bio_custom')}</div>
 
           {/* Background swatches */}
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_accent')}</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-            {Object.keys(BIO_BGS).map((id) => (
-              <button
-                key={id}
-                onClick={() => patchBio({ bg: id })}
-                style={{
-                  width: 34, height: 34, borderRadius: '50%', background: BIO_BGS[id].base,
-                  border: cfg.bg === id ? '2px solid #1b1714' : '2px solid rgba(0,0,0,.12)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                {cfg.bg === id && <span style={{ color: BIO_BGS[id].ink }}>{I.check({ width: 14, height: 14 })}</span>}
-              </button>
-            ))}
+          <div className="field">
+            <label>{t('st_bio_bg')}</label>
+            <div className="bio-swatches">
+              {Object.keys(BIO_BGS).map((id) => (
+                <button
+                  key={id}
+                  className={'bio-sw' + (cfg.bg === id ? ' on' : '')}
+                  style={{ background: BIO_BGS[id].base }}
+                  onClick={() => patchBio({ bg: id })}
+                >
+                  {cfg.bg === id && <span style={{ color: BIO_BGS[id].ink }}>{I.check({ width: 14, height: 14 })}</span>}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Dropdowns */}
           <div className="field-row">
+            {!VIBE_LAYOUTS.includes(cfg.layout) && (
+              <div className="field">
+                <label>{t('st_bio_btn')}</label>
+                <select value={cfg.btn} onChange={(e) => patchBio({ btn: e.target.value })}>
+                  {[['soft', t('bs_soft')], ['fill', t('bs_fill')], ['outline', t('bs_outline')], ['hard', t('bs_hard')], ['glass', t('bs_glass')]].map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="field">
-              <label>{t('db_font')}</label>
-              <select value={cfg.font} onChange={(e) => patchBio({ font: e.target.value })}>
-                <option value="soft">Bricolage</option>
-                <option value="grotesk">Space Grotesk</option>
-                <option value="serif">Serif</option>
-                <option value="outfit">Outfit</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Corners</label>
+              <label>{t('st_bio_corners')}</label>
               <select value={cfg.radius} onChange={(e) => patchBio({ radius: e.target.value })}>
-                <option value="square">Square</option>
-                <option value="round">Rounded</option>
-                <option value="pill">Pill</option>
+                {[['square', t('rd_square')], ['round', t('rd_round')], ['pill', t('rd_pill')]].map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
               </select>
             </div>
             <div className="field">
-              <label>Buttons</label>
-              <select value={cfg.btn} onChange={(e) => patchBio({ btn: e.target.value })}>
-                <option value="soft">Soft</option>
-                <option value="fill">Filled</option>
-                <option value="outline">Outline</option>
-                <option value="hard">Bold</option>
-                <option value="glass">Glass</option>
+              <label>{t('st_bio_font')}</label>
+              <select value={cfg.font} onChange={(e) => patchBio({ font: e.target.value })}>
+                {FONT_OPTIONS.map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
               </select>
             </div>
           </div>
 
-          {handle && (
-            <div style={{ marginTop: 12 }}>
+          {/* Reset + Preview links */}
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 12 }}>
+            <button className="lnk" onClick={resetToTemplate}>
+              {I.x({ width: 13, height: 13 })} {t('st_bio_reset')}
+            </button>
+            {handle && (
               <a href={`/${handle}/link`} target="_blank" rel="noopener noreferrer" className="lnk">
-                {I.eye({ width: 14, height: 14 })} {t('db_visit')}
+                {I.eye({ width: 14, height: 14 })} {t('st_bio_view')}
               </a>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Live preview */}
@@ -400,7 +464,7 @@ function BioStudio({ shopId, handle }) {
           </div>
           <div className="te-preview scroll-y">
             <div
-              className={`bio-page bio-style-${cfg.btn}${bg.dark ? ' bio-dark' : ''}`}
+              className={`bio-page bio-btn-${cfg.btn}${bg.dark ? ' bio-dark' : ''}`}
               style={{ ...vars, minHeight: '100%', padding: '26px 14px 40px' }}
             >
               <div className="bio-card">
