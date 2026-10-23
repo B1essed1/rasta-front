@@ -168,16 +168,16 @@ export default function BioLinkPage() {
             <div className="bio-grid">
               {products.map((p) => (
                 <Link key={p.id} to={`/${handle}/p/${p.id}`} className="bio-prod">
-                  <div style={{ position: 'relative', width: '100%', paddingBottom: '125%', borderRadius: 'calc(var(--b-r,18px) * .35 + 3px)', overflow: 'hidden', background: 'rgba(0,0,0,.07)' }}>
-                    {p.images?.[0]?.url ? (
-                      <img src={p.images[0].thumbnailUrl || p.images[0].url} alt={getProductName(p)} loading="lazy"
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block', maxWidth: 'none' }} />
-                    ) : (
-                      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: p.tone || bg.prim, color: '#fff', fontSize: '1.5rem', fontWeight: 700 }}>
-                        {getProductName(p).charAt(0)}
-                      </div>
-                    )}
-                  </div>
+                  <div style={{
+                    width: '100%',
+                    paddingBottom: '125%',
+                    borderRadius: 'calc(var(--b-r,18px) * .35 + 3px)',
+                    backgroundImage: p.images?.[0]?.url ? `url(${p.images[0].thumbnailUrl || p.images[0].url})` : 'none',
+                    backgroundColor: p.images?.[0]?.url ? 'rgba(0,0,0,.07)' : (p.tone || bg.prim),
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'top center',
+                    backgroundRepeat: 'no-repeat',
+                  }} />
                   <span className="bio-pname">{getProductName(p)}</span>
                   <span className="bio-pprice">{fmtPrice(p.price)}</span>
                 </Link>
