@@ -52,6 +52,12 @@
     height: auto;
   }
 
+  /* Bio link page: images must fill their fixed-ratio cell, not use natural height */
+  .bio-pimg img {
+    max-width: none;
+    height: 100%;
+  }
+
   /* Shop handles, product names and URLs are user-supplied and can be long
      enough to push a card wider than the screen. */
   h1, h2, h3, p, a, span, td, th, li, button {
