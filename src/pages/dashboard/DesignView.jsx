@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { t, onLangChange, fmtPrice } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import { themes, getTheme, applyThemeVars } from '../../data/themes';
 import { palettes, getPalette, applyPaletteVars } from '../../data/palettes';
 import { toast } from '../../components/ui/ToastHost';
-import { BIO_BGS, BIO_TPLS, BIO_FONTS, BIO_RADII, VIBE_LAYOUTS, getBioConfig, bioVars } from '../../data/bio';
+import { BIO_BGS, BIO_TPLS, VIBE_LAYOUTS, getBioConfig, bioVars } from '../../data/bio';
 import { I } from '../../components/ui/Icons';
 import api from '../../api/client';
 
@@ -289,6 +289,8 @@ function BioThumb({ tpl, over }) {
 function BioStudio({ shopId, handle }) {
   const [bioJson, setBioJson] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
+  const iframeRef = useRef(null);
 
   useEffect(() => {
     if (!shopId) return;
@@ -298,8 +300,6 @@ function BioStudio({ shopId, handle }) {
   }, [shopId]);
 
   const cfg = getBioConfig(bioJson);
-  const bg = BIO_BGS[cfg.bg];
-  const vars = bioVars(cfg);
 
   function pickTpl(tplId) {
     const newJson = JSON.stringify({ tpl: tplId });
@@ -327,18 +327,10 @@ function BioStudio({ shopId, handle }) {
     setSaving(true);
     try {
       await api.put(`/shops/${shopId}/config`, { bioJson: json });
+      setPreviewKey(k => k + 1);
     } catch {}
     setSaving(false);
   }
-
-  const shopData = useShopStore((s) => s.shop);
-  const products = useShopStore((s) => s.products);
-
-  function getProductName(p) {
-    return p.nameEn || p.nameUz || p.nameRu || '';
-  }
-
-  const previewProducts = (products || []).filter((p) => p.visible !== false).slice(0, 4);
 
   const TPL_GROUPS = [
     ['concept', t('st_bio_concept'), true],
@@ -456,75 +448,24 @@ function BioStudio({ shopId, handle }) {
           </div>
         </div>
 
-        {/* Live preview */}
-        <div className="te-preview-wrap">
-          <div className="te-preview-bar">
-            <div className="tl"><i /><i /><i /></div>
-            <div className="u">labaratory.rastashops.com/{handle}/link</div>
-          </div>
-          <div className="te-preview scroll-y">
-            <div
-              className={`bio-page bio-btn-${cfg.btn}${bg.dark ? ' bio-dark' : ''}`}
-              style={{ ...vars, minHeight: '100%', padding: '26px 14px 40px' }}
-            >
-              <div className="bio-card">
-                <div className="bio-head">
-                  {shopData?.logoUrl ? (
-                    <div className="bio-avatar" style={{ width: 64, height: 64 }}>
-                      <img src={shopData.logoUrl} alt={shopData?.name} />
-                    </div>
-                  ) : (
-                    <div className="bio-avatar bio-avatar--placeholder" style={{ width: 64, height: 64, background: bg.prim }}>
-                      {shopData?.name?.charAt(0) || '?'}
-                    </div>
-                  )}
-                  <h1 className="bio-name" style={{ fontSize: 22 }}>{shopData?.name || 'Shop'}</h1>
-                  <div className="bio-meta">{shopData?.location || ''}</div>
-                </div>
-                <div className="bio-links">
-                  <div className="bio-btn primary bio-shoplink" style={{ padding: '12px 14px' }}>
-                    <span className="bio-btn-tx"><b style={{ fontSize: 14 }}>{t('bio_open_shop')}</b></span>
-                    <span className="bio-btn-go">{I.arrow({ width: 14, height: 14 })}</span>
-                  </div>
-                  {shopData?.instagram && (
-                    <div className="bio-btn" style={{ padding: '10px 14px' }}>
-                      <span className="bio-btn-tx"><b style={{ fontSize: 13 }}>Instagram</b><i>@{shopData.instagram}</i></span>
-                      <span className="bio-btn-go">{I.arrow({ width: 12, height: 12 })}</span>
-                    </div>
-                  )}
-                  {shopData?.telegram && (
-                    <div className="bio-btn" style={{ padding: '10px 14px' }}>
-                      <span className="bio-btn-tx"><b style={{ fontSize: 13 }}>Telegram</b><i>@{shopData.telegram}</i></span>
-                      <span className="bio-btn-go">{I.arrow({ width: 12, height: 12 })}</span>
-                    </div>
-                  )}
-                </div>
-                {previewProducts.length > 0 && (
-                  <div className="bio-shelf">
-                    <div className="bio-shelf-t">{t('bio_featured')}</div>
-                    <div className="bio-grid">
-                      {previewProducts.slice(0, 2).map((p) => (
-                        <div key={p.id} className="bio-prod">
-                          <span className="bio-pimg">
-                            {p.images?.[0]?.url ? (
-                              <img src={p.images[0].url} alt={getProductName(p)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: p.tone || bg.prim, color: '#fff', fontWeight: 700 }}>
-                                {getProductName(p).charAt(0)}
-                              </span>
-                            )}
-                          </span>
-                          <span className="bio-pname" style={{ fontSize: 11 }}>{getProductName(p)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="bio-foot">{t('bio_made')} <b>labaratory.rastashops.com</b></div>
-              </div>
+        {/* Live preview — iframe renders the real bio page */}
+        {handle && (
+          <div className="te-preview-wrap">
+            <div className="te-preview-bar">
+              <div className="tl"><i /><i /><i /></div>
+              <div className="u">labaratory.rastashops.com/{handle}/link</div>
+            </div>
+            <div className="te-preview">
+              <iframe
+                ref={iframeRef}
+                key={previewKey}
+                src={`/${handle}/link`}
+                title="Bio preview"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {saving && <span style={{ fontSize: 12, color: '#888' }}>{t('loading')}</span>}
