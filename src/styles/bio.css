@@ -54,6 +54,6 @@
 .bio-style-hard .bio-prod{border:2px solid var(--b-ink);box-shadow:4px 4px 0 var(--b-ink)}
 .bio-style-glass .bio-prod{background:rgba(255,255,255,.5);backdrop-filter:blur(10px)}
 .bio-prod:hover{transform:translateY(-1.5px)}
-.bio-prod img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;object-position:top center}
+.bio-prod img{position:absolute !important;top:0;left:0;width:100% !important;height:100% !important;max-width:none !important;object-fit:cover;object-position:top center;display:block}
 .bio-pname{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bio-pprice{font-size:13px;color:var(--b-sub);margin-top:-3px}
