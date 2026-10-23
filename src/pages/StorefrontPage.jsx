@@ -494,20 +494,19 @@ function SpecTable({ product, lang }) {
 
 function ContactBlock({ shop }) {
   const rows = [
-    shop.telegram && ['Telegram', `@${shop.telegram.replace('@', '')}`, `https://t.me/${shop.telegram.replace('@', '')}`, I.tg({ width: 18, height: 18 })],
-    shop.instagram && ['Instagram', `@${shop.instagram.replace('@', '')}`, `https://instagram.com/${shop.instagram.replace('@', '')}`, I.ig({ width: 18, height: 18 })],
-    shop.phone && [t('ob_phone_contact'), shop.phone, `tel:${shop.phone}`, I.tel({ width: 18, height: 18 })],
+    shop.telegram && ['Telegram', `https://t.me/${shop.telegram.replace('@', '')}`, I.tg({ width: 18, height: 18 })],
+    shop.instagram && ['Instagram', `https://instagram.com/${shop.instagram.replace('@', '')}`, I.ig({ width: 18, height: 18 })],
+    shop.phone && [t('ob_phone_contact'), `tel:${shop.phone}`, I.tel({ width: 18, height: 18 })],
   ].filter(Boolean);
   if (!rows.length) return null;
   return (
     <div className="sf-contact-block">
       <div className="sf-sizes-label sf-up">{t('sf_reach')}</div>
       <div className="sf-contacts">
-        {rows.map(([label, display, href, icon]) => (
-          <div key={label} className="sf-contact">
+        {rows.map(([label, href, icon]) => (
+          <a key={label} className="sf-contact" href={href} target={href.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">
             <span className="sf-contact-icon">{icon} {label}</span>
-            <b><a href={href} target={href.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">{display}</a></b>
-          </div>
+          </a>
         ))}
       </div>
     </div>

@@ -31,16 +31,16 @@ const clean = (h) => String(h || '').replace(/^@/, '');
 
 export function ContactRows({ shop }) {
   const rows = [
-    shop.instagram && ['Instagram', '@' + clean(shop.instagram), 'https://instagram.com/' + clean(shop.instagram)],
-    shop.telegram && ['Telegram', '@' + clean(shop.telegram), 'https://t.me/' + clean(shop.telegram)],
-    shop.phone && ['Phone', shop.phone, 'tel:' + shop.phone.replace(/\s/g, '')],
+    shop.instagram && ['Instagram', 'https://instagram.com/' + clean(shop.instagram)],
+    shop.telegram && ['Telegram', 'https://t.me/' + clean(shop.telegram)],
+    shop.phone && ['Phone', 'tel:' + shop.phone.replace(/\s/g, '')],
   ].filter(Boolean);
   return (
     <div className="sf-contacts">
-      {rows.map(([k, v, href]) => (
+      {rows.map(([k, href]) => (
         <a key={k} className="sf-contact" href={href}
           target={href.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">
-          <span>{k}</span><b>{v}</b>
+          <span>{k}</span>
         </a>
       ))}
     </div>
