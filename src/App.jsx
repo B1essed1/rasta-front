@@ -6,6 +6,7 @@ import Onboarding from './pages/Onboarding';
 import Marketplace from './pages/Marketplace';
 import StorefrontPage from './pages/StorefrontPage';
 import BioLinkPage from './pages/BioLinkPage';
+import BuyerProfile from './pages/BuyerProfile';
 import Dashboard from './pages/dashboard/Dashboard';
 import HomeView from './pages/dashboard/HomeView';
 import ProductsView from './pages/dashboard/ProductsView';
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="scan" element={<ScanView />} />
           <Route path="*" element={<DashboardNotFound />} />
         </Route>
+        <Route path="/profile" element={<ProtectedRoute><BuyerProfile /></ProtectedRoute>} />
         <Route path="/:handle/link" element={<BioLinkPage />} />
         <Route path="/:handle" element={<StorefrontPage />} />
         <Route path="/:handle/p/:productId" element={<StorefrontPage />} />

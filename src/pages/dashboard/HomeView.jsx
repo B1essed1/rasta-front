@@ -19,6 +19,7 @@ function fmtNum(n) {
 
 export default function HomeView() {
   const [, setTick] = useState(0);
+  const [attention, setAttention] = useState(null);
   const navigate = useNavigate();
 
   const shop = useShopStore((s) => s.shop);
@@ -28,6 +29,7 @@ export default function HomeView() {
   const sales = useShopStore((s) => s.sales);
   const fetchShop = useShopStore((s) => s.fetchShop);
   const fetchStats = useShopStore((s) => s.fetchStats);
+  const fetchAttention = useShopStore((s) => s.fetchAttention);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
   const fetchOrders = useShopStore((s) => s.fetchOrders);
   const fetchSales = useShopStore((s) => s.fetchSales);
@@ -37,10 +39,11 @@ export default function HomeView() {
   useEffect(() => {
     if (!shop?.id) return;
     fetchStats();
+    fetchAttention().then((res) => { if (res) setAttention(res); });
     fetchProducts();
     fetchOrders();
     fetchSales();
-  }, [shop?.id, fetchStats, fetchProducts, fetchOrders, fetchSales]);
+  }, [shop?.id, fetchStats, fetchAttention, fetchProducts, fetchOrders, fetchSales]);
 
   const lang = getLang();
   const handle = shop?.handle || '';
@@ -66,8 +69,9 @@ export default function HomeView() {
     return n + lines.reduce((m, l) => m + (l.qty || 0), 0);
   }, 0);
 
-  const rev = salesRev || ordersRev;
-  const sold = soldFromLines || ordersSold;
+  // Prefer API stats when available, fall back to local computation
+  const rev = stats?.revenue != null ? Number(stats.revenue) : (salesRev || ordersRev);
+  const sold = stats?.itemsSold != null ? Number(stats.itemsSold) : (soldFromLines || ordersSold);
 
   const visitors = Number(stats?.visitors ?? stats?.views ?? 0);
   const rawViews = stats?.productViews;
@@ -90,9 +94,11 @@ export default function HomeView() {
     new: newOrders.length,
     stale: newOrders.filter((o) => at(o) && at(o) < staleAfter).length,
   };
-  const out = (products || []).filter((p) => stockState(p) === 'sold');
-  const low = (products || []).filter((p) => stockState(p) === 'low');
-  const incomplete = (products || []).filter((p) => !(p.descEn || p.descRu || p.descUz));
+  // Use API attention response when available, fall back to local computation
+  const soldOutCount = attention?.soldOutCount ?? (products || []).filter((p) => stockState(p) === 'sold').length;
+  const lowStockCount = attention?.lowStockCount ?? (products || []).filter((p) => stockState(p) === 'low').length;
+  const incompleteCount = attention?.incompleteCount ?? (products || []).filter((p) => !(p.descEn || p.descRu || p.descUz)).length;
+  const staleOrderCount = attention?.staleOrderCount ?? oc.stale;
 
   const goOrders = () => navigate('/dashboard/orders');
   const goProducts = () => navigate('/dashboard/products');
@@ -103,14 +109,14 @@ export default function HomeView() {
   const attn = [];
   if (oc.new)
     attn.push({ ic: I.bag, txt: fill(t('or_new_badge'), { n: oc.new }), cta: t('db_orders'), go: goOrders, tone: 'accent' });
-  if (oc.stale)
-    attn.push({ ic: I.clock, txt: fill(t('or_stale_badge'), { n: oc.stale }), cta: t('db_orders'), go: goOrders, tone: 'alert' });
-  if (out.length)
-    attn.push({ ic: I.warn, txt: fill(t('hm_soldout'), { n: out.length }), cta: t('hm_view_inv'), go: goInventory, tone: 'alert' });
-  if (low.length)
-    attn.push({ ic: I.box, txt: fill(t('hm_low'), { n: low.length }), cta: t('hm_view_inv'), go: goInventory, tone: 'saffron' });
-  if (incomplete.length)
-    attn.push({ ic: I.edit, txt: fill(t('hm_incomplete'), { n: incomplete.length }), cta: t('db_fix'), go: goProducts, tone: 'plain' });
+  if (staleOrderCount)
+    attn.push({ ic: I.clock, txt: fill(t('or_stale_badge'), { n: staleOrderCount }), cta: t('db_orders'), go: goOrders, tone: 'alert' });
+  if (soldOutCount)
+    attn.push({ ic: I.warn, txt: fill(t('hm_soldout'), { n: soldOutCount }), cta: t('hm_view_inv'), go: goInventory, tone: 'alert' });
+  if (lowStockCount)
+    attn.push({ ic: I.box, txt: fill(t('hm_low'), { n: lowStockCount }), cta: t('hm_view_inv'), go: goInventory, tone: 'saffron' });
+  if (incompleteCount)
+    attn.push({ ic: I.edit, txt: fill(t('hm_incomplete'), { n: incompleteCount }), cta: t('db_fix'), go: goProducts, tone: 'plain' });
 
   // ---- actions ----------------------------------------------------------
   function copyLink() {

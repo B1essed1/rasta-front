@@ -400,15 +400,22 @@
 }
 
 /* ===== Sales View ===== */
+.sales-periods {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
 .sales-table {
   background: #fff;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-md);
   overflow: hidden;
+  margin-top: 16px;
 }
 .sales-table__header {
   display: grid;
-  grid-template-columns: 120px 1fr 1fr 120px;
+  grid-template-columns: 120px 1fr 1fr 120px auto;
   gap: 8px;
   padding: 10px 16px;
   background: var(--gray-50);
@@ -419,11 +426,12 @@
 }
 .sales-table__row {
   display: grid;
-  grid-template-columns: 120px 1fr 1fr 120px;
+  grid-template-columns: 120px 1fr 1fr 120px auto;
   gap: 8px;
   padding: 12px 16px;
   font-size: 0.875rem;
   border-top: 1px solid var(--gray-100);
+  align-items: center;
 }
 
 /* ===== Reviews View ===== */
@@ -656,7 +664,7 @@
   .products-table__col--status { display: none; }
   .design-view__layout { grid-template-columns: 1fr; }
   .sales-table__header,
-  .sales-table__row { grid-template-columns: 100px 1fr 100px; }
+  .sales-table__row { grid-template-columns: 100px 1fr 100px auto; }
   .sales-table__header span:nth-child(3),
   .sales-table__row span:nth-child(3) { display: none; }
 }

@@ -3,14 +3,22 @@ import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { t, onLangChange } from '../i18n';
 import { useShopStore } from '../store/shopStore';
-import { shopTypes as fallbackShopTypes, fetchShopTypes, getCategoryName } from '../data/types';
+import { shopTypes as fallbackShopTypes, fetchShopTypes, getCategoryName, cities } from '../data/types';
 import '../styles/marketplace.css';
+
+const SORT_OPTIONS = [
+  { value: '', label: 'mp_sort_newest' },
+  { value: 'products', label: 'mp_sort_products' },
+  { value: 'rating', label: 'mp_sort_rating' },
+];
 
 export default function Marketplace() {
   const [, setTick] = useState(0);
   const [shops, setShops] = useState([]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [sortBy, setSortBy] = useState('');
   const [loading, setLoading] = useState(true);
   const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
   const fetchAllShops = useShopStore((s) => s.fetchAllShops);
@@ -27,7 +35,7 @@ export default function Marketplace() {
     async function load() {
       setLoading(true);
       try {
-        const data = await fetchAllShops({ search, type: typeFilter });
+        const data = await fetchAllShops({ search, type: typeFilter, city: cityFilter, sort: sortBy });
         setShops(Array.isArray(data) ? data : []);
       } catch {
         setShops([]);
@@ -36,7 +44,7 @@ export default function Marketplace() {
     }
     const timeout = setTimeout(load, 300);
     return () => clearTimeout(timeout);
-  }, [search, typeFilter, fetchAllShops]);
+  }, [search, typeFilter, cityFilter, sortBy, fetchAllShops]);
 
   const filtered = shops.filter((shop) => {
     const matchesSearch =
@@ -54,13 +62,36 @@ export default function Marketplace() {
         <h1 className="marketplace__title">{t('mp_title')}</h1>
 
         <div className="marketplace__filters">
-          <input
-            type="text"
-            className="form-input marketplace__search"
-            placeholder={t('mp_search')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-input marketplace__search"
+              placeholder={t('mp_search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="form-input"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              style={{ maxWidth: 180 }}
+            >
+              <option value="">{t('mp_all_cities')}</option>
+              {cities.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              className="form-input"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ maxWidth: 180 }}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{t(o.label)}</option>
+              ))}
+            </select>
+          </div>
           <div className="marketplace__types">
             <button
               className={`type-pill ${!typeFilter ? 'type-pill--active' : ''}`}

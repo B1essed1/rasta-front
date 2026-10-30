@@ -341,16 +341,73 @@ export const useShopStore = create((set, get) => ({
     }
   },
 
-  // NOTE: there is no GET /api/shops/{id}/stats on the backend (verified: 404,
-  // code "request.endpoint.not.found"). Until it exists, the dashboard derives
-  // everything it can from /products, /orders and /sales — see monthStats().
   async fetchStats() {
+    const shopId = get().shop?.id;
+    if (!shopId) return;
     try {
-      const res = await api.get(`/shops/${get().shop.id}/stats`);
-      set({ stats: res.data });
+      const res = await api.get(`/shops/${shopId}/analytics/stats`);
+      set({ stats: { ...get().stats, ...res.data } });
+    } catch (e) {
+      console.error('fetchStats', e);
+    }
+  },
+
+  async fetchSalesSummary(from, to) {
+    const shopId = get().shop?.id;
+    if (!shopId) return null;
+    try {
+      const res = await api.get(`/shops/${shopId}/analytics/sales/summary`, { params: { from, to } });
       return res.data;
     } catch (e) {
-      set({ stats: null });
+      console.error('fetchSalesSummary', e);
+      return null;
+    }
+  },
+
+  async fetchAttention() {
+    const shopId = get().shop?.id;
+    if (!shopId) return null;
+    try {
+      const res = await api.get(`/shops/${shopId}/analytics/attention`);
+      return res.data;
+    } catch (e) {
+      console.error('fetchAttention', e);
+      return null;
+    }
+  },
+
+  async returnSaleLine(saleId, saleLineId, qty, action) {
+    const shopId = get().shop?.id;
+    if (!shopId) return;
+    try {
+      await api.post(`/shops/${shopId}/sales/${saleId}/return`, { saleLineId, qty, action });
+      get().fetchSales();
+    } catch (e) {
+      console.error('returnSaleLine', e);
+      throw e;
+    }
+  },
+
+  async duplicateProduct(productId) {
+    const shopId = get().shop?.id;
+    if (!shopId) return;
+    try {
+      const res = await api.post(`/shops/${shopId}/products/${productId}/duplicate`);
+      get().fetchProducts(shopId);
+      return res.data;
+    } catch (e) {
+      console.error('duplicateProduct', e);
+      throw e;
+    }
+  },
+
+  async lookupBarcode(barcode) {
+    const shopId = get().shop?.id;
+    if (!shopId) return null;
+    try {
+      const res = await api.get(`/shops/${shopId}/products/by-barcode/${barcode}`);
+      return res.data;
+    } catch (e) {
       return null;
     }
   },
@@ -510,7 +567,11 @@ export const useShopStore = create((set, get) => ({
         return res.data;
       }
       const res = await api.get('/marketplace/discover', {
-        params: { type: params?.type || undefined },
+        params: {
+          type: params?.type || undefined,
+          city: params?.city || undefined,
+          sort: params?.sort || undefined,
+        },
       });
       return res.data;
     } catch (e) {
