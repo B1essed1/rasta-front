@@ -68,6 +68,55 @@ export const themes = [
       accent: '#e07a5f',
     },
   },
+  // Signature themes
+  {
+    id: 'brutal', signature: true, nameKey: 'th_brutal', name: 'Brutal',
+    family: "'Unbounded', sans-serif", bodyFamily: "'Space Grotesk', sans-serif",
+    radius: '0px', radiusSm: '0px', shadow: 'none', weight: '800', spacing: '-0.02em',
+    layout: 'grid', defaultPalette: 'acid',
+    cardShadow: 'none', cardBorder: '2px solid var(--s-ink)', headingWeight: 800, bodyWeight: 400,
+    preview: { surface: '#f2f0e6', ink: '#0d0d0d', accent: '#ffe600' },
+  },
+  {
+    id: 'suzani', signature: true, nameKey: 'th_suzani', name: 'Suzani',
+    family: "'Instrument Serif', serif", bodyFamily: "'Newsreader', serif",
+    radius: '14px', radiusSm: '10px', shadow: 'none', weight: '400', spacing: '0em',
+    layout: 'grid', defaultPalette: 'indigo',
+    cardShadow: 'none', cardBorder: '1px solid var(--s-line)', headingWeight: 400, bodyWeight: 300,
+    preview: { surface: '#26225e', ink: '#fbf1dc', accent: '#f0b03f' },
+  },
+  {
+    id: 'aurora', signature: true, nameKey: 'th_aurora', name: 'Aurora',
+    family: "'Outfit', sans-serif", bodyFamily: "'Outfit', sans-serif",
+    radius: '22px', radiusSm: '14px', shadow: 'none', weight: '700', spacing: '-0.02em',
+    layout: 'gallery', defaultPalette: 'nebula',
+    cardShadow: '0 8px 22px rgba(20,18,15,.08)', cardBorder: 'none', headingWeight: 700, bodyWeight: 400,
+    preview: { surface: '#1e1640', ink: '#ffffff', accent: '#ff5fb8' },
+  },
+  {
+    id: 'vogue', signature: true, nameKey: 'th_vogue', name: 'Cover story',
+    family: "'Anton', sans-serif", bodyFamily: "'Hanken Grotesk', sans-serif",
+    radius: '0px', radiusSm: '0px', shadow: 'none', weight: '400', spacing: '0em',
+    layout: 'magazine', defaultPalette: 'press',
+    cardShadow: 'none', cardBorder: '1px solid var(--s-line)', headingWeight: 400, bodyWeight: 400,
+    preview: { surface: '#ffffff', ink: '#111111', accent: '#e5202e' },
+  },
+  {
+    id: 'craft', signature: true, nameKey: 'th_craft', name: 'Scrapbook',
+    family: "'Caveat', cursive", bodyFamily: "'Hanken Grotesk', sans-serif",
+    radius: '4px', radiusSm: '3px', shadow: '0 8px 18px rgba(0,0,0,.14)', weight: '700', spacing: '0em',
+    layout: 'grid', defaultPalette: 'kraft',
+    cardShadow: '0 8px 18px rgba(0,0,0,.14)', cardBorder: 'none', headingWeight: 700, bodyWeight: 400,
+    preview: { surface: '#fffaf0', ink: '#2b2218', accent: '#d63a3a' },
+  },
+  {
+    id: 'retro', signature: true, nameKey: 'th_retro', name: 'Desktop 98',
+    family: "'VT323', monospace", bodyFamily: "'Space Mono', monospace",
+    radius: '0px', radiusSm: '0px', shadow: 'none', weight: '400', spacing: '0em',
+    layout: 'grid', defaultPalette: 'teal98',
+    cardShadow: 'none', cardBorder: '2px solid var(--s-ink)', headingWeight: 400, bodyWeight: 400,
+    preview: { surface: '#c0c0c0', ink: '#000000', accent: '#000080' },
+  },
 ];
 
 export function getTheme(id) {
@@ -108,6 +157,36 @@ const STOREFRONT_VARS = {
     '--s-font-display': "'Outfit', sans-serif", '--s-font-body': "'Outfit', sans-serif",
     '--s-display-weight': '650', '--s-display-spacing': '-0.02em', '--s-up': '0.04em', '--s-up-tt': 'none',
   },
+  brutal: {
+    '--s-radius': '0px', '--s-radius-sm': '0px', '--s-shadow': 'none',
+    '--s-font-display': "'Unbounded', sans-serif", '--s-font-body': "'Space Grotesk', sans-serif",
+    '--s-display-weight': '800', '--s-display-spacing': '-0.02em', '--s-up': '0em', '--s-up-tt': 'uppercase',
+  },
+  suzani: {
+    '--s-radius': '14px', '--s-radius-sm': '10px', '--s-shadow': 'none',
+    '--s-font-display': "'Instrument Serif', serif", '--s-font-body': "'Newsreader', serif",
+    '--s-display-weight': '400', '--s-display-spacing': '0em', '--s-up': '0.08em', '--s-up-tt': 'none',
+  },
+  aurora: {
+    '--s-radius': '22px', '--s-radius-sm': '14px', '--s-shadow': 'none',
+    '--s-font-display': "'Outfit', sans-serif", '--s-font-body': "'Outfit', sans-serif",
+    '--s-display-weight': '700', '--s-display-spacing': '-0.02em', '--s-up': '0em', '--s-up-tt': 'none',
+  },
+  vogue: {
+    '--s-radius': '0px', '--s-radius-sm': '0px', '--s-shadow': 'none',
+    '--s-font-display': "'Anton', sans-serif", '--s-font-body': "'Hanken Grotesk', sans-serif",
+    '--s-display-weight': '400', '--s-display-spacing': '0em', '--s-up': '0em', '--s-up-tt': 'uppercase',
+  },
+  craft: {
+    '--s-radius': '4px', '--s-radius-sm': '3px', '--s-shadow': '0 8px 18px rgba(0,0,0,.14)',
+    '--s-font-display': "'Caveat', cursive", '--s-font-body': "'Hanken Grotesk', sans-serif",
+    '--s-display-weight': '700', '--s-display-spacing': '0em', '--s-up': '0em', '--s-up-tt': 'none',
+  },
+  retro: {
+    '--s-radius': '0px', '--s-radius-sm': '0px', '--s-shadow': 'none',
+    '--s-font-display': "'VT323', monospace", '--s-font-body': "'Space Mono', monospace",
+    '--s-display-weight': '400', '--s-display-spacing': '0em', '--s-up': '0em', '--s-up-tt': 'none',
+  },
 };
 
 // Font ids saved by DesignView (shopConfig.font) → display/body families.
@@ -117,6 +196,11 @@ const STOREFRONT_FONTS = {
   newsreader: ["'Newsreader', serif", "'Newsreader', serif"],
   outfit: ["'Outfit', sans-serif", "'Outfit', sans-serif"],
   space: ["'Space Grotesk', sans-serif", "'Space Grotesk', sans-serif"],
+  unbounded: ["'Unbounded', sans-serif", "'Space Grotesk', sans-serif"],
+  anton: ["'Anton', sans-serif", "'Hanken Grotesk', sans-serif"],
+  caveat: ["'Caveat', cursive", "'Hanken Grotesk', sans-serif"],
+  vt323: ["'VT323', monospace", "'Space Mono', monospace"],
+  spacemono: ["'Space Mono', monospace", "'Space Mono', monospace"],
 };
 
 export function storefrontVars(themeId, fontId) {

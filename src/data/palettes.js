@@ -109,6 +109,37 @@ export const palettes = [
     accent: '#5a9aff',
     accentInk: '#0a0e14',
   },
+  // Signature palettes
+  {
+    id: 'acid', name: 'Acid', swatch: '#ffe600',
+    bg: '#f2f0e6', surface: '#ffffff', ink: '#0d0d0d', soft: '#3a3a3a',
+    line: '#0d0d0d', accent: '#ffe600', accentInk: '#0d0d0d',
+  },
+  {
+    id: 'indigo', name: 'Suzani night', swatch: '#f0b03f',
+    bg: '#1b1847', surface: '#26225e', ink: '#fbf1dc', soft: '#c3b9e0',
+    line: 'rgba(251,241,220,.18)', accent: '#f0b03f', accentInk: '#1b1847',
+  },
+  {
+    id: 'nebula', name: 'Nebula', swatch: '#ff5fb8',
+    bg: '#120c26', surface: '#1e1640', ink: '#ffffff', soft: '#b9b0d9',
+    line: 'rgba(255,255,255,.14)', accent: '#ff5fb8', accentInk: '#ffffff',
+  },
+  {
+    id: 'press', name: 'Press', swatch: '#e5202e',
+    bg: '#f4efe7', surface: '#ffffff', ink: '#111111', soft: '#5f5a52',
+    line: '#d6cdbf', accent: '#e5202e', accentInk: '#ffffff',
+  },
+  {
+    id: 'kraft', name: 'Kraft', swatch: '#d63a3a',
+    bg: '#e8d9bd', surface: '#fffaf0', ink: '#2b2218', soft: '#6e5f49',
+    line: 'rgba(43,34,24,.2)', accent: '#d63a3a', accentInk: '#ffffff',
+  },
+  {
+    id: 'teal98', name: 'Desktop', swatch: '#008080',
+    bg: '#008080', surface: '#c0c0c0', ink: '#000000', soft: '#1e1e1e',
+    line: '#808080', accent: '#000080', accentInk: '#ffffff',
+  },
 ];
 
 export function getPalette(id) {

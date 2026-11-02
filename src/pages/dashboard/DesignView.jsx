@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { t, onLangChange, fmtPrice } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import { themes, getTheme, applyThemeVars } from '../../data/themes';
@@ -21,7 +22,31 @@ const fonts = [
   { id: 'newsreader', label: 'Newsreader', family: "'Newsreader', serif" },
   { id: 'outfit', label: 'Outfit', family: "'Outfit', sans-serif" },
   { id: 'space', label: 'Space Grotesk', family: "'Space Grotesk', sans-serif" },
+  { id: 'unbounded', label: 'Unbounded', family: "'Unbounded', sans-serif" },
+  { id: 'anton', label: 'Anton', family: "'Anton', sans-serif" },
+  { id: 'caveat', label: 'Caveat', family: "'Caveat', cursive" },
+  { id: 'vt323', label: 'VT323', family: "'VT323', monospace" },
+  { id: 'spacemono', label: 'Space Mono', family: "'Space Mono', monospace" },
 ];
+
+/** Map a theme to a reasonable fontId */
+function fontIdForTheme(theme) {
+  const fam = (theme.family || '').toLowerCase();
+  if (fam.includes('unbounded')) return 'unbounded';
+  if (fam.includes('anton')) return 'anton';
+  if (fam.includes('caveat')) return 'caveat';
+  if (fam.includes('vt323')) return 'vt323';
+  if (fam.includes('space mono')) return 'spacemono';
+  if (fam.includes('instrument')) return 'instrument';
+  if (fam.includes('newsreader')) return 'newsreader';
+  if (fam.includes('outfit')) return 'outfit';
+  if (fam.includes('space grotesk')) return 'space';
+  return 'hanken';
+}
+
+/* ────────────────────────────────────────────────────
+   DesignView — main component
+   ──────────────────────────────────────────────────── */
 
 export default function DesignView() {
   const [, setTick] = useState(0);
@@ -37,6 +62,7 @@ export default function DesignView() {
     fontId: 'hanken',
   });
   const [saving, setSaving] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
@@ -57,14 +83,8 @@ export default function DesignView() {
     }
   }, [shopConfig]);
 
-  const previewTheme = getTheme(config.themeId);
-  const previewPalette = getPalette(config.paletteId);
-  const previewFont = fonts.find((f) => f.id === config.fontId) || fonts[0];
-  const previewVars = {
-    ...applyThemeVars(previewTheme),
-    ...applyPaletteVars(previewPalette),
-    '--t-font': previewFont.family,
-  };
+  const currentTheme = getTheme(config.themeId);
+  const currentPalette = getPalette(config.paletteId);
 
   async function handleSave() {
     setSaving(true);
@@ -80,7 +100,10 @@ export default function DesignView() {
   return (
     <div className="design-view">
       <div className="design-view__header">
-        <h1>{t('db_design')}</h1>
+        <div>
+          <h1>{t('db_design')}</h1>
+          <p style={{ fontSize: 13, color: 'var(--soft)', marginTop: 2 }}>{t('db_design_sub')}</p>
+        </div>
         <div className="design-view__actions">
           {shop?.handle && (
             <a
@@ -98,142 +121,391 @@ export default function DesignView() {
         </div>
       </div>
 
-      <div className="design-view__layout">
-        {/* Controls */}
-        <div className="design-view__controls">
-          {/* Theme */}
-          <div className="design-section">
-            <h3>{t('db_theme')}</h3>
-            <div className="theme-picker">
-              {themes.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  className={`theme-picker__btn ${config.themeId === theme.id ? 'theme-picker__btn--active' : ''}`}
-                  style={{
-                    fontFamily: theme.family,
-                    borderRadius: theme.radius,
-                    backgroundColor: theme.preview.surface,
-                    color: theme.preview.ink,
-                  }}
-                  onClick={() => setConfig((c) => ({ ...c, themeId: theme.id }))}
-                >
-                  <div
-                    className="theme-picker__dot"
-                    style={{ backgroundColor: theme.preview.accent }}
-                  />
-                  {t(theme.nameKey)}
-                </button>
-              ))}
+      {/* Section 1: Shop Design Summary Card */}
+      <div className="set-card" style={{ marginBottom: 22 }}>
+        <div className="set-title">{t('ss_title')}</div>
+        <div
+          className="ds-card"
+          onClick={() => setStudioOpen(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setStudioOpen(true)}
+        >
+          {/* Mini theme preview */}
+          <div className="ds-preview" style={{ background: currentPalette.bg }}>
+            <ThemeMiniThumb theme={currentTheme} palette={currentPalette} size="lg" />
+          </div>
+          <div className="ds-info">
+            <b>{t(currentTheme.nameKey) || currentTheme.name || currentTheme.id}</b>
+            <div className="ds-meta">
+              <span className="ds-swatch" style={{ background: currentPalette.accent }} />
+              <span>{currentPalette.name}</span>
+              <span style={{ color: 'var(--faint)' }}>|</span>
+              <span>{config.layout}</span>
             </div>
           </div>
-
-          {/* Palette */}
-          <div className="design-section">
-            <h3>{t('db_accent')}</h3>
-            <div className="palette-picker">
-              {palettes.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={`palette-picker__btn ${config.paletteId === p.id ? 'palette-picker__btn--active' : ''}`}
-                  style={{ backgroundColor: p.accent }}
-                  title={p.name}
-                  onClick={() => setConfig((c) => ({ ...c, paletteId: p.id }))}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Layout */}
-          <div className="design-section">
-            <h3>{t('db_layout')}</h3>
-            <div className="layout-picker">
-              {layouts.map((l) => (
-                <button
-                  key={l.id}
-                  type="button"
-                  className={`layout-picker__btn ${config.layout === l.id ? 'layout-picker__btn--active' : ''}`}
-                  onClick={() => setConfig((c) => ({ ...c, layout: l.id }))}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Font */}
-          <div className="design-section">
-            <h3>{t('db_font')}</h3>
-            <div className="font-picker">
-              {fonts.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={`font-picker__btn ${config.fontId === f.id ? 'font-picker__btn--active' : ''}`}
-                  style={{ fontFamily: f.family }}
-                  onClick={() => setConfig((c) => ({ ...c, fontId: f.id }))}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="design-view__preview">
-          <div className="design-preview" style={previewVars}>
-            <div className="design-preview__cover" style={{ backgroundColor: previewPalette.line }} />
-            <div className="design-preview__header">
-              <div className="design-preview__avatar" style={{ backgroundColor: previewPalette.accent }}>
-                {shop?.name?.charAt(0) || 'R'}
-              </div>
-              <div>
-                <h3 style={{ fontFamily: previewFont.family, color: previewPalette.ink }}>
-                  {shop?.name || 'My Shop'}
-                </h3>
-                <span style={{ color: previewPalette.soft }}>labaratory.rastashops.com/{shop?.handle || 'myshop'}</span>
-              </div>
-            </div>
-            <div className={`design-preview__grid design-preview__grid--${config.layout}`}>
-              {(products || []).filter(p => p.visible !== false).slice(0, 4).map((p) => {
-                const name = p.nameEn || p.nameUz || p.nameRu || '';
-                const imgUrl = p.images?.[0]?.thumbnailUrl || p.images?.[0]?.url;
-                return (
-                  <div
-                    key={p.id}
-                    className="design-preview__card"
-                    style={{
-                      backgroundColor: previewPalette.surface,
-                      borderRadius: previewTheme.radius,
-                      border: previewTheme.cardBorder,
-                      boxShadow: previewTheme.cardShadow,
-                    }}
-                  >
-                    <div className="design-preview__card-img" style={{ backgroundColor: p.tone || previewPalette.line }}>
-                      {imgUrl && <img src={imgUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                    </div>
-                    <div className="design-preview__card-body">
-                      <div style={{ fontSize: 11, fontWeight: 600, color: previewPalette.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {name}
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: previewPalette.accent, marginTop: 2 }}>
-                        {fmtPrice(p.price)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <button className="btn btn-accent" style={{ flexShrink: 0 }}>
+            {t('ss_edit')}
+          </button>
         </div>
       </div>
 
-      {/* Bio Studio */}
+      {/* StoreStudio overlay */}
+      {studioOpen && (
+        <StoreStudio
+          shop={shop}
+          products={products}
+          config={config}
+          setConfig={setConfig}
+          onClose={() => setStudioOpen(false)}
+        />
+      )}
+
+      {/* Section 2: Bio Studio */}
       <BioStudio shopId={shop?.id} handle={shop?.handle} />
     </div>
   );
+}
+
+/* ────────────────────────────────────────────────────
+   ThemeMiniThumb — small storefront representation
+   ──────────────────────────────────────────────────── */
+
+function ThemeMiniThumb({ theme, palette, size }) {
+  const p = palette || getPalette(theme.defaultPalette);
+  const w = size === 'lg' ? 80 : 72;
+  const h = size === 'lg' ? 56 : 52;
+  return (
+    <span
+      className="ss-mini"
+      style={{
+        width: w,
+        height: h,
+        background: p.bg,
+        borderColor: p.line,
+      }}
+    >
+      <span className="cv" style={{ background: p.surface }} />
+      <b style={{ fontFamily: theme.family, color: p.ink, fontWeight: theme.weight || theme.headingWeight || 600 }}>Aa</b>
+      <span className="pr">
+        <i style={{ background: p.surface, borderRadius: theme.radiusSm || '2px' }} />
+        <i style={{ background: p.surface, borderRadius: theme.radiusSm || '2px' }} />
+        <i style={{ background: p.accent, borderRadius: theme.radiusSm || '2px' }} />
+      </span>
+    </span>
+  );
+}
+
+/* ────────────────────────────────────────────────────
+   StoreStudio — full-screen design overlay
+   ──────────────────────────────────────────────────── */
+
+function StoreStudio({ shop, products, config, setConfig, onClose }) {
+  const [hoverThemeId, setHoverThemeId] = useState(null);
+  const [tab, setTab] = useState('look');
+  const [group, setGroup] = useState('all');
+  const [device, setDevice] = useState('desktop');
+  const updateConfig = useShopStore((s) => s.updateConfig);
+  const iframeRef = useRef(null);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  // Theme ordering: signature first, then classic
+  const themeOrder = [...themes.filter((t) => t.signature), ...themes.filter((t) => !t.signature)];
+  const filteredThemes =
+    group === 'all' ? themeOrder :
+    group === 'sig' ? themeOrder.filter((t) => t.signature) :
+    themeOrder.filter((t) => !t.signature);
+
+  const sigCount = themes.filter((t) => t.signature).length;
+  const classicCount = themes.filter((t) => !t.signature).length;
+
+  const currentIdx = themeOrder.findIndex((t) => t.id === config.themeId);
+  const displayTheme = hoverThemeId ? getTheme(hoverThemeId) : getTheme(config.themeId);
+  const displayPalette = hoverThemeId
+    ? getPalette(getTheme(hoverThemeId).defaultPalette)
+    : getPalette(config.paletteId);
+
+  const step = useCallback((dir) => {
+    const next = themeOrder[(currentIdx + dir + themeOrder.length) % themeOrder.length];
+    applyTheme(next.id);
+  }, [currentIdx, themeOrder]);
+
+  function applyTheme(id) {
+    const theme = themes.find((t) => t.id === id);
+    if (!theme) return;
+    const newConfig = {
+      themeId: id,
+      layout: theme.layout || config.layout,
+      paletteId: theme.defaultPalette || config.paletteId,
+      fontId: fontIdForTheme(theme),
+    };
+    setConfig(newConfig);
+    updateConfig(newConfig);
+    setIframeKey((k) => k + 1);
+  }
+
+  function applyPalette(id) {
+    const newConfig = { ...config, paletteId: id };
+    setConfig(newConfig);
+    updateConfig(newConfig);
+    setIframeKey((k) => k + 1);
+  }
+
+  function applyLayout(id) {
+    const newConfig = { ...config, layout: id };
+    setConfig(newConfig);
+    updateConfig(newConfig);
+    setIframeKey((k) => k + 1);
+  }
+
+  function applyFont(id) {
+    const newConfig = { ...config, fontId: id };
+    setConfig(newConfig);
+    updateConfig(newConfig);
+    setIframeKey((k) => k + 1);
+  }
+
+  function generateRandomPalette() {
+    const idx = Math.floor(Math.random() * palettes.length);
+    applyPalette(palettes[idx].id);
+  }
+
+  // Scroll lock + keyboard
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') step(-1);
+      if (e.key === 'ArrowRight') step(1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose, step]);
+
+  const previewUrl = shop?.handle ? `/${shop.handle}` : null;
+
+  // Scale for the iframe preview
+  const browserW = device === 'desktop' ? 1200 : 390;
+  const browserH = device === 'desktop' ? 700 : 750;
+  const stageScale = device === 'desktop' ? 0.55 : 0.7;
+
+  const jsx = (
+    <div className="ss-root">
+      {/* Top bar */}
+      <div className="be-top">
+        <div className="be-ttl">
+          <b>{t('ss_title')}</b>
+        </div>
+
+        {/* Device toggle */}
+        <div className="ss-dev">
+          <button className={device === 'desktop' ? 'on' : ''} onClick={() => setDevice('desktop')}>
+            {t('ss_desktop')}
+          </button>
+          <button className={device === 'phone' ? 'on' : ''} onClick={() => setDevice('phone')}>
+            {t('ss_phone')}
+          </button>
+        </div>
+
+        <button className="btn btn-primary" onClick={onClose} style={{ marginLeft: 8 }}>
+          {t('ss_done')}
+        </button>
+      </div>
+
+      {/* Stage */}
+      <div className="be-stage">
+        {/* Left nav */}
+        <button className="be-nav l" onClick={() => step(-1)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+
+        {/* Preview frame */}
+        {previewUrl ? (
+          device === 'phone' ? (
+            <div className="be-phone-wrap" style={{ transform: `scale(${stageScale})` }}>
+              <div className="be-phone">
+                <div className="be-screen">
+                  <iframe
+                    ref={iframeRef}
+                    key={iframeKey}
+                    src={previewUrl}
+                    title="Store preview"
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="ss-browser"
+              style={{
+                width: browserW,
+                height: browserH,
+                transform: `scale(${stageScale})`,
+              }}
+            >
+              <div className="ss-bbar">
+                <div className="tl"><i /><i /><i /></div>
+                <div className="u">labaratory.rastashops.com/{shop?.handle || 'shop'}</div>
+              </div>
+              <div className="ss-bscreen">
+                <iframe
+                  ref={iframeRef}
+                  key={iframeKey}
+                  src={previewUrl}
+                  title="Store preview"
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                />
+              </div>
+            </div>
+          )
+        ) : (
+          <div style={{ color: 'var(--soft)', fontSize: 14 }}>No shop handle</div>
+        )}
+
+        {/* Right nav */}
+        <button className="be-nav r" onClick={() => step(1)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+
+        {/* Caption */}
+        <div className="be-cap">
+          <b>{hoverThemeId ? (t(displayTheme.nameKey) || displayTheme.name) : (t(getTheme(config.themeId).nameKey) || getTheme(config.themeId).name)}</b>
+          <span>{currentIdx + 1} / {themeOrder.length}</span>
+          {hoverThemeId && hoverThemeId !== config.themeId && (
+            <em>{t('ss_current')}: {t(getTheme(config.themeId).nameKey) || getTheme(config.themeId).name}</em>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom panel */}
+      <div className="be-panel">
+        {/* Tabs */}
+        <div className="be-tabs">
+          <button className={tab === 'look' ? 'on' : ''} onClick={() => setTab('look')}>
+            {t('ss_looks')}
+          </button>
+          <button className={tab === 'color' ? 'on' : ''} onClick={() => setTab('color')}>
+            {t('ss_colors')}
+          </button>
+          <button className={tab === 'layout' ? 'on' : ''} onClick={() => setTab('layout')}>
+            {t('ss_layout')}
+          </button>
+        </div>
+
+        {/* Look tab */}
+        {tab === 'look' && (
+          <>
+            <div className="be-groups">
+              <button className={group === 'all' ? 'on' : ''} onClick={() => setGroup('all')}>
+                All
+              </button>
+              <button className={group === 'sig' ? 'on' : ''} onClick={() => setGroup('sig')}>
+                {t('ss_signature')} <i>{sigCount}</i>
+              </button>
+              <button className={group === 'classic' ? 'on' : ''} onClick={() => setGroup('classic')}>
+                {t('ss_classic')} <i>{classicCount}</i>
+              </button>
+            </div>
+            <div className="be-list">
+              {filteredThemes.map((theme) => {
+                const pal = getPalette(theme.defaultPalette) || getPalette('ivory');
+                return (
+                  <button
+                    key={theme.id}
+                    className={'ss-pick' + (config.themeId === theme.id ? ' on' : '')}
+                    onMouseEnter={() => setHoverThemeId(theme.id)}
+                    onMouseLeave={() => setHoverThemeId(null)}
+                    onClick={() => applyTheme(theme.id)}
+                  >
+                    <ThemeMiniThumb theme={theme} palette={pal} />
+                    <span className="bio-pick-nm">
+                      {config.themeId === theme.id && I.check({ width: 13, height: 13 })}
+                      {' '}{t(theme.nameKey) || theme.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="be-hint">
+              <span className="d">{t('ss_hint')}</span>
+              <span className="m">{t('ss_hint')}</span>
+            </div>
+          </>
+        )}
+
+        {/* Color tab */}
+        {tab === 'color' && (
+          <>
+            <div style={{ marginBottom: 10 }}>
+              <button className="te-gen" onClick={generateRandomPalette}>
+                {t('db_generate_random')}
+              </button>
+            </div>
+            <div className="ss-pals">
+              {palettes.map((p) => (
+                <button
+                  key={p.id}
+                  className={'pal-btn' + (config.paletteId === p.id ? ' on' : '')}
+                  onClick={() => applyPalette(p.id)}
+                >
+                  <span className="pal-strip">
+                    <i style={{ background: p.bg }} />
+                    <i style={{ background: p.surface }} />
+                    <i style={{ background: p.accent }} />
+                    <i style={{ background: p.ink }} />
+                  </span>
+                  <span className="pal-name">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Layout & type tab */}
+        {tab === 'layout' && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_layout')}</div>
+              <div className="be-chips">
+                {layouts.map((l) => (
+                  <button
+                    key={l.id}
+                    className={config.layout === l.id ? 'on' : ''}
+                    onClick={() => applyLayout(l.id)}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_font')}</div>
+              <div className="be-font-chips">
+                {fonts.map((f) => (
+                  <button
+                    key={f.id}
+                    className={config.fontId === f.id ? 'on' : ''}
+                    style={{ fontFamily: f.family }}
+                    onClick={() => applyFont(f.id)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return ReactDOM.createPortal(jsx, document.body);
 }
 
 /* ── Structural mini-preview thumbnails ── */
