@@ -29,6 +29,18 @@ const fonts = [
   { id: 'spacemono', label: 'Space Mono', family: "'Space Mono', monospace" },
 ];
 
+const FONT_OPTIONS = [
+  ['soft', 'Bricolage'],
+  ['grotesk', 'Space Grotesk'],
+  ['serif', 'Serif'],
+  ['outfit', 'Outfit'],
+  ['round', 'Unbounded'],
+  ['impact', 'Anton'],
+  ['hand', 'Caveat (handwritten)'],
+  ['pixel', 'VT323 (pixel)'],
+  ['mono', 'Space Mono'],
+];
+
 /** Map a theme to a reasonable fontId */
 function fontIdForTheme(theme) {
   const fam = (theme.family || '').toLowerCase();
@@ -63,6 +75,10 @@ export default function DesignView() {
   });
   const [saving, setSaving] = useState(false);
   const [studioOpen, setStudioOpen] = useState(false);
+  const [bioStudioOpen, setBioStudioOpen] = useState(false);
+
+  /* bio config state (shared between summary card and studio) */
+  const [bioJson, setBioJson] = useState(null);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
@@ -83,8 +99,17 @@ export default function DesignView() {
     }
   }, [shopConfig]);
 
+  useEffect(() => {
+    if (!shop?.id) return;
+    api.get(`/shops/${shop.id}/config`).then((res) => {
+      setBioJson(res.data?.bioJson || null);
+    }).catch(() => {});
+  }, [shop?.id]);
+
   const currentTheme = getTheme(config.themeId);
   const currentPalette = getPalette(config.paletteId);
+  const bioCfg = getBioConfig(bioJson);
+  const bioTpl = BIO_TPLS.find((x) => x.id === bioCfg.tpl) || BIO_TPLS[0];
 
   async function handleSave() {
     setSaving(true);
@@ -150,6 +175,36 @@ export default function DesignView() {
         </div>
       </div>
 
+      {/* Section 2: Bio Link Summary Card */}
+      <div className="set-card" style={{ marginBottom: 22 }}>
+        <div className="set-title">{t('st_bio')}</div>
+        <div className="hint" style={{ marginTop: -6 }}>{t('st_bio_d')}</div>
+        <div
+          className="ds-card"
+          style={{ marginTop: 14 }}
+          onClick={() => setBioStudioOpen(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setBioStudioOpen(true)}
+        >
+          <div className="ds-preview" style={{ background: BIO_BGS[bioCfg.bg]?.base || '#f4f1ec' }}>
+            <BioThumb tpl={bioCfg.tpl} />
+          </div>
+          <div className="ds-info">
+            <b>{bioTpl.name}</b>
+            <div className="ds-meta">
+              <span className="ds-swatch" style={{ background: BIO_BGS[bioCfg.bg]?.prim || '#1b1714' }} />
+              <span>{bioCfg.bg}</span>
+              <span style={{ color: 'var(--faint)' }}>|</span>
+              <span>{bioCfg.font}</span>
+            </div>
+          </div>
+          <button className="btn btn-accent" style={{ flexShrink: 0 }}>
+            {t('ss_edit')}
+          </button>
+        </div>
+      </div>
+
       {/* StoreStudio overlay */}
       {studioOpen && (
         <StoreStudio
@@ -161,8 +216,16 @@ export default function DesignView() {
         />
       )}
 
-      {/* Section 2: Bio Studio */}
-      <BioStudio shopId={shop?.id} handle={shop?.handle} />
+      {/* BioStudio overlay */}
+      {bioStudioOpen && (
+        <BioStudioOverlay
+          shopId={shop?.id}
+          handle={shop?.handle}
+          bioJson={bioJson}
+          setBioJson={setBioJson}
+          onClose={() => setBioStudioOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -197,7 +260,7 @@ function ThemeMiniThumb({ theme, palette, size }) {
 }
 
 /* ────────────────────────────────────────────────────
-   StoreStudio — full-screen design overlay
+   StoreStudio — full-screen design overlay (panel on RIGHT)
    ──────────────────────────────────────────────────── */
 
 function StoreStudio({ shop, products, config, setConfig, onClose }) {
@@ -296,7 +359,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
 
   const jsx = (
     <div className="ss-root">
-      {/* Top bar */}
+      {/* Top bar — spans both columns */}
       <div className="be-top">
         <div className="be-ttl">
           <b>{t('ss_title')}</b>
@@ -317,7 +380,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
         </button>
       </div>
 
-      {/* Stage */}
+      {/* Stage — left column */}
       <div className="be-stage">
         {/* Left nav */}
         <button className="be-nav l" onClick={() => step(-1)}>
@@ -383,7 +446,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
         </div>
       </div>
 
-      {/* Bottom panel */}
+      {/* Right panel */}
       <div className="be-panel">
         {/* Tabs */}
         <div className="be-tabs">
@@ -442,7 +505,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
         {/* Color tab */}
         {tab === 'color' && (
           <>
-            <div style={{ marginBottom: 10 }}>
+            <div style={{ padding: '12px 16px 0' }}>
               <button className="te-gen" onClick={generateRandomPalette}>
                 {t('db_generate_random')}
               </button>
@@ -469,10 +532,10 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
 
         {/* Layout & type tab */}
         {tab === 'layout' && (
-          <>
+          <div className="be-panel-body">
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_layout')}</div>
-              <div className="be-chips">
+              <div className="be-chips" style={{ padding: 0 }}>
                 {layouts.map((l) => (
                   <button
                     key={l.id}
@@ -486,7 +549,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('db_font')}</div>
-              <div className="be-font-chips">
+              <div className="be-font-chips" style={{ padding: 0 }}>
                 {fonts.map((f) => (
                   <button
                     key={f.id}
@@ -499,7 +562,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
                 ))}
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -556,22 +619,33 @@ function BioThumb({ tpl, over }) {
   );
 }
 
-/* ── Bio Studio ── */
+/* ────────────────────────────────────────────────────
+   BioStudioOverlay — full-screen bio design studio (panel on RIGHT)
+   ──────────────────────────────────────────────────── */
 
-function BioStudio({ shopId, handle }) {
-  const [bioJson, setBioJson] = useState(null);
+function BioStudioOverlay({ shopId, handle, bioJson, setBioJson, onClose }) {
+  const [tab, setTab] = useState('tpl');
+  const [group, setGroup] = useState('all');
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const iframeRef = useRef(null);
 
-  useEffect(() => {
-    if (!shopId) return;
-    api.get(`/shops/${shopId}/config`).then((res) => {
-      setBioJson(res.data?.bioJson || null);
-    }).catch(() => {});
-  }, [shopId]);
-
   const cfg = getBioConfig(bioJson);
+
+  // All templates in order
+  const allTpls = BIO_TPLS;
+  const filteredTpls =
+    group === 'all' ? allTpls :
+    group === 'concept' ? allTpls.filter((x) => x.group === 'concept') :
+    group === 'vivid' ? allTpls.filter((x) => x.vivid || x.group === 'vivid') :
+    allTpls.filter((x) => !x.vivid && x.group !== 'concept' && x.group !== 'vivid');
+
+  const currentIdx = allTpls.findIndex((x) => x.id === cfg.tpl);
+
+  const step = useCallback((dir) => {
+    const next = allTpls[(currentIdx + dir + allTpls.length) % allTpls.length];
+    pickTpl(next.id);
+  }, [currentIdx, allTpls]);
 
   function pickTpl(tplId) {
     const newJson = JSON.stringify({ tpl: tplId });
@@ -588,159 +662,216 @@ function BioStudio({ shopId, handle }) {
     saveBio(newJson);
   }
 
-  function resetToTemplate() {
-    const newJson = JSON.stringify({ tpl: cfg.tpl });
-    setBioJson(newJson);
-    saveBio(newJson);
-  }
-
   async function saveBio(json) {
     if (!shopId) return;
     setSaving(true);
     try {
       await api.put(`/shops/${shopId}/config`, { bioJson: json });
-      setPreviewKey(k => k + 1);
+      setPreviewKey((k) => k + 1);
     } catch {}
     setSaving(false);
   }
 
-  const TPL_GROUPS = [
-    ['concept', t('st_bio_concept'), true],
-    ['vivid', t('st_bio_vivid'), false],
-    ['classic', t('st_bio_classic'), false],
-  ];
+  // Scroll lock + keyboard
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
 
-  const FONT_OPTIONS = [
-    ['soft', 'Bricolage'],
-    ['grotesk', 'Space Grotesk'],
-    ['serif', 'Serif'],
-    ['outfit', 'Outfit'],
-    ['round', 'Unbounded'],
-    ['impact', 'Anton'],
-    ['hand', 'Caveat (handwritten)'],
-    ['pixel', 'VT323 (pixel)'],
-    ['mono', 'Space Mono'],
-  ];
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') step(-1);
+      if (e.key === 'ArrowRight') step(1);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose, step]);
 
-  return (
-    <div className="set-card" style={{ marginTop: 22 }}>
-      <div className="set-title">{t('st_bio')}</div>
-      <div className="hint" style={{ marginTop: -6 }}>{t('st_bio_d')}</div>
+  const previewUrl = handle ? `/${handle}/link` : null;
 
-      <div className="theme-editor" style={{ marginTop: 16 }}>
-        {/* Controls panel */}
-        <div className="te-panel">
-          {/* Template picker — grouped */}
-          <div className="bio-sub-t">{t('st_bio_tpl')}</div>
-          {TPL_GROUPS.map(([group, label, showNew]) => (
-            <div key={group} className="bio-tpl-group">
-              <div className="bio-tpl-gt">
-                {label}
-                {showNew && <em>{t('vb_new')}</em>}
-              </div>
-              <div className="bio-picker">
-                {BIO_TPLS
-                  .filter(x => (x.group || (x.vivid ? 'vivid' : 'classic')) === group)
-                  .map(x => (
-                    <button
-                      key={x.id}
-                      className={'bio-pick' + (cfg.tpl === x.id ? ' on' : '')}
-                      onClick={() => pickTpl(x.id)}
-                    >
-                      <BioThumb tpl={x.id} />
-                      <span className="bio-pick-nm">
-                        {cfg.tpl === x.id && I.check({ width: 13, height: 13 })} {x.name}
-                      </span>
-                    </button>
-                  ))}
+  const jsx = (
+    <div className="ss-root">
+      {/* Top bar — spans both columns */}
+      <div className="be-top">
+        <div className="be-ttl">
+          <b>{t('bs_title')}</b>
+        </div>
+        <div style={{ marginLeft: 'auto' }} />
+        <button className="btn btn-primary" onClick={onClose} style={{ marginLeft: 8 }}>
+          {t('ss_done')}
+        </button>
+      </div>
+
+      {/* Stage — left column (phone preview) */}
+      <div className="be-stage">
+        {/* Left nav */}
+        <button className="be-nav l" onClick={() => step(-1)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+
+        {previewUrl ? (
+          <div className="be-phone-wrap" style={{ transform: 'scale(0.7)' }}>
+            <div className="be-phone">
+              <div className="be-screen">
+                <iframe
+                  ref={iframeRef}
+                  key={previewKey}
+                  src={previewUrl}
+                  title="Bio preview"
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                />
               </div>
             </div>
-          ))}
+          </div>
+        ) : (
+          <div style={{ color: 'var(--soft)', fontSize: 14 }}>No shop handle</div>
+        )}
 
-          {/* Customisation section */}
-          <div className="bio-sub-t">{t('st_bio_custom')}</div>
+        {/* Right nav */}
+        <button className="be-nav r" onClick={() => step(1)}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
 
-          {/* Background swatches */}
-          <div className="field">
-            <label>{t('st_bio_bg')}</label>
-            <div className="bio-swatches">
-              {Object.keys(BIO_BGS).map((id) => (
+        {/* Caption */}
+        <div className="be-cap">
+          <b>{(BIO_TPLS.find((x) => x.id === cfg.tpl) || BIO_TPLS[0]).name}</b>
+          <span>{currentIdx + 1} / {allTpls.length}</span>
+        </div>
+      </div>
+
+      {/* Right panel */}
+      <div className="be-panel">
+        {/* Tabs */}
+        <div className="be-tabs">
+          <button className={tab === 'tpl' ? 'on' : ''} onClick={() => setTab('tpl')}>
+            {t('bs_templates')}
+          </button>
+          <button className={tab === 'color' ? 'on' : ''} onClick={() => setTab('color')}>
+            {t('bs_colours')}
+          </button>
+          <button className={tab === 'style' ? 'on' : ''} onClick={() => setTab('style')}>
+            {t('bs_style')}
+          </button>
+        </div>
+
+        {/* Templates tab */}
+        {tab === 'tpl' && (
+          <>
+            <div className="be-groups">
+              <button className={group === 'all' ? 'on' : ''} onClick={() => setGroup('all')}>
+                All
+              </button>
+              <button className={group === 'concept' ? 'on' : ''} onClick={() => setGroup('concept')}>
+                {t('bs_concepts')}
+              </button>
+              <button className={group === 'vivid' ? 'on' : ''} onClick={() => setGroup('vivid')}>
+                {t('bs_vivid')}
+              </button>
+              <button className={group === 'classic' ? 'on' : ''} onClick={() => setGroup('classic')}>
+                {t('bs_classic')}
+              </button>
+            </div>
+            <div className="be-list">
+              {filteredTpls.map((x) => (
                 <button
-                  key={id}
-                  className={'bio-sw' + (cfg.bg === id ? ' on' : '')}
-                  style={{ background: BIO_BGS[id].base }}
-                  onClick={() => patchBio({ bg: id })}
+                  key={x.id}
+                  className={'bio-pick' + (cfg.tpl === x.id ? ' on' : '')}
+                  onClick={() => pickTpl(x.id)}
                 >
-                  {cfg.bg === id && <span style={{ color: BIO_BGS[id].ink }}>{I.check({ width: 14, height: 14 })}</span>}
+                  <BioThumb tpl={x.id} />
+                  <span className="bio-pick-nm">
+                    {cfg.tpl === x.id && I.check({ width: 13, height: 13 })} {x.name}
+                  </span>
                 </button>
               ))}
             </div>
-          </div>
+            <div className="be-hint">
+              <span className="d">{t('ss_hint')}</span>
+              <span className="m">{t('ss_hint')}</span>
+            </div>
+          </>
+        )}
 
-          {/* Dropdowns */}
-          <div className="field-row">
-            {!VIBE_LAYOUTS.includes(cfg.layout) && (
-              <div className="field">
-                <label>{t('st_bio_btn')}</label>
-                <select value={cfg.btn} onChange={(e) => patchBio({ btn: e.target.value })}>
-                  {[['soft', t('bs_soft')], ['fill', t('bs_fill')], ['outline', t('bs_outline')], ['hard', t('bs_hard')], ['glass', t('bs_glass')]].map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+        {/* Colours tab */}
+        {tab === 'color' && (
+          <div className="be-panel-body">
+            <div className="field">
+              <label>{t('st_bio_bg')}</label>
+              <div className="bio-swatches">
+                {Object.keys(BIO_BGS).map((id) => (
+                  <button
+                    key={id}
+                    className={'bio-sw' + (cfg.bg === id ? ' on' : '')}
+                    style={{ background: BIO_BGS[id].base }}
+                    onClick={() => patchBio({ bg: id })}
+                  >
+                    {cfg.bg === id && <span style={{ color: BIO_BGS[id].ink }}>{I.check({ width: 14, height: 14 })}</span>}
+                  </button>
+                ))}
               </div>
-            )}
-            <div className="field">
-              <label>{t('st_bio_corners')}</label>
-              <select value={cfg.radius} onChange={(e) => patchBio({ radius: e.target.value })}>
-                {[['square', t('rd_square')], ['round', t('rd_round')], ['pill', t('rd_pill')]].map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>{t('st_bio_font')}</label>
-              <select value={cfg.font} onChange={(e) => patchBio({ font: e.target.value })}>
-                {FONT_OPTIONS.map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Reset + Preview links */}
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 12 }}>
-            <button className="lnk" onClick={resetToTemplate}>
-              {I.x({ width: 13, height: 13 })} {t('st_bio_reset')}
-            </button>
-            {handle && (
-              <a href={`/${handle}/link`} target="_blank" rel="noopener noreferrer" className="lnk">
-                {I.eye({ width: 14, height: 14 })} {t('st_bio_view')}
-              </a>
-            )}
-          </div>
-        </div>
-
-        {/* Live preview — iframe renders the real bio page */}
-        {handle && (
-          <div className="te-preview-wrap">
-            <div className="te-preview-bar">
-              <div className="tl"><i /><i /><i /></div>
-              <div className="u">labaratory.rastashops.com/{handle}/link</div>
-            </div>
-            <div className="te-preview">
-              <iframe
-                ref={iframeRef}
-                key={previewKey}
-                src={`/${handle}/link`}
-                title="Bio preview"
-                style={{ width: '100%', height: '100%', border: 'none' }}
-              />
             </div>
           </div>
         )}
-      </div>
 
-      {saving && <span style={{ fontSize: 12, color: '#888' }}>{t('loading')}</span>}
+        {/* Style tab */}
+        {tab === 'style' && (
+          <div className="be-panel-body">
+            {/* Font chips */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('bs_font')}</div>
+              <div className="be-font-chips" style={{ padding: 0 }}>
+                {FONT_OPTIONS.map(([v, l]) => (
+                  <button
+                    key={v}
+                    className={cfg.font === v ? 'on' : ''}
+                    onClick={() => patchBio({ font: v })}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Corner radius chips */}
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('bs_corners')}</div>
+              <div className="be-chips" style={{ padding: 0 }}>
+                {[['square', t('rd_square')], ['round', t('rd_round')], ['pill', t('rd_pill')]].map(([v, l]) => (
+                  <button
+                    key={v}
+                    className={cfg.radius === v ? 'on' : ''}
+                    onClick={() => patchBio({ radius: v })}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Button style chips */}
+            {!VIBE_LAYOUTS.includes(cfg.layout) && (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('bs_buttons')}</div>
+                <div className="be-chips" style={{ padding: 0 }}>
+                  {[['soft', t('bs_soft')], ['fill', t('bs_fill')], ['outline', t('bs_outline')], ['hard', t('bs_hard')], ['glass', t('bs_glass')]].map(([v, l]) => (
+                    <button
+                      key={v}
+                      className={cfg.btn === v ? 'on' : ''}
+                      onClick={() => patchBio({ btn: v })}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
+
+  return ReactDOM.createPortal(jsx, document.body);
 }
