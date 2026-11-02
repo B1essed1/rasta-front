@@ -355,7 +355,7 @@ function StoreStudio({ shop, products, config, setConfig, onClose }) {
   // Scale for the iframe preview
   const browserW = device === 'desktop' ? 1200 : 390;
   const browserH = device === 'desktop' ? 700 : 750;
-  const stageScale = device === 'desktop' ? 0.55 : 0.7;
+  const stageScale = device === 'desktop' ? 0.75 : 0.88;
 
   const jsx = (
     <div className="ss-root">
@@ -712,7 +712,7 @@ function BioStudioOverlay({ shopId, handle, bioJson, setBioJson, onClose }) {
         </button>
 
         {previewUrl ? (
-          <div className="be-phone-wrap" style={{ transform: 'scale(0.7)' }}>
+          <div className="be-phone-wrap" style={{ transform: 'scale(0.88)' }}>
             <div className="be-phone">
               <div className="be-screen">
                 <iframe
