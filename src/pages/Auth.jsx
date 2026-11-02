@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/ui/Logo';
 import LangPill from '../components/ui/LangPill';
@@ -7,226 +7,194 @@ import { useAuthStore } from '../store/authStore';
 import { useShopStore } from '../store/shopStore';
 import '../styles/app.css';
 
-const validPrefixes = ['90', '91', '93', '94', '95', '97', '98', '99', '33', '88', '77', '71'];
+/* ---- demo accounts ---- */
+const DEMO_ACCOUNTS = [
+  { name: 'Dilnoza Karimova', username: '@dilnoza_k', phone: '901234567' },
+  { name: 'Jasur Alimov', username: '@jasur_dev', phone: '935556677' },
+  { name: 'Malika Rashidova', username: '@malika_r', phone: '977788899' },
+];
 
-function formatPhone(raw) {
-  const digits = raw.replace(/\D/g, '').slice(0, 9);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
-  if (digits.length <= 7) return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`;
-  return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 7)} ${digits.slice(7)}`;
+function pickDemo() {
+  return DEMO_ACCOUNTS[Math.floor(Math.random() * DEMO_ACCOUNTS.length)];
 }
 
-function PhoneStep({ onNext }) {
-  const [, setTick] = useState(0);
-  const [phone, setPhone] = useState('');
-  const [error, setError] = useState('');
-  const sendOtp = useAuthStore((s) => s.sendOtp);
-  const loading = useAuthStore((s) => s.loading);
-
-  useEffect(() => {
-    return onLangChange(() => setTick((t) => t + 1));
-  }, []);
-
-  const digits = phone.replace(/\D/g, '');
-  const isValid = digits.length === 9 && validPrefixes.includes(digits.slice(0, 2));
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!isValid) {
-      setError('Invalid phone number');
-      return;
-    }
-    setError('');
-    try {
-      await sendOtp(`+998${digits}`);
-      onNext(`+998${digits}`);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong');
-    }
-  }
-
+/* ---- SVG icons ---- */
+function TelegramIcon({ size = 20 }) {
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <h1 className="auth-form__title">{t('au_title')}</h1>
-      <p className="auth-form__sub">{t('au_sub')}</p>
-
-      <label className="form-label">{t('au_phone_lbl')}</label>
-      <div className="phone-input">
-        <span className="phone-input__prefix">+998</span>
-        <input
-          type="tel"
-          className="phone-input__field"
-          placeholder="90 123 45 67"
-          value={formatPhone(phone)}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
-          autoFocus
-        />
-      </div>
-      {error && <p className="form-error">{error}</p>}
-
-      <button
-        className="btn btn--primary btn--block btn--lg"
-        type="submit"
-        disabled={!isValid || loading}
-      >
-        {loading ? t('loading') : t('au_continue')}
-      </button>
-
-      <p className="auth-form__terms">{t('au_terms')}</p>
-    </form>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M22.05 2.56a1.01 1.01 0 00-1.04-.15L2.4 10.33a1 1 0 00.07 1.87l4.58 1.47 1.73 5.43a1 1 0 001.72.32l2.45-2.72 4.37 3.24a1 1 0 001.56-.52l3.37-15.5a1.01 1.01 0 00-.2-.86zM9.67 14.26l-.91 2.76-.99-3.11 9.32-7.2-7.42 7.55z" fill="currentColor"/>
+    </svg>
   );
 }
 
-function OtpStep({ phone, onBack, onSuccess }) {
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.81.36 1.6.68 2.35a2 2 0 01-.45 2.11L8.09 9.43a16 16 0 006.49 6.49l1.25-1.25a2 2 0 012.11-.45c.75.32 1.54.55 2.35.68A2 2 0 0122 16.92z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+/* ---- Telegram Sim modal ---- */
+function TelegramSim({ onDone, onClose }) {
   const [, setTick] = useState(0);
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [demo] = useState(pickDemo);
+  const [phone, setPhone] = useState(demo.phone);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [timer, setTimer] = useState(60);
-  const inputsRef = useRef([]);
-  const verifyOtp = useAuthStore((s) => s.verifyOtp);
-  const sendOtp = useAuthStore((s) => s.sendOtp);
-  const loading = useAuthStore((s) => s.loading);
+  const telegramLogin = useAuthStore((s) => s.telegramLogin);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
   }, []);
 
-  useEffect(() => {
-    if (timer > 0) {
-      const id = setTimeout(() => setTimer(timer - 1), 1000);
-      return () => clearTimeout(id);
-    }
-  }, [timer]);
+  const now = new Date();
+  const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  useEffect(() => {
-    inputsRef.current[0]?.focus();
-  }, []);
+  const botMsg = (t('tg_bot_hi') || '').replace('{name}', demo.name.split(' ')[0]);
 
-  function handleChange(i, value) {
-    if (value.length > 1) {
-      const pasted = value.replace(/\D/g, '').slice(0, 6).split('');
-      const newCode = [...code];
-      pasted.forEach((d, j) => {
-        if (i + j < 6) newCode[i + j] = d;
-      });
-      setCode(newCode);
-      const nextIdx = Math.min(i + pasted.length, 5);
-      inputsRef.current[nextIdx]?.focus();
-      if (newCode.every((d) => d !== '')) {
-        submitCode(newCode.join(''));
-      }
-      return;
-    }
-
-    const digit = value.replace(/\D/g, '');
-    const newCode = [...code];
-    newCode[i] = digit;
-    setCode(newCode);
-
-    if (digit && i < 5) {
-      inputsRef.current[i + 1]?.focus();
-    }
-
-    if (newCode.every((d) => d !== '')) {
-      submitCode(newCode.join(''));
-    }
-  }
-
-  function handleKeyDown(i, e) {
-    if (e.key === 'Backspace' && !code[i] && i > 0) {
-      inputsRef.current[i - 1]?.focus();
-    }
-  }
-
-  function handlePaste(e) {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted.length > 0) {
-      const newCode = pasted.split('').concat(Array(6).fill('')).slice(0, 6);
-      setCode(newCode);
-      const nextIdx = Math.min(pasted.length, 5);
-      inputsRef.current[nextIdx]?.focus();
-      if (newCode.every((d) => d !== '')) {
-        submitCode(newCode.join(''));
-      }
-    }
-  }
-
-  async function submitCode(fullCode) {
+  async function handleConfirmShare() {
+    setBusy(true);
     setError('');
     try {
-      await verifyOtp(phone, fullCode);
-      onSuccess();
+      const fullPhone = `+998${phone.replace(/\D/g, '')}`;
+      await telegramLogin(fullPhone, { name: demo.name, username: demo.username });
+      setShared(true);
+      setBusy(false);
+      setTimeout(() => onDone(), 800);
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid code');
-      setCode(['', '', '', '', '', '']);
-      inputsRef.current[0]?.focus();
-    }
-  }
-
-  async function handleResend() {
-    if (timer > 0) return;
-    try {
-      await sendOtp(phone);
-      setTimer(60);
-      setCode(['', '', '', '', '', '']);
-      inputsRef.current[0]?.focus();
-    } catch (err) {
-      setError('Could not resend code');
+      setError(err.response?.data?.message || err.message || 'Error');
+      setBusy(false);
+      setShowConfirm(false);
     }
   }
 
   return (
-    <div className="auth-form">
-      <h1 className="auth-form__title">{t('au_code_t')}</h1>
-      <p className="auth-form__sub">
-        {t('au_code_sub')} <strong>{phone}</strong>
-      </p>
+    <div className="tg-scrim" onClick={onClose}>
+      <div className="tg-app" onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+        {/* Header */}
+        <div className="tg-head">
+          <button className="tg-x" onClick={onClose}><CloseIcon /></button>
+          <div className="tg-bav">R</div>
+          <div className="tg-who">
+            <b>{t('tg_bot')}</b>
+            <small>bot</small>
+          </div>
+        </div>
 
-      <div className="otp-inputs" onPaste={handlePaste}>
-        {code.map((digit, i) => (
-          <input
-            key={i}
-            ref={(el) => (inputsRef.current[i] = el)}
-            type="text"
-            inputMode="numeric"
-            maxLength={6}
-            className="otp-input"
-            value={digit}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-          />
-        ))}
+        {/* Chat feed */}
+        <div className="tg-feed">
+          <div className="tg-msg in">
+            {botMsg}
+            <time>{timeStr}</time>
+          </div>
+
+          {shared && (
+            <div className="tg-msg out contact">
+              <PhoneIcon />
+              <div>
+                <b>{demo.name}</b>
+                <small>+998 {phone}</small>
+              </div>
+              <time>{timeStr}</time>
+            </div>
+          )}
+
+          {shared && (
+            <div className="tg-msg in">
+              {t('tg_done')}
+              <time>{timeStr}</time>
+            </div>
+          )}
+
+          {error && (
+            <div className="tg-msg in" style={{ color: '#ff6b6b' }}>
+              {error}
+              <time>{timeStr}</time>
+            </div>
+          )}
+        </div>
+
+        {/* Demo panel */}
+        <div className="tg-demo">
+          <b>{t('tg_demo')} (simulation)</b>
+          <div>{demo.name} &middot; {demo.username}</div>
+          <label>
+            {t('tg_demo_ph')}:
+            <span className="tg-ph">
+              <i>+998</i>
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+              />
+            </span>
+          </label>
+        </div>
+
+        {/* Keyboard button */}
+        <div className="tg-kb">
+          <button
+            className="tg-key"
+            disabled={shared || busy || phone.replace(/\D/g, '').length < 9}
+            onClick={() => setShowConfirm(true)}
+          >
+            {busy ? <span className="tg-spin" /> : <PhoneIcon />}
+            {t('tg_share')}
+          </button>
+        </div>
+
+        {/* Confirm dialog */}
+        {showConfirm && !shared && (
+          <div className="tg-dlg-wrap">
+            <div className="tg-dlg">
+              <b>{t('tg_confirm_t')}</b>
+              <p>{t('tg_confirm_d')}</p>
+              <div className="tg-dlg-acts">
+                <button onClick={() => setShowConfirm(false)}>{t('tg_cancel')}</button>
+                <button className="ok" onClick={handleConfirmShare} disabled={busy}>
+                  {busy ? <span className="tg-spin" /> : t('tg_ok')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      {error && <p className="form-error">{error}</p>}
-
-      <div className="auth-form__actions">
-        <button className="btn btn--ghost btn--sm" onClick={onBack} type="button">
-          {t('au_wrong')}
-        </button>
-        <button
-          className="btn btn--ghost btn--sm"
-          onClick={handleResend}
-          disabled={timer > 0}
-          type="button"
-        >
-          {timer > 0 ? `${t('au_resend_in')} ${timer}s` : t('au_resend')}
-        </button>
-      </div>
-
-      {loading && <p className="auth-form__loading">{t('loading')}</p>}
     </div>
   );
 }
 
+/* ---- Main Auth page ---- */
 export default function Auth() {
-  const [step, setStep] = useState('phone');
-  const [phone, setPhone] = useState('');
+  const [, setTick] = useState(0);
+  const [showSim, setShowSim] = useState(false);
+  const [opening, setOpening] = useState(false);
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const fetchMyShops = useShopStore((s) => s.fetchMyShops);
   const fetchShop = useShopStore((s) => s.fetchShop);
+
+  useEffect(() => {
+    return onLangChange(() => setTick((t) => t + 1));
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -242,28 +210,67 @@ export default function Auth() {
     }
   }, [token, navigate, fetchMyShops, fetchShop]);
 
+  const handleTelegramClick = useCallback(() => {
+    setOpening(true);
+    setTimeout(() => {
+      setOpening(false);
+      setShowSim(true);
+    }, 600);
+  }, []);
+
   return (
     <div className="auth-page">
       <div className="auth-page__header">
         <Logo size={36} />
         <LangPill />
       </div>
-      <div className="auth-page__card">
-        {step === 'phone' ? (
-          <PhoneStep
-            onNext={(ph) => {
-              setPhone(ph);
-              setStep('otp');
-            }}
-          />
-        ) : (
-          <OtpStep
-            phone={phone}
-            onBack={() => setStep('phone')}
-            onSuccess={() => navigate('/dashboard')}
-          />
-        )}
+      <div className="auth-page__card tg-auth">
+        <div className="ob-head" style={{ textAlign: 'center', marginBottom: 8 }}>
+          <h2 className="auth-form__title">{t('tg_title')}</h2>
+          <p className="auth-form__sub">{t('tg_sub')}</p>
+        </div>
+
+        <ul className="tg-why">
+          <li>
+            <CheckIcon /> {t('tg_why1')}
+          </li>
+          <li>
+            <CheckIcon /> {t('tg_why2')}
+          </li>
+          <li>
+            <CheckIcon /> {t('tg_why3')}
+          </li>
+        </ul>
+
+        <button
+          className="tg-btn"
+          onClick={handleTelegramClick}
+          disabled={opening}
+        >
+          {opening ? (
+            <>
+              <span className="tg-spin" />
+              {t('tg_open')}
+            </>
+          ) : (
+            <>
+              <TelegramIcon />
+              {t('tg_btn')}
+            </>
+          )}
+        </button>
+
+        <p className="auth-consent">{t('tg_consent')}</p>
       </div>
+
+      {showSim && (
+        <TelegramSim
+          onDone={() => {
+            setShowSim(false);
+          }}
+          onClose={() => setShowSim(false)}
+        />
+      )}
     </div>
   );
 }

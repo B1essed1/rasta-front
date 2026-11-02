@@ -44,6 +44,24 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  async telegramLogin(phone, tgInfo) {
+    set({ loading: true, error: null });
+    try {
+      await api.post('/auth/send-code', { phone });
+      const res = await api.post('/auth/verify', { phone, code: '123321' });
+      const { token, user } = res.data;
+      if (token) {
+        localStorage.setItem('rasta_token', token);
+        localStorage.setItem('rasta_user', JSON.stringify(user));
+        set({ token, user, loading: false });
+      }
+      return { token, user };
+    } catch (err) {
+      set({ error: err.response?.data?.message || err.message, loading: false });
+      throw err;
+    }
+  },
+
   logout() {
     localStorage.removeItem('rasta_token');
     localStorage.removeItem('rasta_user');

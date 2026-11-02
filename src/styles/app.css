@@ -8,7 +8,7 @@
    --------------------------------------------------------------------------- */
 :root{
   --paper:#f6f3ee; --paper-2:#ffffff; --card:#ffffff;
-  --ink:#1b1714; --ink-2:#41382f; --soft:#6f655a; --faint:#9a9085;
+  --ink:#1b1714; --ink-2:#41382f; --soft:#6f665a; --faint:#9a9085;
   --line:#e7e0d5; --line-2:#efe9df;
   --primary:#E4573B; --primary-700:#b83f28; --primary-tint:#fbe9e4;
   --saffron:#e09a36; --saffron-tint:#fbeed8;
@@ -471,3 +471,56 @@ ul,ol{list-style:none; margin:0; padding:0;}
 .mt-4 { margin-top: 32px; }
 .mb-2 { margin-bottom: 16px; }
 .gap-2 { gap: 16px; }
+
+/* ===== Telegram auth ===== */
+.tg-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:14px 24px; background:#2AABEE; color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; transition:background .15s; }
+.tg-btn:hover { background:#229ED9; }
+.tg-btn:disabled { opacity:.7; cursor:wait; }
+.tg-btn.sm { padding:10px 18px; font-size:14px; }
+.tg-spin { width:20px; height:20px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.tg-why { list-style:none; padding:0; margin:16px 0 24px; display:flex; flex-direction:column; gap:10px; }
+.tg-why li { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--soft, #6f665a); }
+.tg-why svg { color:var(--accent, #3f6f86); flex-shrink:0; }
+
+.tg-scrim { position:fixed; inset:0; z-index:999; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; }
+.tg-app { width:380px; max-width:95vw; max-height:85vh; background:#0e1621; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; color:#fff; }
+.tg-head { display:flex; align-items:center; gap:10px; padding:12px 16px; background:#17212b; }
+.tg-x { background:none; border:none; color:#fff; cursor:pointer; padding:4px; }
+.tg-bav { width:36px; height:36px; border-radius:50%; background:#2AABEE; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; }
+.tg-who b { display:block; font-size:14px; }
+.tg-who small { font-size:12px; color:#8e99a4; }
+.tg-feed { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.tg-msg { max-width:85%; padding:8px 12px; border-radius:12px; font-size:13px; line-height:1.4; }
+.tg-msg.in { background:#182533; align-self:flex-start; border-bottom-left-radius:4px; }
+.tg-msg.out { background:#2b5278; align-self:flex-end; border-bottom-right-radius:4px; }
+.tg-msg time { display:block; font-size:10px; color:#8e99a4; text-align:right; margin-top:4px; }
+.tg-msg.contact { display:flex; align-items:center; gap:10px; }
+.tg-msg.contact b { display:block; font-size:13px; }
+.tg-msg.contact small { display:block; font-size:11px; color:#8e99a4; }
+.tg-demo { padding:12px 16px; background:#0a1220; font-size:12px; color:#8e99a4; display:flex; flex-direction:column; gap:6px; }
+.tg-demo b { color:#fff; }
+.tg-demo label { display:flex; align-items:center; gap:6px; }
+.tg-ph { display:inline-flex; align-items:center; gap:4px; background:#17212b; border-radius:6px; padding:2px 8px; }
+.tg-ph i { font-style:normal; color:#8e99a4; }
+.tg-ph input { background:none; border:none; color:#fff; width:90px; font-size:12px; outline:none; }
+.tg-kb { padding:10px 16px; background:#17212b; }
+.tg-key { width:100%; padding:10px; background:#2AABEE; color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+.tg-key:disabled { opacity:.5; }
+.tg-dlg-wrap { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:10; }
+.tg-dlg { background:#232e3c; border-radius:12px; padding:20px; max-width:280px; text-align:center; }
+.tg-dlg b { font-size:15px; }
+.tg-dlg p { font-size:13px; color:#8e99a4; margin:8px 0 16px; }
+.tg-dlg-acts { display:flex; gap:12px; justify-content:center; }
+.tg-dlg-acts button { padding:8px 20px; border-radius:8px; border:none; font-size:14px; cursor:pointer; background:#2b3a4a; color:#fff; }
+.tg-dlg-acts .ok { background:#2AABEE; }
+.auth-consent { text-align:center; font-size:12px; color:var(--soft, #999); margin-top:16px; }
+.tg-auth .ob-head h2 { font-size:22px; margin-bottom:6px; }
+.tg-auth .ob-head p { color:var(--soft, #6f665a); font-size:14px; }
+
+/* Verified state */
+.verified-row { display:flex; align-items:center; gap:14px; padding:16px; background:var(--surface, #f5f3ee); border-radius:12px; margin:16px 0; }
+.verified-row b { font-size:15px; }
+.verified-row small { font-size:12px; color:var(--soft, #6f665a); }
+.tg-mark { width:44px; height:44px; flex-shrink:0; }
