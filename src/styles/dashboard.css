@@ -206,7 +206,7 @@
 
 /* ===== STORE STUDIO + BIO STUDIO (full-screen design overlay) ===== */
 .ss-root{position:fixed; inset:0; z-index:300; background:#e9e4dc;
-  display:grid; grid-template-columns:minmax(0,1fr) 360px; grid-template-rows:auto minmax(0,1fr);}
+  display:grid; grid-template-columns:minmax(0,1fr) 330px; grid-template-rows:auto minmax(0,1fr);}
 .ss-root .be-top{grid-column:1 / -1; display:flex; align-items:center; gap:14px; padding:12px 20px; border-bottom:1px solid var(--line); background:#fff;}
 .ss-root .be-ttl b{font-family:var(--font-display); font-size:18px; font-weight:700;}
 .ss-root .be-ttl span{font-size:13px; color:var(--soft); margin-left:8px;}
