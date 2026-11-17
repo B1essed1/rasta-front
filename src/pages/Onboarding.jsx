@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from '../components/ui/Logo';
 import LangPill from '../components/ui/LangPill';
 import Stepper from '../components/ui/Stepper';
@@ -564,16 +564,18 @@ function ReviewStep({ data }) {
 export default function Onboarding() {
   const [, setTick] = useState(0);
   const [step, setStep] = useState(0);
+  // the landing page hands over a claimed handle or a picked look
+  const seed = useLocation().state || {};
   const [data, setData] = useState({
     name: '',
-    handle: '',
+    handle: seed.handle || '',
     type: '',
     city: '',
     telegram: '',
     instagram: '',
     coverUrl: '',
     logoUrl: '',
-    themeId: 'minimal',
+    themeId: seed.themeId || 'minimal',
     paletteId: 'ivory',
     plan: 'starter',
     billing: 'monthly',

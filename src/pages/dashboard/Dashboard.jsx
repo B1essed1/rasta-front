@@ -10,8 +10,7 @@ import { getPalette } from '../../data/palettes';
 
 const TABS = [
   { id: 'home', path: '/dashboard', labelKey: 'db_home', icon: 'home' },
-  { id: 'orders', path: '/dashboard/orders', labelKey: 'db_orders', icon: 'bag' },
-  { id: 'chats', path: '/dashboard/chats', labelKey: 'db_chats', icon: 'chat' },
+  { id: 'requests', path: '/dashboard/requests', labelKey: 'rq_title', icon: 'bag' },
   { id: 'products', path: '/dashboard/products', labelKey: 'db_products', icon: 'grid' },
   { id: 'inventory', path: '/dashboard/inventory', labelKey: 'db_inventory', icon: 'box' },
   { id: 'sales', path: '/dashboard/sales', labelKey: 'db_sales', icon: 'wallet' },
@@ -108,12 +107,12 @@ export default function Dashboard() {
   const shop = useShopStore((s) => s.shop);
   const config = useShopStore((s) => s.config);
   const products = useShopStore((s) => s.products);
-  const orders = useShopStore((s) => s.orders);
+  const requests = useShopStore((s) => s.requests);
   const fetchShop = useShopStore((s) => s.fetchShop);
   const fetchMyShops = useShopStore((s) => s.fetchMyShops);
   const fetchConfig = useShopStore((s) => s.fetchConfig);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
-  const fetchOrders = useShopStore((s) => s.fetchOrders);
+  const fetchRequests = useShopStore((s) => s.fetchRequests);
 
   useEffect(() => onLangChange(() => setTick((n) => n + 1)), []);
 
@@ -128,7 +127,7 @@ export default function Dashboard() {
         await fetchConfig();
         await fetchProducts(mine[0].id);
         try {
-          await fetchOrders();
+          await fetchRequests();
         } catch (e) {
           /* badge is optional */
         }
@@ -140,13 +139,13 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
-  }, [fetchMyShops, fetchShop, fetchConfig, fetchProducts, fetchOrders, navigate]);
+  }, [fetchMyShops, fetchShop, fetchConfig, fetchProducts, fetchRequests, navigate]);
 
   const tab = tabFromPath(location.pathname);
 
-  const newOrders = useMemo(
-    () => (orders || []).filter((o) => (o.status || '').toUpperCase() === 'NEW').length,
-    [orders]
+  const newRequests = useMemo(
+    () => (requests || []).filter((r) => r.status === 'new').length,
+    [requests]
   );
   const lowStock = useMemo(
     () => (products || []).filter((p) => stockState(p, config?.threshold) !== 'in').length,
@@ -161,7 +160,7 @@ export default function Dashboard() {
   const nav = TABS.map((item) => ({
     ...item,
     label: t(item.labelKey),
-    badge: item.id === 'orders' ? newOrders || null : item.id === 'inventory' ? lowStock || null : null,
+    badge: item.id === 'requests' ? newRequests || null : item.id === 'inventory' ? lowStock || null : null,
   }));
   const curNav = nav.find((n) => n.id === tab) || nav[0];
 

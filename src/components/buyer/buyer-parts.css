@@ -1,0 +1,17 @@
+/* Header buyer button, favourite heart and confirm dialog. The design's
+   buyer.css does not define these, so they live next to the components. */
+.bp-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 6px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:14.5px;font-weight:650;cursor:pointer;}
+.bp-btn:hover{border-color:var(--ink-2);}
+.bp-btn.guest{padding:0 16px;background:var(--ink);color:#fff;border-color:var(--ink);}
+.bp-btn.compact{height:36px;}
+.bp-btn-n{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bp-av{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--ink);color:#fff;font-family:var(--font-display);font-weight:700;}
+.bp-av.sm{width:30px;height:30px;font-size:12px;}
+.fav-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:36px;height:36px;padding:0 9px;border-radius:999px;border:0;background:rgba(255,255,255,.92);color:var(--ink-2);cursor:pointer;font-size:13.5px;font-weight:650;box-shadow:0 1px 4px rgba(0,0,0,.14);}
+.fav-btn:hover{color:var(--primary);}
+.fav-btn.on{color:var(--primary);}
+.fav-btn.lab{padding:0 14px;}
+.ez-dlg-scrim{position:fixed;inset:0;z-index:300;background:rgba(20,16,12,.45);display:flex;align-items:center;justify-content:center;padding:20px;}
+.ez-dlg{width:min(100%,380px);background:#fff;border-radius:24px;padding:26px 24px;display:flex;flex-direction:column;gap:10px;text-align:center;}
+.ez-dlg b{font-family:var(--font-display);font-size:20px;margin-bottom:6px;}
+.by-sav.ini{display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-family:var(--font-display);}

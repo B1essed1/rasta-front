@@ -16,9 +16,9 @@ import {
 
 export function CategoryCascade({ value, onChange, lang }) {
   const path = catPathIds(value);
-  const [root, setRoot] = React.useState(path[0] || catRoots()[0].id);
+  const [root, setRoot] = React.useState(path[0] || catRoots()[0]?.id);
   const [group, setGroup] = React.useState(
-    path[1] || (catGroups(path[0] || catRoots()[0].id)[0] || {}).id
+    path[1] || (catGroups(path[0] || catRoots()[0]?.id)[0] || {}).id
   );
   React.useEffect(() => {
     const p = catPathIds(value);

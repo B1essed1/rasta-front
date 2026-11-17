@@ -1,159 +1,76 @@
 // ===== Taxonomy — 3-level category tree + per-category attribute schema =====
-// Ported verbatim from design-src/Taxonomy.jsx (tree data + helpers) plus
-// catSlug / leavesForShop from design-src/data2.jsx.
+// Helpers ported from design-src/Taxonomy.jsx; the tree data is served by the backend.
 // The category decides which attributes exist. Attributes come in two roles:
 //   variant → produces sellable rows, each with its own qty / barcode / cost
 //   spec    → describes the whole product; what buyers filter by
 // Gender is a branch of the tree, not an attribute.
+import api from '../api/client';
 import {
   L, COLORS, vals, SIZE_CHARTS, ATTRS, attrDef, attrValueName, attrValueHex,
 } from './attributes';
 
-// ---- the tree: root › group › leaf. Leaves carry v (variant attrs) and s (spec attrs)
-const CAT_TREE = [
-  { id:"clothing", name:L("Clothing","Одежда","Kiyim"), children:[
-    { id:"cl-women", name:L("Women","Женщинам","Ayollar"), children:[
-      { id:"cl-w-dresses", name:L("Dresses","Платья","Ko‘ylaklar"), v:["color","size_w"], s:["material","season","fit","brand"] },
-      { id:"cl-w-tops", name:L("Tops & blouses","Топы и блузы","Toplar va bluzalar"), v:["color","size_w"], s:["material","season","fit","brand"] },
-      { id:"cl-w-trousers", name:L("Trousers","Брюки","Shimlar"), v:["color","size_w"], s:["material","season","fit","brand"] },
-      { id:"cl-w-outer", name:L("Outerwear","Верхняя одежда","Ustki kiyim"), v:["color","size_w"], s:["material","season","fit","brand"] },
-      { id:"cl-w-skirts", name:L("Skirts","Юбки","Yubkalar"), v:["color","size_w"], s:["material","season","fit"] },
-    ]},
-    { id:"cl-men", name:L("Men","Мужчинам","Erkaklar"), children:[
-      { id:"cl-m-shirts", name:L("Shirts","Рубашки","Ko‘ylaklar"), v:["color","size_m"], s:["material","season","fit","brand"] },
-      { id:"cl-m-tshirts", name:L("T-shirts","Футболки","Futbolkalar"), v:["color","size_m"], s:["material","fit","brand"] },
-      { id:"cl-m-trousers", name:L("Trousers","Брюки","Shimlar"), v:["color","size_m"], s:["material","season","fit"] },
-      { id:"cl-m-outer", name:L("Outerwear","Верхняя одежда","Ustki kiyim"), v:["color","size_m"], s:["material","season","brand"] },
-    ]},
-    { id:"cl-kids", name:L("Kids","Детям","Bolalar"), children:[
-      { id:"cl-k-sets", name:L("Sets","Комплекты","To‘plamlar"), v:["color","size_kids"], s:["material","season"] },
-      { id:"cl-k-outer", name:L("Outerwear","Верхняя одежда","Ustki kiyim"), v:["color","size_kids"], s:["material","season"] },
-    ]},
-  ]},
-  { id:"footwear", name:L("Footwear","Обувь","Poyabzal"), children:[
-    { id:"fw-women", name:L("Women","Женщинам","Ayollar"), children:[
-      { id:"fw-w-sneakers", name:L("Sneakers","Кроссовки","Krossovkalar"), v:["color","size_shoe"], s:["brand","material","shoe_type","season"] },
-      { id:"fw-w-boots", name:L("Boots","Сапоги и ботинки","Etiklar"), v:["color","size_shoe"], s:["brand","material","season"] },
-      { id:"fw-w-sandals", name:L("Sandals","Сандалии","Sandallar"), v:["color","size_shoe"], s:["brand","material"] },
-    ]},
-    { id:"fw-men", name:L("Men","Мужчинам","Erkaklar"), children:[
-      { id:"fw-m-sneakers", name:L("Sneakers","Кроссовки","Krossovkalar"), v:["color","size_shoe"], s:["brand","material","shoe_type","season"] },
-      { id:"fw-m-shoes", name:L("Dress shoes","Туфли","Tuflilar"), v:["color","size_shoe"], s:["brand","material"] },
-      { id:"fw-m-boots", name:L("Boots","Ботинки","Botinkalar"), v:["color","size_shoe"], s:["brand","material","season"] },
-    ]},
-    { id:"fw-kids", name:L("Kids","Детям","Bolalar"), children:[
-      { id:"fw-k-sneakers", name:L("Sneakers","Кроссовки","Krossovkalar"), v:["color","size_shoe"], s:["brand","material","shoe_type"] },
-    ]},
-  ]},
-  { id:"vehicles", name:L("Vehicles","Транспорт","Transport"), children:[
-    { id:"vh-cars", name:L("Cars","Автомобили","Avtomobillar"), children:[
-      { id:"vh-c-sedan", name:L("Sedans","Седаны","Sedanlar"), v:[], s:["make","model","year","mileage","fuel","gearbox","engine","color","condition"] },
-      { id:"vh-c-suv", name:L("SUVs & crossovers","Внедорожники и кроссоверы","Krossoverlar"), v:[], s:["make","model","year","mileage","fuel","gearbox","engine","color","condition"] },
-      { id:"vh-c-hatch", name:L("Hatchbacks","Хэтчбеки","Xetchbeklar"), v:[], s:["make","model","year","mileage","fuel","gearbox","engine","color","condition"] },
-    ]},
-    { id:"vh-parts", name:L("Parts & tyres","Запчасти и шины","Ehtiyot qismlar"), children:[
-      { id:"vh-p-tyres", name:L("Tyres","Шины","Shinalar"), v:["tyre_size"], s:["brand","season"] },
-      { id:"vh-p-acc", name:L("Accessories","Аксессуары","Aksessuarlar"), v:["color"], s:["brand","make"] },
-    ]},
-  ]},
-  { id:"flowers", name:L("Flowers & plants","Цветы и растения","Gullar va o‘simliklar"), children:[
-    { id:"fl-bouquets", name:L("Bouquets","Букеты","Guldastalar"), children:[
-      { id:"fl-b-mixed", name:L("Mixed bouquets","Сборные букеты","Aralash guldastalar"), v:["bouquet_size"], s:["flower_type","occasion"] },
-      { id:"fl-b-roses", name:L("Roses","Розы","Atirgullar"), v:["bouquet_size","color"], s:["occasion"] },
-      { id:"fl-b-dried", name:L("Dried flowers","Сухоцветы","Quruq gullar"), v:["bouquet_size"], s:["flower_type"] },
-    ]},
-    { id:"fl-plants", name:L("Potted plants","Растения в горшках","Tuvakdagi o‘simliklar"), children:[
-      { id:"fl-p-indoor", name:L("Indoor plants","Домашние растения","Uy o‘simliklari"), v:["bouquet_size"], s:["potted"] },
-    ]},
-  ]},
-  { id:"supplements", name:L("Supplements","Витамины и добавки","Vitamin va qo‘shimchalar"), children:[
-    { id:"sp-vitamins", name:L("Vitamins","Витамины","Vitaminlar"), children:[
-      { id:"sp-v-multi", name:L("Multivitamins","Мультивитамины","Multivitaminlar"), v:["pack","supp_form"], s:["vegan","origin","brand"] },
-      { id:"sp-v-single", name:L("Single vitamins","Отдельные витамины","Alohida vitaminlar"), v:["dosage","pack"], s:["supp_form","vegan","brand"] },
-    ]},
-    { id:"sp-sport", name:L("Sports nutrition","Спортивное питание","Sport ovqatlanish"), children:[
-      { id:"sp-s-protein", name:L("Protein","Протеин","Protein"), v:["flavour","weight_g"], s:["supp_form","vegan","brand"] },
-      { id:"sp-s-amino", name:L("Amino acids","Аминокислоты","Aminokislotalar"), v:["flavour","pack"], s:["supp_form","brand"] },
-    ]},
-  ]},
-  { id:"gym", name:L("Gym equipment","Товары для спорта","Sport anjomlari"), children:[
-    { id:"gy-weights", name:L("Weights","Отягощения","Og‘irliklar"), children:[
-      { id:"gy-w-dumbbell", name:L("Dumbbells","Гантели","Gantellar"), v:["weight_kg","color"], s:["grip","brand"] },
-      { id:"gy-w-kettle", name:L("Kettlebells","Гири","Girlar"), v:["weight_kg"], s:["grip","brand"] },
-    ]},
-    { id:"gy-acc", name:L("Accessories","Аксессуары","Aksessuarlar"), children:[
-      { id:"gy-a-mats", name:L("Mats","Коврики","Gilamchalar"), v:["color","thickness"], s:["gym_mat","brand"] },
-      { id:"gy-a-bands", name:L("Resistance bands","Резинки","Rezinkalar"), v:["color"], s:["brand"] },
-    ]},
-  ]},
-  { id:"electronics", name:L("Electronics","Электроника","Elektronika"), children:[
-    { id:"el-phones", name:L("Phones","Телефоны","Telefonlar"), children:[
-      { id:"el-p-smart", name:L("Smartphones","Смартфоны","Smartfonlar"), v:["color","storage"], s:["brand","model","ram","screen"] },
-    ]},
-    { id:"el-audio", name:L("Audio","Аудио","Audio"), children:[
-      { id:"el-a-head", name:L("Headphones","Наушники","Naushniklar"), v:["color"], s:["brand","model","wireless","anc"] },
-      { id:"el-a-speak", name:L("Speakers","Колонки","Kolonkalar"), v:["color"], s:["brand","model","wireless"] },
-    ]},
-    { id:"el-comp", name:L("Computers","Компьютеры","Kompyuterlar"), children:[
-      { id:"el-c-laptop", name:L("Laptops","Ноутбуки","Noutbuklar"), v:["storage","ram"], s:["brand","model","screen","color"] },
-    ]},
-  ]},
-  { id:"home", name:L("Home & kitchen","Дом и кухня","Uy va oshxona"), children:[
-    { id:"hm-kitchen", name:L("Kitchen","Кухня","Oshxona"), children:[
-      { id:"hm-k-cook", name:L("Cookware","Посуда для готовки","Pishirish idishlari"), v:["capacity","color"], s:["home_mat","dishwasher","brand"] },
-      { id:"hm-k-table", name:L("Tableware","Столовая посуда","Dasturxon idishlari"), v:["color"], s:["home_mat","dishwasher"] },
-    ]},
-    { id:"hm-textile", name:L("Textiles","Текстиль","Tekstil"), children:[
-      { id:"hm-t-bedding", name:L("Bedding","Постельное бельё","Choyshablar"), v:["bed_size","color"], s:["home_mat"] },
-      { id:"hm-t-towels", name:L("Towels","Полотенца","Sochiqlar"), v:["color"], s:["home_mat"] },
-    ]},
-    { id:"hm-decor", name:L("Decor","Декор","Dekor"), children:[
-      { id:"hm-d-ceramics", name:L("Ceramics","Керамика","Sopol buyumlar"), v:["color"], s:["home_mat","origin"] },
-      { id:"hm-d-textile", name:L("Suzani & rugs","Сюзане и ковры","So‘zana va gilamlar"), v:["color"], s:["home_mat","origin"] },
-    ]},
-  ]},
-  { id:"cosmetics", name:L("Cosmetics","Косметика","Kosmetika"), children:[
-    { id:"cs-face", name:L("Face","Лицо","Yuz"), children:[
-      { id:"cs-f-found", name:L("Foundation","Тональные средства","Tonal kremlar"), v:["shade","volume_ml"], s:["finish","skin_type","brand"] },
-      { id:"cs-f-powder", name:L("Powder & blush","Пудра и румяна","Upa va rumyana"), v:["shade"], s:["finish","brand"] },
-    ]},
-    { id:"cs-lips", name:L("Lips","Губы","Lablar"), children:[
-      { id:"cs-l-stick", name:L("Lipstick","Помада","Pomada"), v:["shade"], s:["finish","brand"] },
-    ]},
-    { id:"cs-skin", name:L("Skincare","Уход за кожей","Teri parvarishi"), children:[
-      { id:"cs-s-serum", name:L("Serums","Сыворотки","Sarumlar"), v:["volume_ml"], s:["skin_type","vegan","brand"] },
-      { id:"cs-s-cream", name:L("Creams","Кремы","Kremlar"), v:["volume_ml"], s:["skin_type","vegan","brand"] },
-    ]},
-  ]},
-  { id:"food", name:L("Food","Продукты","Oziq-ovqat"), children:[
-    { id:"fd-pantry", name:L("Pantry","Продукты","Mahsulotlar"), children:[
-      { id:"fd-p-nuts", name:L("Nuts & dried fruit","Орехи и сухофрукты","Yong‘oq va quruq mevalar"), v:["weight_g"], s:["dietary","origin"] },
-      { id:"fd-p-honey", name:L("Honey & preserves","Мёд и варенье","Asal va murabbo"), v:["weight_g"], s:["dietary","origin"] },
-      { id:"fd-p-bread", name:L("Bread & bakery","Хлеб и выпечка","Non va pishiriqlar"), v:["weight_g"], s:["dietary"] },
-    ]},
-    { id:"fd-sweets", name:L("Sweets","Сладости","Shirinliklar"), children:[
-      { id:"fd-s-choc", name:L("Chocolate & halva","Шоколад и халва","Shokolad va holva"), v:["weight_g","flavour"], s:["dietary","origin"] },
-    ]},
-    { id:"fd-drinks", name:L("Drinks","Напитки","Ichimliklar"), children:[
-      { id:"fd-d-tea", name:L("Tea","Чай","Choy"), v:["weight_g"], s:["tea_type","dietary","origin"] },
-      { id:"fd-d-coffee", name:L("Coffee","Кофе","Kofe"), v:["weight_g"], s:["origin","dietary"] },
-    ]},
-  ]},
-];
+// ---- the tree: root › group › leaf
+// The tree itself lives in the backend (categories table, kind PRODUCT_CATEGORY).
+// loadTaxonomy() fills CAT_TREE / CAT_INDEX in place, so every importer sees the
+// live data. Node ids are the backend UUIDs — that is what products store as catId.
+// Leaves carry v (variant attrs) and s (spec attrs) as attribute keys from ./attributes.
+const CAT_TREE = [];
 
 // ---- lookups -----------------------------------------------------------
 const CAT_INDEX = {};
-(function index(){
+const CAT_BY_SLUG = {};
+
+function buildTree(rows){
+  const byId = {};
+  rows.forEach(r=>{
+    byId[r.id] = {
+      id:r.id, slug:r.slug, level:r.level,
+      name:L(r.nameEn, r.nameRu || r.nameEn, r.nameUz || r.nameEn),
+      v:r.variantAttrs||[], s:r.specAttrs||[], children:[],
+    };
+  });
+  const roots = [];
+  rows.forEach(r=>{
+    const n = byId[r.id];
+    const parent = r.parentId && byId[r.parentId];
+    (parent ? parent.children : roots).push(n);
+  });
+  return roots;
+}
+
+function reindex(){
+  Object.keys(CAT_INDEX).forEach(k=>delete CAT_INDEX[k]);
+  Object.keys(CAT_BY_SLUG).forEach(k=>delete CAT_BY_SLUG[k]);
   CAT_TREE.forEach(root=>{
     CAT_INDEX[root.id] = { node:root, level:0, path:[root.id] };
+    CAT_BY_SLUG[root.slug] = root.id;
     (root.children||[]).forEach(group=>{
       CAT_INDEX[group.id] = { node:group, level:1, path:[root.id, group.id], parent:root.id };
+      CAT_BY_SLUG[group.slug] = group.id;
       (group.children||[]).forEach(leaf=>{
         CAT_INDEX[leaf.id] = { node:leaf, level:2, path:[root.id, group.id, leaf.id], parent:group.id, leaf:true };
+        CAT_BY_SLUG[leaf.slug] = leaf.id;
       });
     });
   });
-})();
+}
+
+let taxonomyPromise = null;
+// Fetch the catalog once. Resolves with the tree; callers can await it before render.
+function loadTaxonomy(){
+  if(!taxonomyPromise){
+    taxonomyPromise = api.get('/categories', { params:{ kind:'PRODUCT_CATEGORY' } })
+      .then(res=>{
+        CAT_TREE.length = 0;
+        CAT_TREE.push(...buildTree(res.data));
+        reindex();
+        return CAT_TREE;
+      })
+      .catch(e=>{ taxonomyPromise = null; throw e; });
+  }
+  return taxonomyPromise;
+}
+function catIdBySlug(slug){ return CAT_BY_SLUG[slug] || null; }
 
 function catNode(id){ const e = CAT_INDEX[id]; return e? e.node : null; }
 function catEntry(id){ return CAT_INDEX[id] || null; }
@@ -265,7 +182,10 @@ const TYPE_LEAVES = {
   home:    ["hm-d-ceramics", "hm-k-table", "hm-t-bedding"],
   gifts:   ["fl-b-mixed", "fl-b-roses"],
 };
-function leavesForShop(sid, type){ return SHOP_LEAVES[sid] || TYPE_LEAVES[type] || ["hm-d-ceramics"]; }
+function leavesForShop(sid, type){
+  const slugs = SHOP_LEAVES[sid] || TYPE_LEAVES[type] || ["hm-d-ceramics"];
+  return slugs.map(catIdBySlug).filter(Boolean);
+}
 function catSlug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
 
 // ---- public surface ----------------------------------------------------
@@ -273,6 +193,7 @@ function catSlug(s){ return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").
 const TAXONOMY = CAT_TREE;
 
 export {
+  loadTaxonomy, catIdBySlug,
   TAXONOMY, CAT_TREE, CAT_INDEX, SHOP_LEAVES, TYPE_LEAVES,
   L, COLORS, vals, SIZE_CHARTS, ATTRS,
   catNode, catEntry, isLeafCat, catPathIds, catLabel, catBreadcrumb,

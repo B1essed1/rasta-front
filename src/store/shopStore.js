@@ -3,7 +3,7 @@ import api from '../api/client';
 
 // ---------------------------------------------------------------------------
 // Dashboard home helpers (mirrors design-src/data2.jsx stockState/totalQty and
-// design-src/Store.jsx orderCounts, but reads the real API DTO shapes)
+// design-src/Store.jsx requestCounts, but reads the real API DTO shapes)
 // ---------------------------------------------------------------------------
 export const DEFAULT_THRESHOLD = 3;
 const DAY_MS = 86400000;
@@ -46,13 +46,12 @@ export function isIncomplete(product) {
   return !(product?.descEn || product?.descRu || product?.descUz);
 }
 
-const OPEN_ORDER_STATUSES = ['NEW', 'CONFIRMED', 'READY', 'OUT'];
 
 export const useShopStore = create((set, get) => ({
   shop: null,
   config: null,
   products: [],
-  orders: [],
+  requests: [],
   sales: [],
   reviews: [],
   movements: [],
@@ -279,39 +278,38 @@ export const useShopStore = create((set, get) => ({
     }
   },
 
-  async fetchOrders() {
+  // --- requests (buyer baskets sent to the shop) ---------------------------
+
+  async fetchRequests() {
+    const shopId = get().shop?.id;
+    if (!shopId) return [];
     try {
-      const res = await api.get(`/shops/${get().shop.id}/orders`);
-      set({ orders: res.data });
+      const res = await api.get(`/shops/${shopId}/requests`);
+      set({ requests: res.data || [] });
+      return res.data || [];
     } catch (e) {
-      console.error(e);
+      console.error('fetchRequests', e);
+      return [];
     }
   },
 
-  async updateOrderStatus(orderId, status, reason) {
-    try {
-      const shopId = get().shop.id;
-      const upperStatus = status.toUpperCase();
-      let res;
-      if (upperStatus === 'CONFIRMED') {
-        res = await api.put(`/shops/${shopId}/orders/${orderId}/confirm`);
-      } else if (upperStatus === 'CANCELLED') {
-        res = await api.put(`/shops/${shopId}/orders/${orderId}/cancel`, {
-          reason: reason || 'Cancelled',
-          cancelledBy: 'shop',
-        });
-      } else {
-        res = await api.put(`/shops/${shopId}/orders/${orderId}/status`, {
-          status: upperStatus,
-        });
-      }
-      set({
-        orders: get().orders.map((o) => (o.id === orderId ? res.data : o)),
-      });
-      return res.data;
-    } catch (e) {
-      throw e;
-    }
+  // status: 'agreed' | 'cancelled'
+  async setRequestStatus(id, status) {
+    const shopId = get().shop.id;
+    const res = await api.put(`/shops/${shopId}/requests/${id}/status`, { status });
+    set({ requests: get().requests.map((r) => (r.id === id ? res.data : r)) });
+    return res.data;
+  },
+
+  // records a POS sale from the request: body { finalTotal, payMethod }
+  async sellRequest(id, finalTotal, payMethod) {
+    const shopId = get().shop.id;
+    const res = await api.post(`/shops/${shopId}/requests/${id}/sell`, { finalTotal, payMethod });
+    set({ requests: get().requests.map((r) => (r.id === id ? res.data : r)) });
+    // stock went down and a sale appeared
+    get().fetchProducts(shopId);
+    get().fetchSales();
+    return res.data;
   },
 
   async fetchSales() {
@@ -422,23 +420,20 @@ export const useShopStore = create((set, get) => ({
     set({ loading: true });
     await Promise.allSettled([
       get().fetchProducts(id),
-      get().fetchOrders(),
+      get().fetchRequests(),
       get().fetchSales(),
       get().fetchConfig(),
     ]);
     set({ loading: false });
   },
 
-  // { all, new, stale, open } — GET /api/shops/{id}/orders (OrderDto.Response:
-  // status + createdAt). "stale" = still NEW after 24h.
-  orderCounts() {
-    const list = get().orders || [];
-    const staleAfter = Date.now() - DAY_MS;
+  // { all, new, open } — GET /api/shops/{id}/requests (status: new | agreed | sold | cancelled)
+  requestCounts() {
+    const list = get().requests || [];
     return {
       all: list.length,
-      new: list.filter((o) => o.status === 'NEW').length,
-      stale: list.filter((o) => o.status === 'NEW' && ts(o.createdAt) && ts(o.createdAt) < staleAfter).length,
-      open: list.filter((o) => OPEN_ORDER_STATUSES.includes(o.status)).length,
+      new: list.filter((r) => r.status === 'new').length,
+      open: list.filter((r) => r.status === 'new' || r.status === 'agreed').length,
     };
   },
 
@@ -459,10 +454,7 @@ export const useShopStore = create((set, get) => ({
   //
   // Availability against the current API:
   //   revenue        AVAILABLE  — sum of SaleDto total over the window
-  //   itemsSold      PARTIAL    — OrderDto.Response.items[].qty for confirmed /
-  //                              ready / out / completed orders. POS sales made
-  //                              through /sales are NOT counted because
-  //                              OrderDto.SaleResponse carries no line items.
+  //   itemsSold      PARTIAL    — sale line qty when the sales payload carries lines
   //   visitors       MISSING    — nothing in the backend tracks shop views
   //   productViews   MISSING    — nothing in the backend tracks product views
   // The `available` map lets the view hide or zero-out what is not real yet.
@@ -473,13 +465,11 @@ export const useShopStore = create((set, get) => ({
     );
     const revenue = sales.reduce((n, s) => n + num(s.total), 0);
 
-    const counted = ['CONFIRMED', 'READY', 'OUT', 'COMPLETED'];
-    const itemsSold = (get().orders || [])
-      .filter((o) => ts(o.createdAt) >= since && counted.includes(o.status))
-      .reduce(
-        (n, o) => n + (o.items || []).filter((l) => !l.dropped).reduce((m, l) => m + num(l.qty), 0),
-        0
-      );
+    const itemsSold = sales.reduce((n, sl) => {
+      const lines = sl.lines || sl.items;
+      if (!Array.isArray(lines)) return n;
+      return n + lines.reduce((m, l) => m + num(l.qty) - num(l.returned), 0);
+    }, 0);
 
     const s = get().stats;
     return {
@@ -576,15 +566,6 @@ export const useShopStore = create((set, get) => ({
       return res.data;
     } catch (e) {
       return [];
-    }
-  },
-
-  async createOrder(shopId, orderData) {
-    try {
-      const res = await api.post(`/shops/${shopId}/orders`, orderData);
-      return res.data;
-    } catch (e) {
-      throw e;
     }
   },
 

@@ -5,6 +5,8 @@ import './styles/storefront.css';
 import './styles/storefront-design.css';
 import './styles/landing.css';
 import './styles/marketplace.css';
+import './styles/explore.css';
+import './styles/buyer.css';
 import './styles/onboarding.css';
 import './styles/dashboard-legacy.css';
 import './styles/dashboard.css';
@@ -27,11 +29,18 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { loadTaxonomy } from './data/taxonomy';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+// The catalog tree comes from the backend; wait for it so category lookups are
+// populated on first render. A failed load still renders the app (empty catalog).
+loadTaxonomy()
+  .catch((e) => console.error('catalog load failed', e))
+  .finally(() => {
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <React.StrictMode>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <App />
+        </BrowserRouter>
+      </React.StrictMode>
+    );
+  });

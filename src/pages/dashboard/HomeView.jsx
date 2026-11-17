@@ -25,13 +25,13 @@ export default function HomeView() {
   const shop = useShopStore((s) => s.shop);
   const stats = useShopStore((s) => s.stats);
   const products = useShopStore((s) => s.products);
-  const orders = useShopStore((s) => s.orders);
+  const requests = useShopStore((s) => s.requests);
   const sales = useShopStore((s) => s.sales);
   const fetchShop = useShopStore((s) => s.fetchShop);
   const fetchStats = useShopStore((s) => s.fetchStats);
   const fetchAttention = useShopStore((s) => s.fetchAttention);
   const fetchProducts = useShopStore((s) => s.fetchProducts);
-  const fetchOrders = useShopStore((s) => s.fetchOrders);
+  const fetchRequests = useShopStore((s) => s.fetchRequests);
   const fetchSales = useShopStore((s) => s.fetchSales);
 
   useEffect(() => onLangChange(() => setTick((x) => x + 1)), []);
@@ -41,9 +41,9 @@ export default function HomeView() {
     fetchStats();
     fetchAttention().then((res) => { if (res) setAttention(res); });
     fetchProducts();
-    fetchOrders();
+    fetchRequests();
     fetchSales();
-  }, [shop?.id, fetchStats, fetchAttention, fetchProducts, fetchOrders, fetchSales]);
+  }, [shop?.id, fetchStats, fetchAttention, fetchProducts, fetchRequests, fetchSales]);
 
   const lang = getLang();
   const handle = shop?.handle || '';
@@ -62,16 +62,9 @@ export default function HomeView() {
     return n + lines.reduce((m, l) => m + ((l.qty || 0) - (l.returned || 0)), 0);
   }, 0);
 
-  const monthOrders = (orders || []).filter((o) => at(o) >= monthAgo);
-  const ordersRev = monthOrders.reduce((n, o) => n + Number(o.total || o.goodsTotal || 0), 0);
-  const ordersSold = monthOrders.reduce((n, o) => {
-    const lines = o.items || [];
-    return n + lines.reduce((m, l) => m + (l.qty || 0), 0);
-  }, 0);
-
   // Prefer API stats when available, fall back to local computation
-  const rev = stats?.revenue != null ? Number(stats.revenue) : (salesRev || ordersRev);
-  const sold = stats?.itemsSold != null ? Number(stats.itemsSold) : (soldFromLines || ordersSold);
+  const rev = stats?.revenue != null ? Number(stats.revenue) : salesRev;
+  const sold = stats?.itemsSold != null ? Number(stats.itemsSold) : soldFromLines;
 
   const visitors = Number(stats?.visitors ?? stats?.views ?? 0);
   const rawViews = stats?.productViews;
@@ -88,29 +81,21 @@ export default function HomeView() {
   ];
 
   // ---- needs your attention --------------------------------------------
-  const newOrders = (orders || []).filter((o) => String(o.status).toUpperCase() === 'NEW');
-  const staleAfter = Date.now() - DAY;
-  const oc = {
-    new: newOrders.length,
-    stale: newOrders.filter((o) => at(o) && at(o) < staleAfter).length,
-  };
+  const rqNew = (requests || []).filter((r) => r.status === 'new').length;
   // Use API attention response when available, fall back to local computation
   const soldOutCount = attention?.soldOutCount ?? (products || []).filter((p) => stockState(p) === 'sold').length;
   const lowStockCount = attention?.lowStockCount ?? (products || []).filter((p) => stockState(p) === 'low').length;
   const incompleteCount = attention?.incompleteCount ?? (products || []).filter((p) => !(p.descEn || p.descRu || p.descUz)).length;
-  const staleOrderCount = attention?.staleOrderCount ?? oc.stale;
 
-  const goOrders = () => navigate('/dashboard/orders');
+  const goRequests = () => navigate('/dashboard/requests');
   const goProducts = () => navigate('/dashboard/products');
   // The app has no /dashboard/inventory route yet (the shell renders inventory as a
   // non-routed placeholder tab), so the stock CTAs land on the products page.
   const goInventory = goProducts;
 
   const attn = [];
-  if (oc.new)
-    attn.push({ ic: I.bag, txt: fill(t('or_new_badge'), { n: oc.new }), cta: t('db_orders'), go: goOrders, tone: 'accent' });
-  if (staleOrderCount)
-    attn.push({ ic: I.clock, txt: fill(t('or_stale_badge'), { n: staleOrderCount }), cta: t('db_orders'), go: goOrders, tone: 'alert' });
+  if (rqNew)
+    attn.push({ ic: I.bag, txt: fill(t('rq_new_badge'), { n: rqNew }), cta: t('rq_title'), go: goRequests, tone: 'accent' });
   if (soldOutCount)
     attn.push({ ic: I.warn, txt: fill(t('hm_soldout'), { n: soldOutCount }), cta: t('hm_view_inv'), go: goInventory, tone: 'alert' });
   if (lowStockCount)

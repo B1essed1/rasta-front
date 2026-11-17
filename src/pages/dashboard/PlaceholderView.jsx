@@ -2,16 +2,6 @@ import React from 'react';
 import { I } from '../../components/ui/Icons';
 import { t } from '../../i18n';
 
-export function ChatsView() {
-  return (
-    <div className="empty-state">
-      <div className="es-ic">{I.chat({ width: 26, height: 26 })}</div>
-      <h3>{t('db_chats')}</h3>
-      <p style={{ color: '#888' }}>{t('db_coming_soon')}</p>
-    </div>
-  );
-}
-
 export function ScanView() {
   return (
     <div className="empty-state">

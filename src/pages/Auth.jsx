@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Logo from '../components/ui/Logo';
 import LangPill from '../components/ui/LangPill';
 import { t, onLangChange } from '../i18n';
@@ -52,7 +52,7 @@ function PhoneIcon() {
 }
 
 /* ---- Telegram Sim modal ---- */
-function TelegramSim({ onDone, onClose }) {
+export function TelegramSim({ onDone, onClose }) {
   const [, setTick] = useState(0);
   const [demo] = useState(pickDemo);
   const [phone, setPhone] = useState(demo.phone);
@@ -79,7 +79,7 @@ function TelegramSim({ onDone, onClose }) {
       await telegramLogin(fullPhone, { name: demo.name, username: demo.username });
       setShared(true);
       setBusy(false);
-      setTimeout(() => onDone(), 800);
+      setTimeout(() => onDone(demo), 800);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Error');
       setBusy(false);
@@ -188,6 +188,8 @@ export default function Auth() {
   const [showSim, setShowSim] = useState(false);
   const [opening, setOpening] = useState(false);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = params.get('next');
   const token = useAuthStore((s) => s.token);
   const fetchMyShops = useShopStore((s) => s.fetchMyShops);
   const fetchShop = useShopStore((s) => s.fetchShop);
@@ -197,7 +199,10 @@ export default function Auth() {
   }, []);
 
   useEffect(() => {
-    if (token) {
+    // buyers (hearts, basket, profile) come back to where they were
+    if (token && next && next.startsWith('/') && !next.startsWith('//')) {
+      navigate(next, { replace: true });
+    } else if (token) {
       fetchMyShops().then((shops) => {
         if (shops.length > 0) {
           fetchShop(shops[0].id).then(() =>
@@ -208,7 +213,7 @@ export default function Auth() {
         }
       });
     }
-  }, [token, navigate, fetchMyShops, fetchShop]);
+  }, [token, next, navigate, fetchMyShops, fetchShop]);
 
   const handleTelegramClick = useCallback(() => {
     setOpening(true);

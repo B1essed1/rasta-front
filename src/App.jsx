@@ -10,14 +10,16 @@ import BuyerProfile from './pages/BuyerProfile';
 import Dashboard from './pages/dashboard/Dashboard';
 import HomeView from './pages/dashboard/HomeView';
 import ProductsView from './pages/dashboard/ProductsView';
-import OrdersView from './pages/dashboard/OrdersView';
+import RequestsView from './pages/dashboard/RequestsView';
+import RequestPublic from './pages/RequestPublic';
 import SalesView from './pages/dashboard/SalesView';
 import DesignView from './pages/dashboard/DesignView';
 import SettingsView from './pages/dashboard/SettingsView';
 import ReviewsView from './pages/dashboard/ReviewsView';
-import { ChatsView, ScanView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
+import { ScanView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
 import InventoryView from './pages/dashboard/InventoryView';
 import ToastHost from './components/ui/ToastHost';
+import BasketDrawer from './components/requests/BasketDrawer';
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore((s) => s.token);
@@ -29,6 +31,7 @@ export default function App() {
   return (
     <>
       <ToastHost />
+      <BasketDrawer />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Auth />} />
@@ -44,17 +47,17 @@ export default function App() {
         >
           <Route index element={<HomeView />} />
           <Route path="products" element={<ProductsView />} />
-          <Route path="orders" element={<OrdersView />} />
+          <Route path="requests" element={<RequestsView />} />
           <Route path="sales" element={<SalesView />} />
           <Route path="design" element={<DesignView />} />
           <Route path="settings" element={<SettingsView />} />
           <Route path="reviews" element={<ReviewsView />} />
-          <Route path="chats" element={<ChatsView />} />
           <Route path="inventory" element={<InventoryView />} />
           <Route path="scan" element={<ScanView />} />
           <Route path="*" element={<DashboardNotFound />} />
         </Route>
-        <Route path="/profile" element={<ProtectedRoute><BuyerProfile /></ProtectedRoute>} />
+        <Route path="/profile" element={<BuyerProfile />} />
+        <Route path="/b/:code" element={<RequestPublic />} />
         <Route path="/:handle/link" element={<BioLinkPage />} />
         <Route path="/:handle" element={<StorefrontPage />} />
         <Route path="/:handle/p/:productId" element={<StorefrontPage />} />

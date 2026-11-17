@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import LangPill from '../components/ui/LangPill';
+import BuyerButton from '../components/buyer/BuyerButton';
+import FavHeart from '../components/buyer/FavHeart';
 import { t, onLangChange, fmtPrice, fill, plural } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import { useAuthStore } from '../store/authStore';
@@ -14,8 +16,11 @@ import {
 import { I } from '../components/ui/Icons';
 import { getLang } from '../i18n';
 import api from '../api/client';
+import useBasketStore from '../store/basketStore';
+import { rememberShop } from '../components/requests/basketShops';
 import {
-  ContactRows, SfLocation, SfCatBar, SfFilterSheet, SfResultBar, ProductCard, SfStockBadge, SFF_I,
+  ContactRows, SfHowTo, SfLocation, SfCatBar, SfResultBar, ProductCard, SfStockBadge, SfTrust, SfFacts, PriceTag,
+  SfxBar, SFX_EMPTY, sfxFacets, sfxMatch, sfxSort, sfxPills, sfxRead, sfxWrite, vPrice, pMin,
 } from './StorefrontListing';
 import '../styles/storefront.css';
 
@@ -74,6 +79,7 @@ function StoreTopbar({ handle, isOwner }) {
           </Link>
         )}
         <LangPill />
+        <BuyerButton compact />
       </div>
     </div>
   );
@@ -111,7 +117,7 @@ function Stars({ value, size, onPick }) {
           <Tag key={k} className={`star${value >= k ? ' on' : ''}`}
             style={size ? {fontSize: size} : undefined}
             onClick={onPick ? () => onPick(k) : undefined}
-            type={onPick ? 'button' : undefined}>&#9733;</Tag>
+            type={onPick ? 'button' : undefined} aria-label={onPick ? k + '★' : undefined}>&#9733;</Tag>
         );
       })}
     </span>
@@ -173,224 +179,6 @@ function Toast({ toast }) {
   );
 }
 
-/* ===== Checkout Sheet ===== */
-
-function formatUzPhone(raw) {
-  const digits = raw.replace(/\D/g, '');
-  let d = digits;
-  if (d.startsWith('998')) d = d.slice(3);
-  else if (d.startsWith('8') && d.length > 9) d = d.slice(1);
-  let out = '+998';
-  if (d.length > 0) out += ' ' + d.slice(0, 2);
-  if (d.length > 2) out += ' ' + d.slice(2, 5);
-  if (d.length > 5) out += ' ' + d.slice(5, 7);
-  if (d.length > 7) out += ' ' + d.slice(7, 9);
-  return out;
-}
-
-function isValidUzPhone(phone) {
-  const digits = phone.replace(/\D/g, '');
-  return digits.length === 12 && digits.startsWith('998');
-}
-
-function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdateQty, onRemoveItem }) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [delivery, setDelivery] = useState('delivery');
-  const [payMethod, setPayMethod] = useState('cash');
-  const [note, setNote] = useState('');
-  const [sending, setSending] = useState(false);
-  const [tried, setTried] = useState(false);
-
-  const deliveryFee = delivery === 'pickup' ? 0 : 15000;
-  const subtotal = basket.reduce((s, b) => s + b.qty * b.unitPrice, 0);
-  const total = subtotal + deliveryFee;
-
-  const nameErr = tried && !name.trim();
-  const phoneErr = tried && !isValidUzPhone(phone);
-  const addrErr = tried && delivery === 'delivery' && !address.trim();
-
-  async function submit(e) {
-    e.preventDefault();
-    setTried(true);
-    if (!name.trim() || !isValidUzPhone(phone)) return;
-    if (delivery === 'delivery' && !address.trim()) return;
-    setSending(true);
-    try {
-      const order = await api.post(`/shops/${shop.id}/orders`, {
-        customerName: name,
-        customerPhone: phone,
-        customerAddress: address,
-        deliveryMethod: delivery,
-        deliveryFee,
-        payMethod,
-        note,
-        items: basket.map((b) => ({
-          productId: b.productId,
-          variantId: b.variantId,
-          name: b.name,
-          label: b.label,
-          qty: b.qty,
-          unitPrice: b.unitPrice,
-        })),
-      });
-      onOrderSent(order.data);
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Error placing order', 'error');
-    }
-    setSending(false);
-  }
-
-  return (
-    <div className="checkout-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="checkout-sheet">
-        <div className="checkout-sheet__header">
-          <span className="checkout-sheet__title">{t('co_checkout')}</span>
-          <button className="checkout-sheet__close" type="button" onClick={onClose}>&times;</button>
-        </div>
-
-        {/* Basket items */}
-        <div className="checkout-sheet__items">
-          {basket.map((item, i) => (
-            <div className="checkout-item" key={i}>
-              <div className="checkout-item__info">
-                <div className="checkout-item__name">{item.name}</div>
-                {item.label && <div className="checkout-item__label">{item.label}</div>}
-              </div>
-              <div className="checkout-item__qty-ctrl">
-                <button
-                  className="checkout-item__qty-btn"
-                  type="button"
-                  disabled={item.qty <= 1}
-                  onClick={() => onUpdateQty(i, item.qty - 1)}
-                >−</button>
-                <span className="checkout-item__qty">{item.qty}</span>
-                <button className="checkout-item__qty-btn" type="button" onClick={() => onUpdateQty(i, item.qty + 1)}>+</button>
-                <button className="checkout-item__remove" type="button" onClick={() => onRemoveItem(i)} aria-label="Remove">✕</button>
-              </div>
-              <span className="checkout-item__price">{fmtPrice(item.qty * item.unitPrice)}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Form */}
-        <form onSubmit={submit}>
-          <div className={`checkout-field${nameErr ? ' checkout-field--error' : ''}`}>
-            <label>{t('co_name')}</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} aria-invalid={nameErr || undefined} />
-            {nameErr && <span className="checkout-field__err">{t('co_err_name')}</span>}
-          </div>
-          <div className={`checkout-field${phoneErr ? ' checkout-field--error' : ''}`}>
-            <label>{t('co_phone')}</label>
-            <input
-              type="tel"
-              value={phone}
-              placeholder="+998 __ ___ __ __"
-              onChange={(e) => setPhone(formatUzPhone(e.target.value))}
-              aria-invalid={phoneErr || undefined}
-            />
-            {phoneErr && <span className="checkout-field__err">{t('co_err_phone')}</span>}
-          </div>
-
-          <div className="checkout-field">
-            <label>{t('co_delivery')}</label>
-            <div className="checkout-radio-group">
-              <button
-                type="button"
-                className={`checkout-radio${delivery === 'delivery' ? ' checkout-radio--active' : ''}`}
-                onClick={() => setDelivery('delivery')}
-              >
-                {t('co_delivery_deliver')}
-              </button>
-              <button
-                type="button"
-                className={`checkout-radio${delivery === 'pickup' ? ' checkout-radio--active' : ''}`}
-                onClick={() => setDelivery('pickup')}
-              >
-                {t('co_delivery_pickup')}
-              </button>
-            </div>
-          </div>
-
-          {delivery === 'delivery' && (
-            <div className={`checkout-field${addrErr ? ' checkout-field--error' : ''}`}>
-              <label>{t('co_address')}</label>
-              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} aria-invalid={addrErr || undefined} />
-              {addrErr && <span className="checkout-field__err">{t('co_err_address')}</span>}
-            </div>
-          )}
-
-          <div className="checkout-field">
-            <label>{t('co_payment')}</label>
-            <div className="checkout-radio-group">
-              <button
-                type="button"
-                className={`checkout-radio${payMethod === 'cash' ? ' checkout-radio--active' : ''}`}
-                onClick={() => setPayMethod('cash')}
-              >
-                {t('co_pay_cash')}
-              </button>
-              <button
-                type="button"
-                className={`checkout-radio${payMethod === 'card' ? ' checkout-radio--active' : ''}`}
-                onClick={() => setPayMethod('card')}
-              >
-                {t('co_pay_card')}
-              </button>
-            </div>
-          </div>
-
-          <div className="checkout-field">
-            <label>{t('co_note')}</label>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
-          </div>
-
-          <div className="checkout-summary">
-            <div className="checkout-summary__line">
-              <span>{t('co_subtotal')} ({basket.reduce((s, b) => s + b.qty, 0)})</span>
-              <span>{fmtPrice(subtotal)}</span>
-            </div>
-            <div className="checkout-summary__line">
-              <span>{t('co_delivery_fee')}</span>
-              <span>{deliveryFee === 0 ? t('co_free') : fmtPrice(deliveryFee)}</span>
-            </div>
-            <div className="checkout-total">
-              <span>{t('co_total')}</span>
-              <span>{fmtPrice(total)}</span>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn--primary btn--lg btn--block"
-            disabled={sending}
-          >
-            {sending ? t('loading') : t('co_place')}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-/* ===== Order Success ===== */
-
-function OrderSuccess({ order, onClose }) {
-  return (
-    <div className="order-success">
-      <div className="order-success__icon">{'✓'}</div>
-      <h2>{t('co_success')}</h2>
-      <p>Order #{order.orderNo || order.id}</p>
-      <p>{t('co_total')}: {fmtPrice(order.total)}</p>
-      <p>The seller will confirm your order shortly.</p>
-      <button className="btn btn--primary btn--lg" onClick={onClose}>
-        {t('sf_back')}
-      </button>
-    </div>
-  );
-}
-
 /* ===== Size Chart ===== */
 
 function SizeChartPanel({ chart, lang, onClose }) {
@@ -398,7 +186,7 @@ function SizeChartPanel({ chart, lang, onClose }) {
     <div className="sz-chart" onClick={e => e.stopPropagation()}>
       <div className="sz-head">
         <b>{chart.title[lang]}</b>
-        <button type="button" onClick={onClose} aria-label={t('close')}>{I.x({ width: 15, height: 15 })}</button>
+        <button type="button" onClick={onClose} aria-label={t('g_close')}>{I.x({ width: 15, height: 15 })}</button>
       </div>
       <table>
         <thead><tr>{chart.cols.map((c, i) => <th key={i}>{c[lang]}</th>)}</tr></thead>
@@ -426,7 +214,7 @@ function OptionPicker({ product, sel, setSel, lang }) {
             <div className="opt-label">
               <span className="sf-up">{a.name[lang]}</span>
               {chosen && a.swatch && <b>{attrValueName(a.id, chosen, lang)}</b>}
-              {isChart && <button className="opt-chart-link" type="button" onClick={() => setShowChart(v => !v)}>{t('sf_size_chart') || 'Size chart'}</button>}
+              {isChart && <button className="opt-chart-link" type="button" onClick={() => setShowChart(v => !v)}>{t('sf_size_chart')}</button>}
             </div>
             {isChart && showChart && <SizeChartPanel chart={chart.chart} lang={lang} onClose={() => setShowChart(false)} />}
             <div className={`opt-values ${a.swatch ? 'color' : 'size'}`}>
@@ -439,7 +227,7 @@ function OptionPicker({ product, sel, setSel, lang }) {
                     <button key={v} type="button"
                       className={`opt-sw${on ? ' on' : ''}${off ? ' off' : ''}`}
                       disabled={off}
-                      title={attrValueName(a.id, v, lang)}
+                      title={attrValueName(a.id, v, lang) + (off ? ' — ' + t('opt_out') : '')}
                       onClick={() => setSel(s => ({ ...s, [a.id]: v }))}
                     >
                       <i style={{ background: attrValueHex(a.id, v) || '#ccc' }} />
@@ -473,42 +261,19 @@ function SpecTable({ product, lang }) {
   if (!attrs.length) return null;
   return (
     <div className="spec-block">
-      <div className="sf-sizes-label sf-up">{t('sf_specs') || t('sf_about')}</div>
+      <div className="sf-sizes-label sf-up">{t('sf_specs')}</div>
       <table className="spec-table"><tbody>
         {attrs.map(a => {
           const v = (product.specs || {})[a.id];
           let text;
-          if (a.kind === 'bool') text = v ? t('yes') : t('no');
-          else if (a.kind === 'number') text = String(v) + (a.unit ? ' ' + a.unit[lang] : '');
+          if (a.kind === 'bool') text = v ? t('g_yes') : t('g_no');
+          else if (a.kind === 'number') text = fmtNum(v) + (a.unit ? ' ' + a.unit[lang] : '');
           else if (a.kind === 'multi') text = v.map(x => attrValueName(a.id, x, lang)).join(', ');
           else if (a.kind === 'text') text = String(v);
           else text = attrValueName(a.id, v, lang);
           return <tr key={a.id}><th>{a.name[lang]}</th><td>{text}</td></tr>;
         })}
       </tbody></table>
-    </div>
-  );
-}
-
-/* ===== Contact Block ===== */
-
-function ContactBlock({ shop }) {
-  const rows = [
-    shop.telegram && ['Telegram', `https://t.me/${shop.telegram.replace('@', '')}`, I.tg({ width: 18, height: 18 })],
-    shop.instagram && ['Instagram', `https://instagram.com/${shop.instagram.replace('@', '')}`, I.ig({ width: 18, height: 18 })],
-    shop.phone && [t('ob_phone_contact'), `tel:${shop.phone}`, I.tel({ width: 18, height: 18 })],
-  ].filter(Boolean);
-  if (!rows.length) return null;
-  return (
-    <div className="sf-contact-block">
-      <div className="sf-sizes-label sf-up">{t('sf_reach')}</div>
-      <div className="sf-contacts">
-        {rows.map(([label, href, icon]) => (
-          <a key={label} className="sf-contact" href={href} target={href.startsWith('tel:') ? undefined : '_blank'} rel="noopener noreferrer">
-            <span className="sf-contact-icon">{icon} {label}</span>
-          </a>
-        ))}
-      </div>
     </div>
   );
 }
@@ -533,11 +298,13 @@ function normalizeProduct(product) {
 
 function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket, showToast }) {
   const lang = getLang();
+  const basketLines = useBasketStore((st) => st.baskets[shop.id]);
   const product = useMemo(() => normalizeProduct(rawProduct), [rawProduct]);
   const [galIdx, setGalIdx] = useState(0);
   const [sel, setSel] = useState({});
   const [qty, setQty] = useState(1);
   const [reviews, setReviews] = useState([]);
+  const [copied, setCopied] = useState(false);
   const touchX = React.useRef(null);
 
   const name = localName(product, lang);
@@ -558,6 +325,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
 
   const needsPick = hasAttrPicker && !chosen;
   const missing = pickAttrs.filter(a => !sel[a.id]).map(a => a.name[lang].toLowerCase()).join(' + ');
+  const unit = chosen ? vPrice(product, chosen) : pMin(product);   // the picked version's own price
   const maxQty = chosen ? Math.max(1, chosen.qty || 0) : 1;
   const isSoldOut = chosen ? (chosen.qty || 0) === 0 : state === 'sold';
   const canAdd = chosen && !isSoldOut && !needsPick;
@@ -615,10 +383,13 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
     }).catch(() => {});
   }, [shop?.id, product.id]);
 
+  const inBasket = !!(chosen && (basketLines || []).some((l) => l.variantId === chosen.id));
+
   function handleAdd() {
+    if (inBasket) { window.dispatchEvent(new CustomEvent('rasta-open-basket')); return; }
     if (!canAdd) return;
     const label = chosen ? parseVariantLabel(chosen.optionsJson, product.catId) : '';
-    const unitPrice = chosen?.price || product.price || 0;
+    const unitPrice = unit || 0;
     onAddToBasket({
       productId: product.id,
       variantId: chosen?.id || null,
@@ -650,12 +421,11 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
 
   function handleShare() {
     const url = `${window.location.origin}/${handle}/p/${product.id}`;
-    if (navigator.share) {
-      navigator.share({ title: name, url });
-    } else {
-      navigator.clipboard.writeText(url);
-      showToast(t('db_copied'));
-    }
+    try {
+      if (navigator.share) navigator.share({ title: name, url }).catch(() => {});
+      else if (navigator.clipboard) navigator.clipboard.writeText(url);
+    } catch { /* share sheet dismissed / clipboard blocked */ }
+    setCopied(true); setTimeout(() => setCopied(false), 2200);
   }
 
   // Touch swipe for gallery
@@ -669,10 +439,12 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
 
   // Smart button label
   const buttonLabel = needsPick
-    ? `${t('sf_pick_size')}: ${missing}`
+    ? fill(t('opt_pick_hint'), { what: missing })
     : isSoldOut
     ? t('sf_sold')
-    : `${t('co_add')} · ${fmtPrice((chosen?.price || product.price) * qty)}`;
+    : inBasket
+    ? t('bk_go')
+    : fill(t('rq_add_sum'), { sum: fmtPrice(unit * qty) });
 
   const stats = ratingStats(reviews);
 
@@ -704,12 +476,11 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
               )}
               {galleryImages.length > 1 && (
                 <>
-                  {galIdx > 0 && <button className="sf-gal-nav prev" type="button" onClick={() => setGalIdx(galIdx - 1)}>{I.back ? I.back({ width: 18, height: 18 }) : '←'}</button>}
-                  {galIdx < galleryImages.length - 1 && <button className="sf-gal-nav next" type="button" onClick={() => setGalIdx(galIdx + 1)}>{I.arrow ? I.arrow({ width: 18, height: 18 }) : '→'}</button>}
-                  <div className="sf-gal-count">{galIdx + 1}/{galleryImages.length}</div>
-                  <div className="sf-gal-dots">
+                  {galIdx > 0 && <button className="sf-gal-nav prev" aria-label="previous photo" type="button" onClick={() => setGalIdx(galIdx - 1)}>{I.back ? I.back({ width: 18, height: 18 }) : '←'}</button>}
+                  {galIdx < galleryImages.length - 1 && <button className="sf-gal-nav next" aria-label="next photo" type="button" onClick={() => setGalIdx(galIdx + 1)}>{I.arrow ? I.arrow({ width: 18, height: 18 }) : '→'}</button>}
+                  <div className="sf-gal-dots ind">
                     {galleryImages.map((_, k) => (
-                      <button key={k} type="button" className={`sf-gal-dot${galIdx === k ? ' on' : ''}`} onClick={() => setGalIdx(k)} />
+                      <span key={k} className={`sf-gal-dot${galIdx === k ? ' on' : ''}`}></span>
                     ))}
                   </div>
                 </>
@@ -719,7 +490,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
               <div className="pp-thumbs">
                 {galleryImages.map((img, k) => (
                   <button key={img.id || k} type="button"
-                    className={`pp-thumb${galIdx === k ? ' on' : ''}`}
+                    className={`pp-thumb${galIdx === k ? ' on' : ''}`} aria-label={`photo ${k + 1}`}
                     onClick={() => setGalIdx(k)}
                     style={{ backgroundImage: `url(${img.thumbnailUrl || img.url})` }}
                   />
@@ -733,14 +504,13 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
             <div className="pname sf-display">{name}</div>
 
             <div className="pp-price-row">
-              <div className="pprice">{fmtPrice(chosen?.price || product.price)}</div>
+              <div className="pprice">{chosen ? fmtPrice(unit) : <PriceTag p={product} lang={lang} />}</div>
               {stats.n > 0 && (
                 <button className="pp-rv-link" type="button" onClick={() => {
                   const el = document.getElementById('pp-reviews');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}>
-                  <Stars value={Math.round(parseFloat(stats.avg))} size={14} />
-                  <b>{stats.avg}</b> · {fill(t('rv_count'), { n: stats.n })}
+                  <Stars value={Math.round(parseFloat(stats.avg))} /> <b>{stats.avg}</b> · {fill(t('rv_count'), { n: stats.n })}
                 </button>
               )}
             </div>
@@ -768,9 +538,9 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
                 )}
               </div>
               <button
-                className="sf-btn sf-btn-accent"
+                className={'sf-btn sf-btn-accent' + (inBasket ? ' is-in' : '')}
                 onClick={handleAdd}
-                disabled={!canAdd}
+                disabled={!canAdd && !inBasket}
                 type="button"
               >
                 {buttonLabel}
@@ -778,9 +548,9 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
             </div>
 
             {/* Share */}
-            <div className="sf-detail-cta">
+            <div className="sf-detail-cta" style={{ display: 'flex' }}>
               <button className="sf-btn sf-btn-line" type="button" onClick={handleShare}>
-                {I.share ? I.share({ width: 17, height: 17 }) : '↗'} {t('sf_share')}
+                {copied ? I.check() : I.share()} {copied ? t('sf_copied_p') : t('sf_share_p')}
               </button>
             </div>
 
@@ -788,7 +558,10 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
             <SpecTable product={product} lang={lang} />
 
             {/* Contact */}
-            <ContactBlock shop={shop} />
+            <div className="sf-contact-block">
+              <div className="sf-sizes-label sf-up">{t('sf_contact')}</div>
+              <ContactRows shop={shop} />
+            </div>
           </div>
         </div>
 
@@ -798,8 +571,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
             <b className="sf-display">{t('rv_title')}</b>
             {stats.n > 0 && (
               <span className="pp-rv-sum">
-                <Stars value={Math.round(parseFloat(stats.avg))} size={14} />
-                <b>{stats.avg}</b> · {fill(t('rv_based'), { n: stats.n })}
+                <Stars value={Math.round(parseFloat(stats.avg))} /> <b>{stats.avg}</b> · {fill(t('rv_based'), { n: stats.n })}
               </span>
             )}
           </div>
@@ -814,10 +586,11 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
               {reviews.map((r, i) => (
                 <div className="pp-rv" key={r.id || i}>
                   <div className="pp-rv-top">
-                    <b>{r.name || t('rv_anon')}</b>
-                    <Stars value={r.rating} size={14} />
+                    <span className="pp-rv-av">{(r.name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()}</span>
+                    <div className="pp-rv-n"><b>{r.name || t('rv_anon')}</b></div>
                     {r.createdAt && <span>{new Date(r.createdAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>}
                   </div>
+                  <Stars value={r.rating} />
                   {r.text && <p>{r.text}</p>}
                 </div>
               ))}
@@ -841,13 +614,13 @@ export default function StorefrontPage() {
   const [shop, setShop] = useState(null);
   const [shopConfig, setShopConfig] = useState(null);
   const [products, setProducts] = useState([]);
+  // filters live in one object and in the link (?f_size=M&pmax=300000&sort=low), so a shared link keeps them
+  const urlF = useMemo(() => sfxRead(), []);
   const [search, setSearch] = useState('');
-  const [cat, setCat] = useState('all');
-  const [attrSel, setAttrSel] = useState({});
-  const [price, setPrice] = useState({ min: '', max: '' });
-  const [hideSold, setHideSold] = useState(false);
-  const [fOpen, setFOpen] = useState(false);
-  const [sort, setSort] = useState('new');
+  const [cat, setCat] = useState(() => (urlF && urlF.cat && catEntry(urlF.cat) ? urlF.cat : 'all'));
+  const [F, setF] = useState(() => (urlF ? urlF.F : SFX_EMPTY));
+  const [reviews, setReviews] = useState([]);
+  const aboutRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productNotFound, setProductNotFound] = useState(false);
@@ -857,10 +630,9 @@ export default function StorefrontPage() {
   const token = useAuthStore((s) => s.token);
   const [isOwner, setIsOwner] = useState(false);
 
-  // Basket
-  const [basket, setBasket] = useState([]); // [{productId, variantId, name, label, qty, unitPrice}]
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [completedOrder, setCompletedOrder] = useState(null);
+  // Basket (per shop, kept in localStorage by basketStore; the drawer lives in App)
+  const basket = useBasketStore((st) => (shop?.id ? st.baskets[shop.id] : null)) || [];
+  const basketAdd = useBasketStore((st) => st.add);
 
   const [toast, showToast] = useToast();
 
@@ -883,6 +655,7 @@ export default function StorefrontPage() {
             if (found) setSelectedProduct(found);
             else setProductNotFound(true);
           }
+          api.get(`/shops/${shopData.id}/reviews`).then((res) => setReviews(res.data || [])).catch(() => {});
           try {
             const configRes = await api.get(`/shops/${shopData.id}/config`);
             setShopConfig(configRes.data);
@@ -897,6 +670,14 @@ export default function StorefrontPage() {
     }
     load();
   }, [handle, fetchShopByHandle, fetchProducts, navigate]);
+
+  // a different shop starts clean (but not on first load, so a shared link keeps its filters)
+  const firstShop = useRef(true);
+  useEffect(() => {
+    if (firstShop.current) { firstShop.current = false; return; }
+    setCat('all'); setSearch(''); setF(SFX_EMPTY);
+  }, [handle]);
+  useEffect(() => { sfxWrite(F, cat); }, [F, cat, selectedProduct]);
 
   useEffect(() => {
     if (!token || !shop) { setIsOwner(false); return; }
@@ -994,97 +775,42 @@ export default function StorefrontPage() {
     return { level: level.map((id) => ({ id, name: catLabel(id, lang), n: count(id) })), count };
   }, [catalog, lang, cat]);
 
-  // attribute filters, drawn from what this shop's products actually carry
-  const attrFilters = useMemo(() => {
-    const map = {};
-    catalog.filter(inCat).forEach((p) => {
-      variantAttrs(p.catId).forEach((a) => {
-        if (!a.values) return;
-        (p.variants || []).forEach((v) => {
-          const val = (v.options || {})[a.id];
-          if (!val) return;
-          map[a.id] = map[a.id] || { attr: a, values: [] };
-          if (!map[a.id].values.includes(val)) map[a.id].values.push(val);
-        });
-      });
-    });
-    return Object.keys(map).map((k) => map[k]).filter((x) => x.values.length > 1).slice(0, 4);
-  }, [catalog, inCat]);
-
-  const filtered = useMemo(() => {
+  // stars per product, for the cards, the rating filter and the "highest rated" sort
+  const rvMap = useMemo(() => {
+    const m = {};
+    reviews.forEach((r) => { (m[r.productId] = m[r.productId] || []).push(r); });
+    const out = {};
+    Object.keys(m).forEach((pid) => { const st = ratingStats(m[pid]); if (st.n) out[pid] = { avg: Number(st.avg), n: st.n }; });
+    return out;
+  }, [reviews]);
+  const ctx = { rating: (p) => rvMap[p.id] || null, sold: (p) => p._stock === 'sold' };
+  // the pool = this category + the search; filters and their counts work on top of it
+  const pool = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const out = catalog.filter((p) => {
+    return catalog.filter((p) => {
       if (!inCat(p)) return false;
-      const okAttrs = Object.keys(attrSel).every((aid) => {
-        const want = attrSel[aid] || [];
-        if (!want.length) return true;
-        return (p.variants || []).some((v) => want.includes((v.options || {})[aid]));
-      });
-      if (!okAttrs) return false;
-      if (hideSold && p._stock === 'sold') return false;
-      if (price.min && p.price < Number(price.min)) return false;
-      if (price.max && p.price > Number(price.max)) return false;
+      if (shop?.showSoldOut === false && p._stock === 'sold') return false;
       if (q && !(p._name + ' ' + getProductName(p) + ' ' + p._desc).toLowerCase().includes(q)) return false;
       return true;
     });
-    if (sort === 'low') out.sort((a, b) => (a.price || 0) - (b.price || 0));
-    else if (sort === 'high') out.sort((a, b) => (b.price || 0) - (a.price || 0));
-    else out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')) || (b.id > a.id ? 1 : -1));
-    return out;
-  }, [catalog, inCat, search, sort, hideSold, attrSel, price]);
-
-  const pickCat = (id) => { setCat(id); setAttrSel({}); };
-  const clearFilters = () => { setAttrSel({}); setPrice({ min: '', max: '' }); setHideSold(false); };
-  const pills = [];
-  attrFilters.forEach(({ attr }) => (attrSel[attr.id] || []).forEach((v) => pills.push({
-    k: attr.id + v, lab: attrValueName(attr.id, v, lang), sw: attr.swatch ? attrValueHex(attr.id, v) : null,
-    off: () => setAttrSel((s) => ({ ...s, [attr.id]: (s[attr.id] || []).filter((x) => x !== v) })),
-  })));
-  if (price.min || price.max) {
-    pills.push({
-      k: 'price',
-      lab: (price.min ? fmtNum(price.min) : '0') + ' – ' + (price.max ? fmtNum(price.max) : '∞'),
-      off: () => setPrice({ min: '', max: '' }),
-    });
-  }
-  if (hideSold) pills.push({ k: 'sold', lab: t('sff_instock'), off: () => setHideSold(false) });
-  const nActive = pills.length;
+  }, [catalog, inCat, search, shop?.showSoldOut]);
+  const facets = useMemo(() => sfxFacets(pool), [pool]);
+  const list = sfxSort(pool.filter((p) => sfxMatch(p, F, ctx)), F.sort, ctx);
+  const pickCat = (id) => { setCat(id); setF((f) => ({ ...f, sel: {} })); };
+  const clearFilters = () => setF((f) => ({ ...SFX_EMPTY, sort: f.sort }));
+  const pills = sfxPills(F, setF, facets, lang);
 
   const layout = shopConfig?.layout?.toLowerCase() || 'grid';
 
   /* ===== Basket actions ===== */
 
+  const openBasket = () => window.dispatchEvent(new CustomEvent('rasta-open-basket'));
+
   function addToBasket(item) {
-    setBasket((prev) => {
-      const idx = prev.findIndex(
-        (b) => b.productId === item.productId && b.variantId === item.variantId,
-      );
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], qty: updated[idx].qty + item.qty };
-        return updated;
-      }
-      return [...prev, item];
-    });
+    if (!shop?.id || !item.variantId) return;
+    basketAdd(shop.id, item);
+    rememberShop(shop);
     showToast(t('co_added'));
-  }
-
-  function updateBasketQty(index, qty) {
-    setBasket((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], qty };
-      return updated;
-    });
-  }
-
-  function removeBasketItem(index) {
-    setBasket((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function handleOrderSent(order) {
-    setShowCheckout(false);
-    setBasket([]);
-    setCompletedOrder(order);
   }
 
   function handleShare() {
@@ -1106,6 +832,7 @@ export default function StorefrontPage() {
 
   // the card's own button: a product with a single variant goes straight to the basket
   function quickAdd(p) {
+    if (basket.some((l) => l.productId === p.id)) { openBasket(); return; }
     const v = (p.variants || []).find((x) => (x.qty || 0) > 0) || (p.variants || [])[0];
     addToBasket({
       productId: p.id,
@@ -1113,7 +840,7 @@ export default function StorefrontPage() {
       name: getProductName(p),
       label: v ? parseVariantLabel(v.optionsJson, p.catId) : '',
       qty: 1,
-      unitPrice: v?.price || p.price || 0,
+      unitPrice: vPrice(p, v) || 0,
     });
   }
 
@@ -1142,20 +869,6 @@ export default function StorefrontPage() {
     );
   }
 
-  // Order success screen
-  if (completedOrder) {
-    return (
-      <div className="storefront" style={styleVars}>
-        <div className="sf-wrap">
-          <OrderSuccess
-            order={completedOrder}
-            onClose={() => { setCompletedOrder(null); setSelectedProduct(null); }}
-          />
-        </div>
-      </div>
-    );
-  }
-
   // Product not found (deep link to nonexistent product)
   if (productNotFound) {
     return (
@@ -1171,50 +884,12 @@ export default function StorefrontPage() {
     );
   }
 
-  // Product page (full page, not drawer/modal)
-  if (selectedProduct) {
-    return (
-      <div className={`storefront ${themeId}`} style={styleVars}>
-        <StoreTopbar handle={handle} isOwner={isOwner} />
-        <ProductPage
-          product={selectedProduct}
-          shop={shop}
-          handle={handle}
-          onBack={() => { setSelectedProduct(null); navigate(`/${handle}`); }}
-          onAddToBasket={addToBasket}
-          showToast={showToast}
-        />
-        {/* Basket dock */}
-        {basket.length > 0 && !showCheckout && (
-          <div className="basket-dock">
-            <span className="basket-dock__summary">
-              {basket.reduce((s, b) => s + b.qty, 0)} {plural(basket.reduce((s, b) => s + b.qty, 0), 'item')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
-            </span>
-            <button className="btn btn--primary btn--sm" onClick={() => setShowCheckout(true)}>
-              {t('co_checkout')} &rarr;
-            </button>
-          </div>
-        )}
-        {showCheckout && (
-          <CheckoutSheet
-            basket={basket}
-            shop={shop}
-            onClose={() => setShowCheckout(false)}
-            onOrderSent={handleOrderSent}
-            showToast={showToast}
-            onUpdateQty={updateBasketQty}
-            onRemoveItem={removeBasketItem}
-          />
-        )}
-        <Toast toast={toast} />
-      </div>
-    );
-  }
-
-  // Main listing — the design's Storefront.jsx
+  // the design's Storefront.jsx: shop header, then the product page or the listing, then "About the shop"
   const paused = shop.status === 'PAUSED';
   const tagline = localTagline(shop.tagline, lang);
   const coverTone = shop.coverColor || palette.accent;
+  const scrollToAbout = () => { const el = aboutRef.current; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const basketQty = basket.reduce((s, b) => s + b.qty, 0);
   return (
     <div className={`storefront ${themeId}`} style={styleVars}>
       <StoreTopbar handle={handle} isOwner={isOwner} />
@@ -1223,8 +898,9 @@ export default function StorefrontPage() {
           ? <img className="sf-cover-img" src={shop.coverUrl} alt="" decoding="async" />
           : <div className="sf-cover-wm">{shop.name}</div>}
       </div>
+      <div className="sf-deco" aria-hidden="true"><div className="sf-deco-track">{[0, 1, 2, 3, 4, 5, 6, 7].map((i) => <span key={i}>{shop.name} ✦ {shop.location} ✦ {window.location.host}/{shop.handle} ✦ </span>)}</div><i></i><i></i><i></i></div>
       <div className="sf-header">
-        <div className="sf-wrap">
+        <div className="sf-wrap" data-title={shop.handle + '.exe'}>
           <div className="sf-id">
             <div className="sf-avatar" style={{ '--ph-tone': palette.accent }}>
               {shop.logoUrl
@@ -1240,27 +916,28 @@ export default function StorefrontPage() {
               </div>
             </div>
           </div>
-          {tagline && <div className="sf-tag">{tagline}</div>}
-          <div className="sf-info">
-            <span>{I.truck({ width: 16, height: 16 })} {t('sf_delivery_def')}</span>
-            <span>{I.cardp({ width: 16, height: 16 })} {t('sf_pay_def')}</span>
+          {tagline && <div className="sf-tag sfh-tag">{tagline}</div>}
+          <SfTrust shop={shop} count={catalog.length} />
+          {/* products come right after this: one main action, details live in "About the shop" below */}
+          <div className="sfh-acts">
+            <button className="sf-btn sf-btn-line" onClick={scrollToAbout} type="button">{I.store({ width: 16, height: 16 })} {t('sfh_about')}</button>
+            <button className="sf-btn sf-btn-line sf-btn-icon" onClick={handleShare} aria-label={t('sf_share')} title={t('sf_share')} type="button">{copied ? I.check() : I.share()}</button>
+            <FavHeart shopId={shop.id} label />
           </div>
-          <SfLocation shop={shop} showToast={showToast} />
-          <div className="sf-reach">
-            {(shop.telegram || shop.instagram || shop.phone) && (
-              <div className="sf-reach-l">
-                <div className="sf-sizes-label sf-up">{t('sf_contact')}</div>
-                <ContactRows shop={shop} />
-              </div>
-            )}
-            <button className="sf-btn sf-btn-line" onClick={handleShare} type="button">
-              {copied ? I.check() : I.share()} {copied ? t('sf_copied') : t('sf_share')}
-            </button>
-          </div>
+          <SfHowTo compact />
         </div>
       </div>
 
-      {paused ? (
+      {!paused && selectedProduct ? (
+        <ProductPage
+          product={selectedProduct}
+          shop={shop}
+          handle={handle}
+          onBack={() => { setSelectedProduct(null); navigate(`/${handle}`); }}
+          onAddToBasket={addToBasket}
+          showToast={showToast}
+        />
+      ) : paused ? (
         <div className="sf-wrap"><div className="sf-closed">
           <div className="sf-closed-ic">{I.store({ width: 26, height: 26 })}</div>
           <b className="sf-display">{t('sf_closed_t')}</b>
@@ -1272,49 +949,57 @@ export default function StorefrontPage() {
         <>
           <div className="sf-toolbar">
             <div className="sf-wrap sf-toolbar-in">
-              <div className="sff-row">
+              <div className="sff-row" style={{ display: 'flex', gridTemplateColumns: 'none' }}>
                 <div className="sf-search">
                   {I.search()}
                   <input placeholder={t('sf_search')} value={search} onChange={(e) => setSearch(e.target.value)} />
                   {search && <button className="sff-qx" onClick={() => setSearch('')} aria-label="Clear" type="button">{I.x({ width: 14, height: 14 })}</button>}
                 </div>
-                <button className={'sff-btn' + (nActive ? ' on' : '')} onClick={() => setFOpen(true)} type="button">
-                  {SFF_I.sliders({ width: 18, height: 18 })}<span className="sff-btn-l">{t('sff_filters')}</span>{nActive > 0 && <b>{nActive}</b>}
-                </button>
-                <select className="sf-sort sff-sort" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="sort">
-                  <option value="new">{t('sf_sort_new')}</option>
-                  <option value="low">{t('sf_sort_low')}</option>
-                  <option value="high">{t('sf_sort_high')}</option>
-                </select>
               </div>
               <SfCatBar nav={catNav} cat={cat} setCat={pickCat} lang={lang} />
+              <SfxBar lang={lang} pool={pool} facets={facets} F={F} setF={setF} ctx={ctx} total={list.length} />
             </div>
           </div>
           <div className="sf-wrap">
-            <SfResultBar lang={lang} cat={cat} count={filtered.length} pills={pills} onClear={clearFilters} />
+            <SfResultBar lang={lang} cat={cat} count={list.length} pills={pills} onClear={clearFilters} />
           </div>
-          {fOpen && (
-            <SfFilterSheet lang={lang} filters={attrFilters} sel={attrSel} setSel={setAttrSel}
-              price={price} setPrice={setPrice} hideSold={hideSold} setHideSold={setHideSold}
-              sort={sort} setSort={setSort} count={filtered.length} onClear={clearFilters}
-              onClose={() => setFOpen(false)} />
-          )}
 
           <div className="sf-products">
             <div className="sf-wrap">
-              {filtered.length > 0 ? (
+              {list.length > 0 ? (
                 <div className={'lay-' + layout}>
-                  {filtered.map((p) => (
-                    <ProductCard key={p.id} p={p} layout={layout} href={`/${handle}/p/${p.id}`}
+                  {list.map((p) => (
+                    <ProductCard key={p.id} p={{ ...p, _rv: rvMap[p.id], _inBasket: basket.some((l) => l.productId === p.id) }} layout={layout} href={`/${handle}/p/${p.id}`}
                       onOpen={openProduct} onAdd={quickAdd} />
                   ))}
                 </div>
               ) : (
-                <div className="sf-empty">{t('sf_empty')}</div>
+                <div className="sf-empty">{pills.length
+                  ? <>{t('sfx_none')}<br /><button className="sf-btn sf-btn-line" style={{ marginTop: 12 }} onClick={clearFilters} type="button">{t('sfx_reset_all')}</button></>
+                  : t('sf_empty')}</div>
               )}
             </div>
           </div>
         </>
+      )}
+
+      {!paused && (
+        <div className="sf-wrap sfh-about" ref={aboutRef} id="sf-about">
+          <h3 className="sf-display">{t('sfh_about')}</h3>
+          {tagline && <div className="sf-tag" style={{ marginTop: 0, marginBottom: 16 }}>{tagline}</div>}
+          <div className="sf-sizes-label sf-up" style={{ marginBottom: 10 }}>{t('sfh_how')}</div>
+          <SfHowTo />
+          <SfFacts shop={shop} lang={lang} />
+          <SfLocation shop={shop} showToast={showToast} />
+          {(shop.telegram || shop.instagram || shop.phone) && (
+            <div className="sf-reach">
+              <div className="sf-reach-l">
+                <div className="sf-sizes-label sf-up">{t('sf_contact')}</div>
+                <ContactRows shop={shop} />
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="sf-footer">
@@ -1325,28 +1010,15 @@ export default function StorefrontPage() {
       </div>
 
       {/* Basket dock */}
-      {basket.length > 0 && !showCheckout && (
+      {basketQty > 0 && (
         <div className="basket-dock">
           <span className="basket-dock__summary">
-            {basket.reduce((s, b) => s + b.qty, 0)} {plural(basket.reduce((s, b) => s + b.qty, 0), 'item')} &middot; {fmtPrice(basket.reduce((s, b) => s + b.qty * b.unitPrice, 0))}
+            {basketQty} {plural(basketQty, 'item')} &middot; {fmtPrice(basket.reduce((n, b) => n + b.qty * b.unitPrice, 0))}
           </span>
-          <button className="btn btn--primary btn--sm" onClick={() => setShowCheckout(true)}>
-            {t('co_checkout')} &rarr;
+          <button className="btn btn--primary btn--sm" onClick={openBasket} type="button">
+            {t('by_bk_t')} &rarr;
           </button>
         </div>
-      )}
-
-      {/* Checkout */}
-      {showCheckout && (
-        <CheckoutSheet
-          basket={basket}
-          shop={shop}
-          onClose={() => setShowCheckout(false)}
-          onOrderSent={handleOrderSent}
-          showToast={showToast}
-          onUpdateQty={updateBasketQty}
-          onRemoveItem={removeBasketItem}
-        />
       )}
 
       <Toast toast={toast} />
