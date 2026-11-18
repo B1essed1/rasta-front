@@ -7,6 +7,7 @@ import Marketplace from './pages/Marketplace';
 import StorefrontPage from './pages/StorefrontPage';
 import BioLinkPage from './pages/BioLinkPage';
 import BuyerProfile from './pages/BuyerProfile';
+import OrderTrackingPage from './pages/OrderTrackingPage';
 import Dashboard from './pages/dashboard/Dashboard';
 import HomeView from './pages/dashboard/HomeView';
 import ProductsView from './pages/dashboard/ProductsView';
@@ -15,7 +16,8 @@ import SalesView from './pages/dashboard/SalesView';
 import DesignView from './pages/dashboard/DesignView';
 import SettingsView from './pages/dashboard/SettingsView';
 import ReviewsView from './pages/dashboard/ReviewsView';
-import { ChatsView, ScanView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
+import { ChatsView, DashboardNotFound } from './pages/dashboard/PlaceholderView';
+import ScanView from './pages/dashboard/ScanView';
 import InventoryView from './pages/dashboard/InventoryView';
 import ToastHost from './components/ui/ToastHost';
 
@@ -55,6 +57,7 @@ export default function App() {
           <Route path="*" element={<DashboardNotFound />} />
         </Route>
         <Route path="/profile" element={<ProtectedRoute><BuyerProfile /></ProtectedRoute>} />
+        <Route path="/orders/:orderNo" element={<OrderTrackingPage />} />
         <Route path="/:handle/link" element={<BioLinkPage />} />
         <Route path="/:handle" element={<StorefrontPage />} />
         <Route path="/:handle/p/:productId" element={<StorefrontPage />} />

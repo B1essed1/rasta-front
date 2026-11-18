@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { t, onLangChange } from '../../i18n';
-import { useShopStore } from '../../store/shopStore';
+import { t, onLangChange, fill } from '../../i18n';
+import { useShopStore, DEFAULT_THRESHOLD } from '../../store/shopStore';
 import { shopTypes as fallbackShopTypes, cities, fetchShopTypes, getCategoryName } from '../../data/types';
 import { toast } from '../../components/ui/ToastHost';
 import { I } from '../../components/ui/Icons';
+import Modal from '../../components/ui/Modal';
+import QtyStepper from '../../components/ui/QtyStepper';
 
 /* ------------------------------------------------------------------ */
 /*  Cover image upload                                                 */
@@ -359,6 +361,95 @@ function LocationSection({ form, set }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Payment method chips                                               */
+/* ------------------------------------------------------------------ */
+const PAY_METHODS = [
+  { id: 'cash', key: 'st_pay_cash' },
+  { id: 'card', key: 'st_pay_card' },
+  { id: 'transfer', key: 'st_pay_transfer' },
+];
+
+function PaymentChips({ value, onChange }) {
+  const selected = (value || '').split(',').filter(Boolean);
+
+  function toggle(id) {
+    const next = selected.includes(id)
+      ? selected.filter((x) => x !== id)
+      : [...selected, id];
+    onChange(next.join(','));
+  }
+
+  return (
+    <div className="chip-row">
+      {PAY_METHODS.map((m) => {
+        const on = selected.includes(m.id);
+        return (
+          <button
+            key={m.id}
+            type="button"
+            className={`pick-chip${on ? ' on' : ''}`}
+            onClick={() => toggle(m.id)}
+          >
+            {t(m.key)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Delete shop confirmation modal                                     */
+/* ------------------------------------------------------------------ */
+function DeleteShopModal({ open, onClose, shopName, onConfirm }) {
+  const [typed, setTyped] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const matches = typed === shopName;
+
+  async function handleDelete() {
+    if (!matches) return;
+    setDeleting(true);
+    try {
+      await onConfirm();
+    } catch {
+      toast('Error', 'error');
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={t('st_delete')}>
+      <div style={{ marginBottom: 12 }}>
+        <div className="hint" style={{ marginBottom: 16, fontSize: 14 }}>{t('st_delete_d')}</div>
+        <label style={{ display: 'block', marginBottom: 8, fontSize: 13, fontWeight: 600 }}>
+          {fill(t('st_delete_confirm'), { name: shopName })}
+        </label>
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={shopName}
+          autoFocus
+          style={{ width: '100%' }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button className="btn btn-sm" type="button" onClick={onClose}>
+          {t('cancel')}
+        </button>
+        <button
+          className="btn btn-danger btn-sm"
+          type="button"
+          disabled={!matches || deleting}
+          onClick={handleDelete}
+        >
+          {I.trash({ width: 15, height: 15 })} {deleting ? t('loading') : t('st_delete')}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 export default function SettingsView() {
@@ -368,6 +459,8 @@ export default function SettingsView() {
   const updateShop = useShopStore((s) => s.updateShop);
   const fetchShop = useShopStore((s) => s.fetchShop);
   const setShopStatus = useShopStore((s) => s.setShopStatus);
+  const deleteShop = useShopStore((s) => s.deleteShop);
+  const checkHandle = useShopStore((s) => s.checkHandle);
 
   const [form, setForm] = useState({
     name: '',
@@ -382,18 +475,30 @@ export default function SettingsView() {
     coverUrl: '',
     tagline: { uz: '', ru: '', en: '' },
     status: 'LIVE',
+    deliveryNote: '',
+    acceptedPayments: '',
+    defaultThreshold: DEFAULT_THRESHOLD,
+    showSoldOut: true,
   });
   const [saving, setSaving] = useState(false);
   const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Handle availability check state
+  const [handleStatus, setHandleStatus] = useState(null); // null | 'checking' | 'available' | 'taken'
+  const handleTimerRef = useRef(null);
+  const originalHandle = useRef('');
 
   useEffect(() => onLangChange(() => setTick((n) => n + 1)), []);
   useEffect(() => { fetchShopTypes().then(setShopTypes); }, []);
 
   useEffect(() => {
     if (shop) {
+      const h = shop.handle || '';
+      originalHandle.current = h;
       setForm({
         name: shop.name || '',
-        handle: shop.handle || '',
+        handle: h,
         type: shop.type || '',
         location: shop.location || '',
         telegram: shop.telegram || '',
@@ -408,7 +513,12 @@ export default function SettingsView() {
         landmark: shop.landmark || '',
         mapLat: shop.mapLat || null,
         mapLng: shop.mapLng || null,
+        deliveryNote: shop.deliveryNote || '',
+        acceptedPayments: shop.acceptedPayments || '',
+        defaultThreshold: shop.defaultThreshold != null ? shop.defaultThreshold : DEFAULT_THRESHOLD,
+        showSoldOut: shop.showSoldOut != null ? shop.showSoldOut : true,
       });
+      setHandleStatus(null);
     }
   }, [shop]);
 
@@ -416,8 +526,52 @@ export default function SettingsView() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  // Debounced handle availability check
+  const onHandleChange = useCallback((raw) => {
+    const val = raw.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
+    set('handle', val);
+
+    // Clear any pending timer
+    if (handleTimerRef.current) clearTimeout(handleTimerRef.current);
+
+    // If same as original, no check needed
+    if (val === originalHandle.current) {
+      setHandleStatus(null);
+      return;
+    }
+
+    // Must be at least 3 chars
+    if (val.length < 3) {
+      setHandleStatus(null);
+      return;
+    }
+
+    setHandleStatus('checking');
+    handleTimerRef.current = setTimeout(async () => {
+      const result = await checkHandle(val);
+      // Only update if handle hasn't changed since we started
+      setForm((f) => {
+        if (f.handle === val) {
+          setHandleStatus(result.available ? 'available' : 'taken');
+        }
+        return f;
+      });
+    }, 300);
+  }, [checkHandle]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (handleTimerRef.current) clearTimeout(handleTimerRef.current);
+    };
+  }, []);
+
   async function handleSave(e) {
     e.preventDefault();
+    if (handleStatus === 'taken') {
+      toast(t('st_slug_taken'), 'error');
+      return;
+    }
     setSaving(true);
     try {
       await updateShop(form);
@@ -441,7 +595,19 @@ export default function SettingsView() {
     }
   }
 
+  async function handleDeleteShop() {
+    await deleteShop();
+    setShowDeleteModal(false);
+    navigate('/onboarding');
+  }
+
   const isLive = form.status === 'LIVE';
+
+  // Format trial end date
+  const trialEndsAt = shop?.trialEndsAt;
+  const trialDateStr = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleDateString()
+    : null;
 
   return (
     <div className="settings">
@@ -450,7 +616,7 @@ export default function SettingsView() {
           <h2>{t('db_settings')}</h2>
           <div className="sub">labaratory.rastashops.com/{shop?.handle || ''}</div>
         </div>
-        <button className="btn btn-accent btn-sm" onClick={handleSave} disabled={saving}>
+        <button className="btn btn-accent btn-sm" onClick={handleSave} disabled={saving || handleStatus === 'taken'}>
           {I.check({ width: 16, height: 16 })} {saving ? t('loading') : t('db_save')}
         </button>
       </div>
@@ -481,13 +647,25 @@ export default function SettingsView() {
             <span>labaratory.rastashops.com/</span>
             <input
               value={form.handle}
-              onChange={(e) =>
-                set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30))
-              }
-              disabled
+              onChange={(e) => onHandleChange(e.target.value)}
             />
           </div>
-          <div className="hint">{t('ob_handle_hint')}{form.handle}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <div className="hint" style={{ margin: 0 }}>{t('ob_handle_hint')}{form.handle}</div>
+            {handleStatus === 'checking' && (
+              <span style={{ fontSize: 12, color: 'var(--faint)' }}>...</span>
+            )}
+            {handleStatus === 'available' && (
+              <span style={{ fontSize: 12, color: '#2e7d32', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                {I.check({ width: 14, height: 14 })} {t('st_slug_avail')}
+              </span>
+            )}
+            {handleStatus === 'taken' && (
+              <span style={{ fontSize: 12, color: '#c4392f', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                {I.x({ width: 14, height: 14 })} {t('st_slug_taken')}
+              </span>
+            )}
+          </div>
         </div>
 
         <LangTabs
@@ -575,7 +753,55 @@ export default function SettingsView() {
         </div>
       </div>
 
-      {/* ---- Section 4: Status ---- */}
+      {/* ---- Section 4: Delivery & Payments ---- */}
+      <div className="set-card">
+        <div className="set-title">{t('st_delivery')}</div>
+        <div className="field">
+          <input
+            value={form.deliveryNote}
+            onChange={(e) => set('deliveryNote', e.target.value)}
+            placeholder={t('st_delivery_hint')}
+          />
+        </div>
+
+        <div className="field" style={{ marginTop: 4 }}>
+          <label>{t('st_payments')}</label>
+          <PaymentChips
+            value={form.acceptedPayments}
+            onChange={(v) => set('acceptedPayments', v)}
+          />
+        </div>
+      </div>
+
+      {/* ---- Section 5: Storefront options ---- */}
+      <div className="set-card">
+        <div className="set-title">{t('st_storefront')}</div>
+
+        <div className="field">
+          <label>{t('st_threshold')}</label>
+          <QtyStepper
+            value={Number(form.defaultThreshold)}
+            min={0}
+            onChange={(n) => set('defaultThreshold', n)}
+          />
+          <div className="hint">{t('st_threshold_d')}</div>
+        </div>
+
+        <label className="switch-row" style={{ marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={form.showSoldOut}
+            onChange={(e) => set('showSoldOut', e.target.checked)}
+          />
+          <span className="switch"><i /></span>
+          <div>
+            <span>{t('st_show_sold')}</span>
+            <div className="hint" style={{ marginTop: 2 }}>{t('st_show_sold_d')}</div>
+          </div>
+        </label>
+      </div>
+
+      {/* ---- Section 6: Status ---- */}
       <div className="set-card">
         <div className="set-title">{t('st_status')}</div>
 
@@ -593,6 +819,52 @@ export default function SettingsView() {
           <div className="hint" style={{ marginTop: 8 }}>{t('st_paused_d')}</div>
         )}
       </div>
+
+      {/* ---- Section 7: Plan ---- */}
+      <div className="set-card">
+        <div className="set-title">{t('st_plan')}</div>
+        <div className="plan-row">
+          <div>
+            <b>{shop?.plan === 'PRO' ? 'Pro' : 'Starter'}</b>
+            {trialDateStr && (
+              <div className="hint" style={{ marginTop: 2 }}>
+                {fill(t('st_plan_trial'), { date: trialDateStr })}
+              </div>
+            )}
+          </div>
+          {shop?.plan !== 'PRO' && (
+            <button className="btn btn-soft btn-sm" type="button" onClick={() => toast(t('st_upgrade'))}>
+              {I.spark({ width: 15, height: 15 })} {t('st_upgrade')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ---- Section 8: Danger zone ---- */}
+      <div className="set-card danger">
+        <div className="set-title">{t('st_danger')}</div>
+        <div className="plan-row">
+          <div>
+            <b>{t('st_delete')}</b>
+            <div className="hint" style={{ marginTop: 2 }}>{t('st_delete_d')}</div>
+          </div>
+          <button
+            className="btn btn-danger btn-sm"
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            {I.trash({ width: 15, height: 15 })} {t('st_delete')}
+          </button>
+        </div>
+      </div>
+
+      {/* ---- Delete confirmation modal ---- */}
+      <DeleteShopModal
+        open={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        shopName={shop?.name || ''}
+        onConfirm={handleDeleteShop}
+      />
     </div>
   );
 }

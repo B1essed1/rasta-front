@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { t, onLangChange, fmtPrice } from '../../i18n';
+import React, { useState, useEffect } from 'react';
+import { t, onLangChange, fmtPrice, fill } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import StatusPill from '../../components/ui/StatusPill';
 import EmptyState from '../../components/ui/EmptyState';
@@ -22,6 +22,8 @@ export default function ProductsView() {
   const fetchProducts = useShopStore((s) => s.fetchProducts);
   const deleteProduct = useShopStore((s) => s.deleteProduct);
   const reorderProducts = useShopStore((s) => s.reorderProducts);
+  const duplicateProduct = useShopStore((s) => s.duplicateProduct);
+  const updateProduct = useShopStore((s) => s.updateProduct);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
@@ -60,6 +62,24 @@ export default function ProductsView() {
     setDeleteConfirm(null);
   }
 
+  async function handleDuplicate(product) {
+    try {
+      await duplicateProduct(product.id);
+      toast(t('db_saved'), 'success');
+    } catch {
+      toast('Error', 'error');
+    }
+  }
+
+  async function handleToggleVisibility(product) {
+    try {
+      await updateProduct(product.id, { ...product, visible: product.visible === false ? true : false });
+      toast(t('db_saved'), 'success');
+    } catch {
+      toast('Error', 'error');
+    }
+  }
+
   function handleDragStart(idx) {
     setDragIdx(idx);
   }
@@ -81,7 +101,12 @@ export default function ProductsView() {
   return (
     <div className="products-view">
       <div className="products-view__header">
-        <h1>{t('db_products')}</h1>
+        <div>
+          <h1>{t('db_products')}</h1>
+          <p className="products-view__subtitle" style={{ margin: 0, color: 'var(--muted, #666)', fontSize: 14 }}>
+            {fill(t('pr_count'), { n: products.length })}
+          </p>
+        </div>
         <button className="btn btn--primary" onClick={handleAdd}>
           + {t('db_add')}
         </button>
@@ -159,6 +184,24 @@ export default function ProductsView() {
                 />
               </span>
               <span className="products-table__col--actions">
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => handleToggleVisibility(product)}
+                  type="button"
+                  aria-label={t('pr_toggle_vis')}
+                  title={t('pr_toggle_vis')}
+                >
+                  {I.eye({ width: 16, height: 16, style: product.visible === false ? { opacity: 0.4 } : undefined })}
+                </button>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => handleDuplicate(product)}
+                  type="button"
+                  aria-label={t('pr_duplicate')}
+                  title={t('pr_duplicate')}
+                >
+                  {I.copy({ width: 16, height: 16 })}
+                </button>
                 <button
                   className="btn btn--ghost btn--sm"
                   onClick={() => handleEdit(product)}

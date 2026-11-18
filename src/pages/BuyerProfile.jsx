@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { t, onLangChange, fmtPrice } from '../i18n';
 import useBuyerStore from '../store/buyerStore';
 import { useAuthStore } from '../store/authStore';
@@ -106,11 +106,13 @@ function OrderCard({ order }) {
     0
   );
 
+  const trackNo = order.orderNo || order.id;
+
   return (
-    <div className="ord-card" style={{ cursor: 'default' }}>
+    <Link to={`/orders/${trackNo}`} className="ord-card" style={{ cursor: 'pointer', textDecoration: 'none', color: 'inherit' }}>
       <div className="ord-main">
         <div className="ord-top">
-          <b>#{order.id}</b>
+          <b>#{trackNo}</b>
           <StatusBadge status={order.status} />
         </div>
         <div className="ord-prod">
@@ -123,7 +125,7 @@ function OrderCard({ order }) {
           {itemCount} {t('or_items')}
         </span>
       </div>
-    </div>
+    </Link>
   );
 }
 

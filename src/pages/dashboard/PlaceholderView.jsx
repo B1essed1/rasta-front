@@ -12,16 +12,6 @@ export function ChatsView() {
   );
 }
 
-export function ScanView() {
-  return (
-    <div className="empty-state">
-      <div className="es-ic">{I.scan({ width: 26, height: 26 })}</div>
-      <h3>{t('db_scan')}</h3>
-      <p style={{ color: '#888' }}>{t('db_coming_soon')}</p>
-    </div>
-  );
-}
-
 export function DashboardNotFound() {
   return (
     <div className="empty-state">

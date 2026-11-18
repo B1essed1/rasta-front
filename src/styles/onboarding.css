@@ -162,9 +162,66 @@
   justify-content: center;
 }
 
+/* ===== Category Chips ===== */
+.ob-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ob-cat {
+  display: inline-flex; align-items: center; padding: 8px 16px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; border: 1.5px solid var(--gray-200);
+  color: var(--gray-600); cursor: pointer; transition: .12s; background: transparent;
+}
+.ob-cat:hover { border-color: var(--gray-500); }
+.ob-cat.on { background: var(--gray-900, #1a1a1a); color: #fff; border-color: var(--gray-900, #1a1a1a); }
+
+/* ===== Review Card ===== */
+.ob-review-card { border-radius: var(--radius-lg, 12px); overflow: hidden; border: 1px solid var(--gray-200); margin-bottom: 20px; }
+.ob-review-cover { height: 120px; position: relative; display: flex; align-items: flex-end; padding: 16px; background-size: cover; background-position: center; }
+.ob-review-logo {
+  width: 56px; height: 56px; border-radius: 14px; border: 3px solid #fff;
+  background: #fff; position: absolute; bottom: -28px; left: 20px;
+  object-fit: cover;
+}
+.ob-review-body { padding: 36px 20px 20px; }
+.ob-review-name { font-size: 20px; font-weight: 700; }
+.ob-review-row {
+  display: flex; justify-content: space-between; padding: 8px 0;
+  font-size: 14px; border-bottom: 1px solid var(--gray-100);
+}
+.ob-review-row:last-child { border-bottom: none; }
+.ob-review-row span:first-child { color: var(--gray-500); }
+.ob-pal-strip { display: flex; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+.ob-pal-strip i { width: 20px; height: 20px; display: block; }
+
+/* ===== Handle Availability ===== */
+.ob-handle-check {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600; margin-left: 8px;
+}
+.ob-handle-check.ok { color: #0f7a3d; }
+.ob-handle-check.bad { color: #c4392f; }
+
+/* ===== Success Screen ===== */
+.ob-success { text-align: center; padding: 24px 0; }
+.ob-success__check {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--primary, #1b6b5a);
+  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;
+}
+.ob-success__check svg { color: #fff; }
+.ob-success h2 { font-size: 1.5rem; margin-bottom: 8px; }
+.ob-success p { color: var(--gray-500); margin-bottom: 4px; }
+.ob-success__url {
+  font-size: 1.125rem; font-weight: 600; color: var(--primary, #1b6b5a);
+  text-decoration: none; display: inline-block; margin-bottom: 16px;
+}
+.ob-success__url:hover { text-decoration: underline; }
+.ob-success__trial {
+  font-size: 0.875rem; color: var(--gray-500); margin-bottom: 24px;
+}
+.ob-success__actions { display: flex; gap: 12px; justify-content: center; }
+
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
   .ob-page__card { padding: 24px 20px; }
   .ob-plans { grid-template-columns: 1fr; }
   .ob-congrats__actions { flex-direction: column; }
+  .ob-success__actions { flex-direction: column; align-items: center; }
 }

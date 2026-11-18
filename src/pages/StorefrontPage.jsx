@@ -130,23 +130,47 @@ function ratingStats(reviews) {
 
 /* ===== Review Form ===== */
 
-function ReviewForm({ onSubmit }) {
-  const [rating, setRating] = useState(0);
-  const [text, setText] = useState('');
-  const [name, setName] = useState('');
+function ReviewForm({ onSubmit, editing, onCancelEdit }) {
+  const [rating, setRating] = useState(editing ? editing.rating : 0);
+  const [text, setText] = useState(editing ? (editing.text || '') : '');
+  const [name, setName] = useState(editing ? (editing.name || '') : '');
+
+  // Reset form when editing prop changes
+  useEffect(() => {
+    if (editing) {
+      setRating(editing.rating);
+      setText(editing.text || '');
+      setName(editing.name || '');
+    } else {
+      setRating(0);
+      setText('');
+      setName('');
+    }
+  }, [editing?.id]);
+
   return (
     <div className="pp-rv-form">
-      <b>{t('rv_write')}</b>
+      <b>{editing ? t('rv_update') : t('rv_write')}</b>
       <div className="pp-rv-row">
         <span>{t('rv_your_rating')}</span>
         <Stars value={rating} size={26} onPick={setRating}/>
       </div>
-      <input placeholder={t('co_name')} value={name} onChange={e => setName(e.target.value)}/>
+      {!editing && <input placeholder={t('co_name')} value={name} onChange={e => setName(e.target.value)}/>}
       <textarea rows={3} value={text} onChange={e => setText(e.target.value)} placeholder={t('rv_text_ph')}/>
-      <button className="btn btn-accent btn-sm" disabled={!rating}
-        onClick={() => { onSubmit({ rating, text, name: name || t('rv_anon') }); setRating(0); setText(''); setName(''); }}>
-        {t('rv_send')}
-      </button>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn btn-accent btn-sm" disabled={!rating}
+          onClick={() => {
+            onSubmit({ rating, text, name: name || t('rv_anon') });
+            if (!editing) { setRating(0); setText(''); setName(''); }
+          }}>
+          {editing ? t('rv_update') : t('rv_send')}
+        </button>
+        {editing && onCancelEdit && (
+          <button className="btn btn-ghost btn-sm" type="button" onClick={onCancelEdit}>
+            {t('close')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -203,6 +227,41 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
   const [sending, setSending] = useState(false);
   const [tried, setTried] = useState(false);
 
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddrId, setSelectedAddrId] = useState(null); // null = not loaded yet, 'new' = new address, or address id
+  const [saveNewAddr, setSaveNewAddr] = useState(false);
+  const isLoggedIn = !!localStorage.getItem('rasta_token');
+
+  // Fetch saved addresses when checkout opens (only if logged in)
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    api.get('/buyer/me/addresses').then((res) => {
+      const addrs = Array.isArray(res.data) ? res.data : [];
+      setSavedAddresses(addrs);
+      if (addrs.length > 0) {
+        const def = addrs.find((a) => a.isDefault) || addrs[0];
+        setSelectedAddrId(def.id);
+        setAddress(def.text || def.address || '');
+      } else {
+        setSelectedAddrId('new');
+      }
+    }).catch(() => {
+      setSelectedAddrId('new');
+    });
+  }, []);
+
+  function handleAddrSelect(addrId) {
+    setSelectedAddrId(addrId);
+    if (addrId === 'new') {
+      setAddress('');
+      setSaveNewAddr(false);
+    } else {
+      const found = savedAddresses.find((a) => a.id === addrId);
+      if (found) setAddress(found.text || found.address || '');
+    }
+  }
+
   const deliveryFee = delivery === 'pickup' ? 0 : 15000;
   const subtotal = basket.reduce((s, b) => s + b.qty * b.unitPrice, 0);
   const total = subtotal + deliveryFee;
@@ -235,6 +294,18 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
           unitPrice: b.unitPrice,
         })),
       });
+
+      // Save new address if user opted in
+      if (isLoggedIn && saveNewAddr && selectedAddrId === 'new' && address.trim()) {
+        try {
+          await api.post('/buyer/me/addresses', {
+            label: '',
+            text: address.trim(),
+            isDefault: savedAddresses.length === 0,
+          });
+        } catch { /* address save is best-effort */ }
+      }
+
       onOrderSent(order.data);
     } catch (err) {
       showToast(err.response?.data?.message || 'Error placing order', 'error');
@@ -314,11 +385,68 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
           </div>
 
           {delivery === 'delivery' && (
-            <div className={`checkout-field${addrErr ? ' checkout-field--error' : ''}`}>
-              <label>{t('co_address')}</label>
-              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} aria-invalid={addrErr || undefined} />
-              {addrErr && <span className="checkout-field__err">{t('co_err_address')}</span>}
-            </div>
+            <>
+              {/* Saved addresses (only shown for logged-in users with addresses) */}
+              {isLoggedIn && savedAddresses.length > 0 && (
+                <div className="checkout-field">
+                  <label>{t('co_saved_addr')}</label>
+                  <div className="checkout-addr-list">
+                    {savedAddresses.map((addr) => (
+                      <label key={addr.id} className={`checkout-addr-option${selectedAddrId === addr.id ? ' checkout-addr-option--active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="saved-addr"
+                          checked={selectedAddrId === addr.id}
+                          onChange={() => handleAddrSelect(addr.id)}
+                        />
+                        <div className="checkout-addr-option__text">
+                          <span className="checkout-addr-option__label">
+                            {addr.label || t('co_address')}
+                            {addr.isDefault && <span className="checkout-addr-badge">{t('co_default')}</span>}
+                          </span>
+                          <span className="checkout-addr-option__addr">{addr.text || addr.address || ''}</span>
+                        </div>
+                      </label>
+                    ))}
+                    <label className={`checkout-addr-option${selectedAddrId === 'new' ? ' checkout-addr-option--active' : ''}`}>
+                      <input
+                        type="radio"
+                        name="saved-addr"
+                        checked={selectedAddrId === 'new'}
+                        onChange={() => handleAddrSelect('new')}
+                      />
+                      <span className="checkout-addr-option__label">{t('co_new_addr')}</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Address input: shown when no saved addresses OR "New address" is selected */}
+              {(selectedAddrId === 'new' || !isLoggedIn || savedAddresses.length === 0) && (
+                <div className={`checkout-field${addrErr ? ' checkout-field--error' : ''}`}>
+                  <label>{t('co_address')}</label>
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} aria-invalid={addrErr || undefined} />
+                  {addrErr && <span className="checkout-field__err">{t('co_err_address')}</span>}
+                  {isLoggedIn && selectedAddrId === 'new' && (
+                    <label className="checkout-save-addr">
+                      <input
+                        type="checkbox"
+                        checked={saveNewAddr}
+                        onChange={(e) => setSaveNewAddr(e.target.checked)}
+                      />
+                      <span>{t('co_save_addr')}</span>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* Hidden address field for validation when a saved address is selected */}
+              {selectedAddrId !== 'new' && isLoggedIn && savedAddresses.length > 0 && addrErr && (
+                <div className="checkout-field checkout-field--error">
+                  <span className="checkout-field__err">{t('co_err_address')}</span>
+                </div>
+              )}
+            </>
           )}
 
           <div className="checkout-field">
@@ -377,16 +505,22 @@ function CheckoutSheet({ basket, shop, onClose, onOrderSent, showToast, onUpdate
 /* ===== Order Success ===== */
 
 function OrderSuccess({ order, onClose }) {
+  const trackNo = order.orderNo || order.id;
   return (
     <div className="order-success">
       <div className="order-success__icon">{'✓'}</div>
       <h2>{t('co_success')}</h2>
-      <p>Order #{order.orderNo || order.id}</p>
+      <p>Order #{trackNo}</p>
       <p>{t('co_total')}: {fmtPrice(order.total)}</p>
       <p>The seller will confirm your order shortly.</p>
-      <button className="btn btn--primary btn--lg" onClick={onClose}>
-        {t('sf_back')}
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginTop: 12 }}>
+        <Link to={`/orders/${trackNo}`} className="btn btn-accent btn--lg">
+          {t('ot_track')}
+        </Link>
+        <button className="btn btn-ghost btn--lg" onClick={onClose}>
+          {t('sf_back')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -538,6 +672,7 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
   const [sel, setSel] = useState({});
   const [qty, setQty] = useState(1);
   const [reviews, setReviews] = useState([]);
+  const [editingReview, setEditingReview] = useState(null);
   const touchX = React.useRef(null);
 
   const name = localName(product, lang);
@@ -631,18 +766,68 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
     showToast(t('co_added'));
   }
 
+  // Track which reviews belong to the current visitor via localStorage
+  function getMyReviewIds() {
+    try { return JSON.parse(localStorage.getItem('rasta_my_reviews') || '[]'); } catch { return []; }
+  }
+  function addMyReviewId(id) {
+    const ids = getMyReviewIds();
+    if (!ids.includes(id)) { ids.push(id); localStorage.setItem('rasta_my_reviews', JSON.stringify(ids)); }
+  }
+  function removeMyReviewId(id) {
+    const ids = getMyReviewIds().filter(x => x !== id);
+    localStorage.setItem('rasta_my_reviews', JSON.stringify(ids));
+  }
+  function isMyReview(r) {
+    return getMyReviewIds().includes(r.id);
+  }
+
+  async function refreshReviews() {
+    const res = await api.get(`/shops/${shop.id}/reviews`);
+    const all = res.data || [];
+    setReviews(all.filter(r => r.productId === product.id));
+  }
+
   async function handleReviewSubmit(review) {
     try {
-      await api.post(`/shops/${shop.id}/reviews`, {
+      const res = await api.post(`/shops/${shop.id}/reviews`, {
         productId: product.id,
         rating: review.rating,
         name: review.name,
         text: review.text,
       });
+      // Track this review as ours
+      const created = res.data;
+      if (created && created.id) addMyReviewId(created.id);
       showToast(t('rv_thanks'));
-      const res = await api.get(`/shops/${shop.id}/reviews`);
-      const all = res.data || [];
-      setReviews(all.filter(r => r.productId === product.id));
+      await refreshReviews();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error', 'error');
+    }
+  }
+
+  async function handleReviewUpdate(review) {
+    if (!editingReview) return;
+    try {
+      await api.put(`/shops/${shop.id}/reviews/${editingReview.id}`, {
+        rating: review.rating,
+        text: review.text,
+      });
+      setEditingReview(null);
+      showToast(t('rv_thanks'));
+      await refreshReviews();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error', 'error');
+    }
+  }
+
+  async function handleReviewDelete(reviewId) {
+    if (!window.confirm(t('rv_delete_confirm'))) return;
+    try {
+      await api.delete(`/shops/${shop.id}/reviews/${reviewId}`);
+      removeMyReviewId(reviewId);
+      showToast(t('rv_thanks'));
+      await refreshReviews();
     } catch (err) {
       showToast(err.response?.data?.message || 'Error', 'error');
     }
@@ -816,13 +1001,34 @@ function ProductPage({ product: rawProduct, shop, handle, onBack, onAddToBasket,
                   <div className="pp-rv-top">
                     <b>{r.name || t('rv_anon')}</b>
                     <Stars value={r.rating} size={14} />
-                    {r.createdAt && <span>{new Date(r.createdAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>}
+                    {r.createdAt && (
+                      <span>
+                        {new Date(r.createdAt).toLocaleDateString(lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        {r.editedAt && <i style={{ fontStyle: 'italic', marginLeft: 4, opacity: 0.7 }}>({t('rv_edited')})</i>}
+                      </span>
+                    )}
                   </div>
                   {r.text && <p>{r.text}</p>}
+                  {isMyReview(r) && (
+                    <div className="pp-rv-acts" style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 13, padding: '2px 6px' }}
+                        onClick={() => setEditingReview(r)}>
+                        {t('rv_edit')}
+                      </button>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 13, padding: '2px 6px', color: '#e53e3e' }}
+                        onClick={() => handleReviewDelete(r.id)}>
+                        {t('g_delete')}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-            <ReviewForm onSubmit={handleReviewSubmit} />
+            <ReviewForm
+              onSubmit={editingReview ? handleReviewUpdate : handleReviewSubmit}
+              editing={editingReview}
+              onCancelEdit={() => setEditingReview(null)}
+            />
           </div>
         </div>
       </div>

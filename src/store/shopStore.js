@@ -137,6 +137,7 @@ export const useShopStore = create((set, get) => ({
       const clean = (v) => (v && v !== '' ? v : null);
       const payload = {
         name: data.name || undefined,
+        handle: clean(data.handle),
         tagline: data.tagline && Object.values(data.tagline).some(v => v) ? data.tagline : undefined,
         location: clean(data.city || data.location),
         type: clean(data.type),
@@ -150,6 +151,10 @@ export const useShopStore = create((set, get) => ({
         landmark: clean(data.landmark),
         mapLat: data.mapLat || undefined,
         mapLng: data.mapLng || undefined,
+        deliveryNote: clean(data.deliveryNote),
+        acceptedPayments: clean(data.acceptedPayments),
+        defaultThreshold: data.defaultThreshold != null ? data.defaultThreshold : undefined,
+        showSoldOut: data.showSoldOut != null ? data.showSoldOut : undefined,
       };
       const res = await api.put(`/shops/${get().shop.id}`, payload);
       set({ shop: res.data, loading: false });
@@ -157,6 +162,22 @@ export const useShopStore = create((set, get) => ({
     } catch (e) {
       set({ loading: false, error: e.response?.data?.message });
       throw e;
+    }
+  },
+
+  async deleteShop() {
+    const id = get().shop?.id;
+    if (!id) return;
+    await api.delete(`/shops/${id}`);
+    set({ shop: null, products: [], orders: [], sales: [], reviews: [], movements: [], stats: null });
+  },
+
+  async checkHandle(handle) {
+    try {
+      const res = await api.get('/shops/check-handle', { params: { handle } });
+      return res.data;
+    } catch (e) {
+      return { available: false };
     }
   },
 
@@ -310,6 +331,20 @@ export const useShopStore = create((set, get) => ({
       });
       return res.data;
     } catch (e) {
+      throw e;
+    }
+  },
+
+  async createPosSale(items, payMethod) {
+    const shopId = get().shop?.id;
+    if (!shopId) return;
+    try {
+      const res = await api.post(`/shops/${shopId}/sales`, { items, payMethod });
+      set({ sales: [res.data, ...get().sales] });
+      get().fetchProducts(shopId);
+      return res.data;
+    } catch (e) {
+      console.error('createPosSale', e);
       throw e;
     }
   },

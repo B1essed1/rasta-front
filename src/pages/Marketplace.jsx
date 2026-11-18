@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { t, onLangChange } from '../i18n';
+import { t, fill, onLangChange, getLang } from '../i18n';
 import { useShopStore } from '../store/shopStore';
-import { shopTypes as fallbackShopTypes, fetchShopTypes, getCategoryName, cities } from '../data/types';
+import { shopTypes as fallbackShopTypes, fetchShopTypes, getCategoryName, getShopType, cities } from '../data/types';
 import '../styles/marketplace.css';
 
 const SORT_OPTIONS = [
@@ -55,6 +55,27 @@ export default function Marketplace() {
     return matchesSearch && matchesType;
   });
 
+  const dirty = search || typeFilter || cityFilter || sortBy;
+
+  function clearAll() {
+    setSearch('');
+    setTypeFilter('');
+    setCityFilter('');
+    setSortBy('');
+  }
+
+  function getTagline(shop) {
+    if (!shop.tagline) return '';
+    const lang = getLang();
+    return shop.tagline[lang] || shop.tagline.en || shop.tagline.uz || '';
+  }
+
+  function getTypeBadge(shop) {
+    if (!shop.type) return null;
+    const st = getShopType(shop.type);
+    return st ? getCategoryName(st) : null;
+  }
+
   return (
     <div className="marketplace">
       <Navbar />
@@ -91,6 +112,11 @@ export default function Marketplace() {
                 <option key={o.value} value={o.value}>{t(o.label)}</option>
               ))}
             </select>
+            {dirty && (
+              <button className="btn btn-ghost btn-sm mp-clear-btn" onClick={clearAll} type="button">
+                &#10005; {t('mp_clear')}
+              </button>
+            )}
           </div>
           <div className="marketplace__types">
             <button
@@ -116,43 +142,82 @@ export default function Marketplace() {
         {loading ? (
           <div className="marketplace__loading">{t('loading')}</div>
         ) : filtered.length === 0 ? (
-          <div className="marketplace__empty">{t('mp_no_results')}</div>
-        ) : (
-          <div className="marketplace__grid">
-            {filtered.map((shop) => (
-              <Link key={shop.id || shop.handle} to={`/${shop.handle}`} className="shop-card">
-                <div
-                  className="shop-card__cover"
-                  style={{
-                    backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
-                    backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || '#e8e8e4'),
-                  }}
-                >
-                  {shop.logoUrl ? (
-                    <img src={shop.logoUrl} alt={shop.name} className="shop-card__avatar" />
-                  ) : (
-                    <div className="shop-card__avatar-initials">
-                      {shop.initials || shop.name?.charAt(0) || ''}
-                    </div>
-                  )}
-                </div>
-                <div className="shop-card__body">
-                  <h3 className="shop-card__name">{shop.name}</h3>
-                  <p className="shop-card__handle">labaratory.rastashops.com/{shop.handle}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-                    {shop.location && (
-                      <span className="shop-card__location">{shop.location}</span>
-                    )}
-                    {shop.rating > 0 && (
-                      <span style={{ fontSize: '0.75rem', color: 'var(--soft, #6f655a)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <span style={{ color: '#e09a36' }}>&#9733;</span> {Number(shop.rating).toFixed(1)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
+          <div className="marketplace__empty-state">
+            <div className="marketplace__empty-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <h3 className="marketplace__empty-title">{t('mp_no_results')}</h3>
+            <p className="marketplace__empty-desc">{t('mp_no_results_d')}</p>
+            {dirty && (
+              <button className="btn btn-ghost btn-sm" onClick={clearAll} type="button">
+                {t('mp_clear')}
+              </button>
+            )}
           </div>
+        ) : (
+          <>
+            <div className="marketplace__result-count">
+              {fill(t('mp_showing'), { n: filtered.length })}
+            </div>
+            <div className="marketplace__grid">
+              {filtered.map((shop) => {
+                const tagline = getTagline(shop);
+                const typeBadge = getTypeBadge(shop);
+                return (
+                  <Link key={shop.id || shop.handle} to={`/${shop.handle}`} className="shop-card">
+                    <div
+                      className="shop-card__cover"
+                      style={{
+                        backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
+                        backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || '#e8e8e4'),
+                      }}
+                    >
+                      {typeBadge && (
+                        <span className="shop-card__type-badge">{typeBadge}</span>
+                      )}
+                      {shop.logoUrl ? (
+                        <img src={shop.logoUrl} alt={shop.name} className="shop-card__avatar" />
+                      ) : (
+                        <div className="shop-card__avatar-initials">
+                          {shop.initials || shop.name?.charAt(0) || ''}
+                        </div>
+                      )}
+                    </div>
+                    <div className="shop-card__body">
+                      <h3 className="shop-card__name">{shop.name}</h3>
+                      {tagline && <p className="shop-card__tagline">{tagline}</p>}
+                      <p className="shop-card__handle">labaratory.rastashops.com/{shop.handle}</p>
+                      <div className="shop-card__meta">
+                        {shop.location && (
+                          <span className="shop-card__location">{shop.location}</span>
+                        )}
+                        {shop.rating > 0 && (
+                          <span className="shop-card__rating">
+                            <span className="shop-card__star">&#9733;</span> {Number(shop.rating).toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="shop-card__footer">
+                        {typeof shop.productCount === 'number' ? (
+                          <span className="shop-card__count">
+                            {shop.productCount} {t('mp_products_count')}
+                          </span>
+                        ) : shop.products?.length != null ? (
+                          <span className="shop-card__count">
+                            {shop.products.length} {t('mp_products_count')}
+                          </span>
+                        ) : null}
+                        <span className="shop-card__open-label">{t('mp_open')} &rarr;</span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </div>

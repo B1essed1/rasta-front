@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/ui/Logo';
 import LangPill from '../components/ui/LangPill';
 import Stepper from '../components/ui/Stepper';
-import { t, onLangChange } from '../i18n';
+import { t, fill, onLangChange, getLang } from '../i18n';
 import { useAuthStore } from '../store/authStore';
 import { useShopStore } from '../store/shopStore';
-import { themes } from '../data/themes';
-import { palettes } from '../data/palettes';
-import { shopTypes as fallbackShopTypes, cities, fetchShopTypes, getCategoryName } from '../data/types';
+import { themes, getTheme } from '../data/themes';
+import { palettes, getPalette } from '../data/palettes';
+import { shopTypes as fallbackShopTypes, cities, fetchShopTypes, getCategoryName, getShopType } from '../data/types';
 import '../styles/onboarding.css';
 
 /* ---- demo accounts ---- */
@@ -284,7 +284,7 @@ function AuthStep({ onNext }) {
   );
 }
 
-function ShopStep({ data, onChange }) {
+function ShopStep({ data, onChange, handleAvail, onHandleCheck }) {
   const [, setTick] = useState(0);
   const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
   useEffect(() => { return onLangChange(() => setTick((t) => t + 1)); }, []);
@@ -300,6 +300,13 @@ function ShopStep({ data, onChange }) {
       .replace(/[^a-z0-9_]/g, '')
       .slice(0, 30);
     onChange({ ...data, name: value, handle });
+    if (handle.length >= 3) onHandleCheck(handle);
+  }
+
+  function handleHandleChange(value) {
+    const clean = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30);
+    handleChange('handle', clean);
+    if (clean.length >= 3) onHandleCheck(clean);
   }
 
   return (
@@ -316,29 +323,52 @@ function ShopStep({ data, onChange }) {
         />
       </div>
       <div className="form-group">
-        <label className="form-label">{t('ob_handle')}</label>
+        <label className="form-label">{t('ob_tagline')}</label>
+        <input
+          type="text"
+          className="form-input"
+          value={data.tagline || ''}
+          onChange={(e) => handleChange('tagline', e.target.value)}
+          placeholder={t('ob_tagline_ph')}
+        />
+      </div>
+      <div className="form-group">
+        <label className="form-label">
+          {t('ob_handle')}
+          {data.handle && data.handle.length >= 3 && handleAvail !== null && (
+            <span className={`ob-handle-check ${handleAvail ? 'ok' : 'bad'}`}>
+              {handleAvail ? (
+                <><CheckIcon /> {t('ob_avail')}</>
+              ) : (
+                <><CloseIcon /> {t('ob_taken')}</>
+              )}
+            </span>
+          )}
+        </label>
         <div className="handle-input">
           <span className="handle-input__prefix">{t('ob_handle_hint')}</span>
           <input
             type="text"
             className="handle-input__field"
             value={data.handle || ''}
-            onChange={(e) => handleChange('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30))}
+            onChange={(e) => handleHandleChange(e.target.value)}
           />
         </div>
       </div>
       <div className="form-group">
         <label className="form-label">{t('ob_category')}</label>
-        <select
-          className="form-select"
-          value={data.type || ''}
-          onChange={(e) => handleChange('type', e.target.value)}
-        >
-          <option value="">{t('ob_category')}</option>
+        <div className="ob-cats">
           {shopTypes.map((st) => (
-            <option key={st.id} value={st.id}>{getCategoryName(st)}</option>
+            <button
+              key={st.id}
+              type="button"
+              className={`ob-cat${data.type === st.id ? ' on' : ''}`}
+              onClick={() => handleChange('type', st.id)}
+            >
+              {getCategoryName(st)}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
       <div className="form-group">
         <label className="form-label">{t('ob_city')}</label>
@@ -523,41 +553,80 @@ function ReviewStep({ data }) {
   const [, setTick] = useState(0);
   useEffect(() => { return onLangChange(() => setTick((t) => t + 1)); }, []);
 
+  const palette = getPalette(data.paletteId);
+  const theme = getTheme(data.themeId);
+  const shopType = getShopType(data.type);
+  const categoryName = getCategoryName(shopType);
+  const planName = data.plan === 'pro' ? t('price_pro') : t('price_starter');
+  const billingLabel = data.billing === 'yearly' ? t('yearly') : t('monthly');
+  const trialEnd = new Date(Date.now() + 180 * 86400000);
+  const lang = getLang();
+  const trialDateStr = trialEnd.toLocaleDateString(
+    lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB',
+    { day: 'numeric', month: 'long', year: 'numeric' }
+  );
+
+  const coverStyle = data.coverUrl
+    ? { backgroundImage: `url(${data.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: palette.accent };
+
   return (
     <div className="ob-step">
       <h2>{t('ob_review_t')}</h2>
-      <div className="ob-review">
-        <div className="ob-review__item">
-          <span className="ob-review__label">{t('ob_shop_name')}</span>
-          <span className="ob-review__value">{data.name || '—'}</span>
+      <div className="ob-review-card">
+        <div className="ob-review-cover" style={coverStyle}>
+          {data.logoUrl && (
+            <img src={data.logoUrl} alt="Logo" className="ob-review-logo" />
+          )}
         </div>
-        <div className="ob-review__item">
-          <span className="ob-review__label">{t('ob_handle')}</span>
-          <span className="ob-review__value">labaratory.rastashops.com/{data.handle || '—'}</span>
-        </div>
-        <div className="ob-review__item">
-          <span className="ob-review__label">{t('ob_category')}</span>
-          <span className="ob-review__value">{data.type || '—'}</span>
-        </div>
-        <div className="ob-review__item">
-          <span className="ob-review__label">{t('ob_city')}</span>
-          <span className="ob-review__value">{data.city || '—'}</span>
-        </div>
-        <div className="ob-review__item">
-          <span className="ob-review__label">{t('db_theme')}</span>
-          <span className="ob-review__value">{data.themeId || 'minimal'}</span>
-        </div>
-        <div className="ob-review__item">
-          <span className="ob-review__label">{t('ob_plan_t')}</span>
-          <span className="ob-review__value">{data.plan || 'starter'}</span>
-        </div>
-        {data.coverUrl && (
-          <div className="ob-review__cover">
-            <img src={data.coverUrl} alt="Cover" />
+        <div className="ob-review-body">
+          <div className="ob-review-name" style={{ fontFamily: theme.family }}>
+            {data.name || '—'}
           </div>
-        )}
+          <div className="ob-pal-strip">
+            <i style={{ background: palette.bg }} />
+            <i style={{ background: palette.surface }} />
+            <i style={{ background: palette.accent }} />
+            <i style={{ background: palette.ink }} />
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="ob-review-row">
+          <span>{t('ob_shop_name')}</span>
+          <span style={{ fontWeight: 500 }}>{data.name || '—'}</span>
+        </div>
+        <div className="ob-review-row">
+          <span>{t('ob_handle')}</span>
+          <span style={{ fontWeight: 500 }}>labaratory.rastashops.com/{data.handle || '—'}</span>
+        </div>
+        <div className="ob-review-row">
+          <span>{t('ob_category')}</span>
+          <span style={{ fontWeight: 500 }}>{categoryName || '—'}</span>
+        </div>
+        <div className="ob-review-row">
+          <span>{t('ob_city')}</span>
+          <span style={{ fontWeight: 500 }}>{data.city || '—'}</span>
+        </div>
+        <div className="ob-review-row">
+          <span>{t('ob_plan_t')}</span>
+          <span style={{ fontWeight: 500 }}>{planName} / {billingLabel}</span>
+        </div>
+        <div className="ob-review-row">
+          <span>{t('price_free_trial')}</span>
+          <span style={{ fontWeight: 500 }}>{fill(t('ob_trial_note'), { date: trialDateStr })}</span>
+        </div>
       </div>
     </div>
+  );
+}
+
+/* ---- Large check icon for success screen ---- */
+function LargeCheckIcon() {
+  return (
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+      <path d="M8 18.5l7 7 13-13" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
   );
 }
 
@@ -567,6 +636,7 @@ export default function Onboarding() {
   const [data, setData] = useState({
     name: '',
     handle: '',
+    tagline: '',
     type: '',
     city: '',
     telegram: '',
@@ -579,18 +649,38 @@ export default function Onboarding() {
     billing: 'monthly',
   });
   const [published, setPublished] = useState(false);
+  const [handleAvail, setHandleAvail] = useState(null);
+  const handleCheckTimer = useRef(null);
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const createShop = useShopStore((s) => s.createShop);
+  const checkHandle = useShopStore((s) => s.checkHandle);
   const loading = useShopStore((s) => s.loading);
 
   useEffect(() => { return onLangChange(() => setTick((t) => t + 1)); }, []);
 
   const stepLabels = [t('ob_auth_t'), t('ob_shop_t'), t('ob_brand_t'), t('ob_plan_t'), t('ob_review_t')];
 
+  /* Debounced handle availability check */
+  const doHandleCheck = useCallback((handle) => {
+    if (handleCheckTimer.current) clearTimeout(handleCheckTimer.current);
+    if (!handle || handle.length < 3) {
+      setHandleAvail(null);
+      return;
+    }
+    handleCheckTimer.current = setTimeout(async () => {
+      try {
+        const result = await checkHandle(handle);
+        setHandleAvail(result.available !== false);
+      } catch {
+        setHandleAvail(null);
+      }
+    }, 300);
+  }, [checkHandle]);
+
   function canProceed() {
     if (step === 0) return !!token;
-    if (step === 1) return data.name && data.handle;
+    if (step === 1) return data.name && data.handle && handleAvail !== false;
     return true;
   }
 
@@ -603,6 +693,14 @@ export default function Onboarding() {
     }
   }
 
+  /* Compute trial end date for success screen */
+  const trialEnd = new Date(Date.now() + 180 * 86400000);
+  const lang = getLang();
+  const trialDateStr = trialEnd.toLocaleDateString(
+    lang === 'ru' ? 'ru-RU' : lang === 'uz' ? 'uz-UZ' : 'en-GB',
+    { day: 'numeric', month: 'long', year: 'numeric' }
+  );
+
   if (published) {
     return (
       <div className="ob-page">
@@ -610,13 +708,26 @@ export default function Onboarding() {
           <Logo size={36} />
           <LangPill />
         </div>
-        <div className="ob-page__card ob-congrats">
-          <div className="ob-congrats__icon">&#127881;</div>
-          <h2>{t('ob_congrats')}</h2>
-          <p>labaratory.rastashops.com/{data.handle}</p>
-          <div className="ob-congrats__actions">
-            <button className="btn btn--primary" onClick={() => navigate('/dashboard')}>
-              {t('ob_go_dashboard')}
+        <div className="ob-page__card ob-success">
+          <div className="ob-success__check">
+            <LargeCheckIcon />
+          </div>
+          <h2>{t('ob_created_t')}</h2>
+          <p>{t('ob_created_d')}</p>
+          <a
+            className="ob-success__url"
+            href={`/${data.handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            labaratory.rastashops.com/{data.handle}
+          </a>
+          <div className="ob-success__trial">
+            {fill(t('ob_trial_note'), { date: trialDateStr })}
+          </div>
+          <div className="ob-success__actions">
+            <button className="btn btn--primary" onClick={() => navigate('/dashboard/products')}>
+              {t('ob_add_first')}
             </button>
             <button className="btn btn--outline" onClick={() => navigate(`/${data.handle}`)}>
               {t('ob_go_shop')}
@@ -638,7 +749,14 @@ export default function Onboarding() {
       </div>
       <div className="ob-page__card">
         {step === 0 && <AuthStep onNext={() => setStep(1)} />}
-        {step === 1 && <ShopStep data={data} onChange={setData} />}
+        {step === 1 && (
+          <ShopStep
+            data={data}
+            onChange={setData}
+            handleAvail={handleAvail}
+            onHandleCheck={doHandleCheck}
+          />
+        )}
         {step === 2 && <BrandStep data={data} onChange={setData} />}
         {step === 3 && <PlanStep data={data} onChange={setData} />}
         {step === 4 && <ReviewStep data={data} />}

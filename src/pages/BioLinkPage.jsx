@@ -284,7 +284,7 @@ function BioOS({ shop, handle, links, products, tagline, meta, cls, vars, lang }
                 );
               })}
             </div>
-            <div className="vo-status"><span>{products.length} {t('cc_objects')}</span><span>rasta.uz</span></div>
+            <div className="vo-status"><span>{products.length} {t('cc_objects')}</span><span>labaratory.rastashops.com</span></div>
           </div>
         )}
         <div className="vo-task">
@@ -332,7 +332,7 @@ function BioReceipt({ shop, handle, links, products, tagline, meta, cls, vars, l
             <div className="vr-hr dbl"></div>
             {shopLink && <BioLink href={shopLink.href} className="vr-total"><span>{t('cc_total')}</span><b>{shopLink.label} &rarr;</b></BioLink>}
             <div className="vr-barcode"></div>
-            <div className="vr-c vr-sm">rasta.uz/{handle}</div>
+            <div className="vr-c vr-sm">labaratory.rastashops.com/{handle}</div>
             <div className="vr-c vr-sm">{t('cc_thanks')}</div>
           </div>
           <div className="vr-edge bot"></div>
@@ -408,7 +408,7 @@ function BioTicket({ shop, handle, links, products, tagline, meta, cls, vars, la
         <div className="tk-list">
           {shopLink && (
             <BioLink href={shopLink.href} className="tk tk-big">
-              <span className="tk-main"><small>{t('cc_entry')} &middot; rasta.uz</small><b>{shopLink.label}</b><span className="tk-row"><i>{shop.location}</i><i>{now.toLocaleDateString('en-GB')}</i></span></span>
+              <span className="tk-main"><small>{t('cc_entry')} &middot; labaratory.rastashops.com</small><b>{shopLink.label}</b><span className="tk-row"><i>{shop.location}</i><i>{now.toLocaleDateString('en-GB')}</i></span></span>
               <span className="tk-stub"><span className="tk-bc"></span><em>&numero; 001</em></span>
             </BioLink>
           )}
@@ -450,7 +450,7 @@ function BioPlayer({ shop, handle, links, products, tagline, meta, cls, vars, la
         <div className="vy-card">
           <div className="vy-top">
             <span>{CC_I.back({ width: 18, height: 18, style: { transform: 'rotate(-90deg)' } })}</span>
-            <small>{t('cc_from')}<b>rasta.uz/{handle}</b></small>
+            <small>{t('cc_from')}<b>labaratory.rastashops.com/{handle}</b></small>
             <span>{CC_I.dots({ width: 18, height: 18 })}</span>
           </div>
           <div className="vy-art">
@@ -530,7 +530,7 @@ function BioCoverLayout({ shop, handle, links, products, tagline, meta, cls, var
         </div>
         {products.length > 0 && (
           <div className="vz-inside">
-            <div className="vz-ih"><b>{t('cc_inside')}</b><span>rasta.uz/{handle}</span></div>
+            <div className="vz-ih"><b>{t('cc_inside')}</b><span>labaratory.rastashops.com/{handle}</span></div>
             {products.map((p, i) => {
               const n = nm(p, lang);
               return (
@@ -570,7 +570,7 @@ function BioBento({ shop, handle, links, products, tagline, meta, cls, vars, lan
                   ? <ProdImg p={products[0]} name={nm(products[0], lang)} />
                   : <BioCover shop={shop} cls="vb-fill" />}
               </span>
-              <span className="vb-shop-tx"><i>rasta.uz/{handle}</i><b>{shopLink.label}</b></span>
+              <span className="vb-shop-tx"><i>labaratory.rastashops.com/{handle}</i><b>{shopLink.label}</b></span>
               <span className="vb-go">{vArrow(22)}</span>
             </BioLink>
           )}

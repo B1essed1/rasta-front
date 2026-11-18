@@ -102,9 +102,7 @@ export default function HomeView() {
 
   const goOrders = () => navigate('/dashboard/orders');
   const goProducts = () => navigate('/dashboard/products');
-  // The app has no /dashboard/inventory route yet (the shell renders inventory as a
-  // non-routed placeholder tab), so the stock CTAs land on the products page.
-  const goInventory = goProducts;
+  const goInventory = () => navigate('/dashboard/inventory');
 
   const attn = [];
   if (oc.new)
@@ -218,8 +216,7 @@ export default function HomeView() {
           <span className="qa-ic accent">{I.plus({ width: 20, height: 20 })}</span>
           {t('db_add')}
         </button>
-        {/* The app has no POS/scan screen yet; the sales page is the nearest real route. */}
-        <button className="qa" onClick={() => navigate('/dashboard/sales')} type="button">
+        <button className="qa" onClick={() => navigate('/dashboard/scan')} type="button">
           <span className="qa-ic accent">{I.scan({ width: 20, height: 20 })}</span>
           {t('db_scan')}
         </button>

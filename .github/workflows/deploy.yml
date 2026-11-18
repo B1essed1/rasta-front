@@ -102,7 +102,7 @@ jobs:
           #                                     unknown paths must NOT 404)
           #   /assets/does-not-exist.js-> 404  (a missing asset must fail loudly,
           #                                     not be masked by that fallback)
-          base=https://labaratory.rastashops.com
+          base=https://rasta.uz
           for path in "/" "/some-shop-handle" "/assets/does-not-exist.js"; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$base$path" || echo 000)
             echo "$path -> $code"

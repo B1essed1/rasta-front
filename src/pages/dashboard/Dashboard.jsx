@@ -153,8 +153,6 @@ export default function Dashboard() {
     [products, config]
   );
 
-  // Design tints the avatar tile with the palette's `swatch`; the app's palettes have
-  // no swatch field, so fall back to the shop's cover colour, then the accent.
   const palette = getPalette(config?.palette);
   const tone = palette?.swatch || shop?.coverColor || palette?.accent || '#ddd6cb';
 
@@ -222,7 +220,7 @@ export default function Dashboard() {
         <div className="db-side-foot">
           <button
             type="button"
-            className="btn btn-soft btn-sm"
+            className="btn btn-accent btn-sm"
             style={{ width: '100%' }}
             onClick={handleScan}
           >
@@ -231,12 +229,12 @@ export default function Dashboard() {
           <button
             type="button"
             className="btn btn-soft btn-sm"
-            style={{ width: '100%' }}
+            style={{ width: '100%', marginTop: 6 }}
             onClick={handleVisit}
           >
             {I.eye({ width: 17, height: 17 })} {t('db_visit')}
           </button>
-          <div className="db-side-row">
+          <div className="db-side-row" style={{ marginTop: 10 }}>
             <LangPill />
             <button type="button" className="lnk" onClick={handleLogout}>
               {t('au_logout')}
@@ -248,6 +246,15 @@ export default function Dashboard() {
       <div className="db-main">
         <div className="db-top">
           <h1>{curNav.label}</h1>
+          <div className="right">
+            <button type="button" className="btn btn-soft btn-xs" onClick={handleScan}>
+              {I.scan({ width: 15, height: 15 })} {scanLabel}
+            </button>
+            <LangPill />
+            <button type="button" className="btn btn-soft btn-xs" onClick={handleVisit}>
+              {I.eye({ width: 15, height: 15 })} {t('db_visit')}
+            </button>
+          </div>
         </div>
 
         <div className="db-mobtop">
@@ -261,7 +268,7 @@ export default function Dashboard() {
               <b>{shop?.name || ''}</b>
             </div>
             <div className="dmt-right">
-              <button type="button" className="btn btn-soft btn-xs" aria-label={t('db_scan')} onClick={handleScan}>
+              <button type="button" className="btn btn-accent btn-xs" aria-label={t('db_scan')} onClick={handleScan}>
                 {I.scan({ width: 15, height: 15 })}
               </button>
               <LangPill />

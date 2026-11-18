@@ -1,7 +1,7 @@
 /* Fonts — identical to the design harness (design-src/dash.html) */
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Newsreader:opsz,wght@6..72,300..600&family=Outfit:wght@300..800&family=Space+Grotesk:wght@400..700&display=swap');
 
-/* ===== labaratory.rastashops.com — platform chrome & shared styles ===== */
+/* ===== rasta.uz — platform chrome & shared styles ===== */
 /* ---------------------------------------------------------------------------
    PART 1 — ported verbatim from design-src/app.css. This is the source of
    truth for the design tokens. Do not edit; re-sync from the design instead.
@@ -524,3 +524,27 @@ ul,ol{list-style:none; margin:0; padding:0;}
 .verified-row b { font-size:15px; }
 .verified-row small { font-size:12px; color:var(--soft, #6f665a); }
 .tg-mark { width:44px; height:44px; flex-shrink:0; }
+
+/* ===== ORDER TRACKING ===== */
+.ot-page{max-width:600px; margin:40px auto; padding:0 20px;}
+.ot-header{text-align:center; margin-bottom:32px;}
+.ot-header h1{font-family:var(--font-display); font-size:24px; font-weight:700;}
+.ot-header .ot-no{font-size:15px; color:var(--soft); margin-top:4px;}
+.ot-progress{display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; position:relative;}
+.ot-progress::before{content:''; position:absolute; top:16px; left:24px; right:24px; height:2px; background:var(--line);}
+.ot-step{display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; z-index:1;}
+.ot-dot{width:32px; height:32px; border-radius:50%; border:2px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center;}
+.ot-step.done .ot-dot{background:var(--primary); border-color:var(--primary); color:#fff;}
+.ot-step.current .ot-dot{background:var(--primary); border-color:var(--primary); color:#fff; box-shadow:0 0 0 4px var(--primary-tint);}
+.ot-step.cancelled .ot-dot{background:#dc3545; border-color:#dc3545; color:#fff;}
+.ot-step-label{font-size:12px; font-weight:600; color:var(--soft); text-align:center;}
+.ot-step.done .ot-step-label,.ot-step.current .ot-step-label{color:var(--ink);}
+.ot-section{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:16px;}
+.ot-section h3{font-size:15px; font-weight:700; margin-bottom:12px;}
+.ot-item{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);}
+.ot-item:last-child{border-bottom:none;}
+.ot-item.dropped{opacity:.5; text-decoration:line-through;}
+.ot-row{display:flex; justify-content:space-between; padding:6px 0; font-size:14px;}
+.ot-row.total{font-weight:700; border-top:1px solid var(--line); padding-top:10px; margin-top:4px;}
+.ot-cancel-section{text-align:center; margin-top:24px;}
+.ot-cancelled-badge{display:inline-flex; align-items:center; gap:6px; background:#fbe6e3; color:#c4392f; padding:8px 16px; border-radius:999px; font-weight:650; font-size:14px; margin-bottom:12px;}

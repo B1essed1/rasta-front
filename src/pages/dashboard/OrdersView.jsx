@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { t, onLangChange, fmtPrice, getLang, plural } from '../../i18n';
+import { t, onLangChange, fmtPrice, fill, getLang, plural } from '../../i18n';
 import { useShopStore } from '../../store/shopStore';
 import StatusPill from '../../components/ui/StatusPill';
 import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
+import { I } from '../../components/ui/Icons';
 import { toast } from '../../components/ui/ToastHost';
 
 const statusFilters = ['all', 'NEW', 'CONFIRMED', 'READY', 'OUT', 'COMPLETED', 'CANCELLED'];
@@ -48,6 +49,12 @@ function OrderCard({ order, onConfirm, onCancel, onStatusChange }) {
     return method || '—';
   }
 
+  const staleHours = (() => {
+    if (order.status !== 'NEW' || !order.createdAt) return 0;
+    const diff = Date.now() - new Date(order.createdAt).getTime();
+    return diff > 86400000 ? Math.floor(diff / 3600000) : 0;
+  })();
+
   return (
     <div className={`order-card ${expanded ? 'order-card--open' : ''}`}>
       <button className="order-card__summary" onClick={() => setExpanded(!expanded)} type="button">
@@ -58,6 +65,12 @@ function OrderCard({ order, onConfirm, onCancel, onStatusChange }) {
         <StatusPill status={order.status.toLowerCase()} label={t(`or_${order.status.toLowerCase()}`)} />
         <span className="order-card__total">{fmtPrice(order.total)}</span>
         <span className="order-card__date">{formatDate(order.createdAt)}</span>
+        {staleHours > 0 && (
+          <span className="order-card__stale" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#b45309', fontSize: 13 }}>
+            {I.clock({ width: 14, height: 14 })}
+            {fill(t('or_stale'), { h: staleHours })}
+          </span>
+        )}
         <span className="order-card__expand">{expanded ? '−' : '+'}</span>
       </button>
       {expanded && (
@@ -88,6 +101,17 @@ function OrderCard({ order, onConfirm, onCancel, onStatusChange }) {
               <div><span>{t('or_delivery')}</span><b>{localizeDelivery(order.deliveryMethod)}</b></div>
               <div><span>{t('or_payment')}</span><b>{localizePayment(order.payMethod)}</b></div>
               {order.note && <div className="order-note">{order.note}</div>}
+              {order.status === 'CANCELLED' && order.cancelReason && (
+                <div style={{ marginTop: 8 }}>
+                  <span>{t('or_cancel_reason')}</span>
+                  <b style={{ marginLeft: 4 }}>{order.cancelReason}</b>
+                </div>
+              )}
+              {order.status === 'CANCELLED' && order.cancelledBy && (
+                <div style={{ marginTop: 4, color: '#b45309', fontSize: 13 }}>
+                  {fill(t('or_cancelled_by'), { who: order.cancelledBy === 'shop' ? t('or_delivery') : t('or_customer') })}
+                </div>
+              )}
             </div>
           </div>
           <div className="order-card__actions">
@@ -221,6 +245,22 @@ export default function OrdersView() {
         {actionModal?.action === 'cancel' && (
           <div className="form-group">
             <label className="form-label">{t('or_cancel_reason')}</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              {[
+                { key: 'or_reason_stock', value: t('or_reason_stock') },
+                { key: 'or_reason_noreply', value: t('or_reason_noreply') },
+                { key: 'or_reason_buyer', value: t('or_reason_buyer') },
+              ].map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className={'type-pill' + (cancelReason === chip.value ? ' type-pill--active' : '')}
+                  onClick={() => setCancelReason(chip.value)}
+                >
+                  {chip.value}
+                </button>
+              ))}
+            </div>
             <input type="text" className="form-input" value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
           </div>
         )}
