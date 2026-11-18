@@ -39,12 +39,12 @@ const TILE_PRICES = [
   ['180k', '240k', '320k', '450k'],
 ];
 
-function ThemeCard({ theme, index }) {
+function ThemeCard({ theme, index, onNavigate }) {
   const preview = theme.preview;
   const tiles = TILE_COLORS[index % TILE_COLORS.length];
   const prices = TILE_PRICES[index % TILE_PRICES.length];
   return (
-    <div className="theme-card" style={{ '--tbg': preview.bg, '--tr': theme.radius, fontFamily: theme.family }}>
+    <div className="theme-card" style={{ '--tbg': preview.bg, '--tr': theme.radius, fontFamily: theme.family }} onClick={onNavigate}>
       <div className="tc-view" style={{ backgroundColor: preview.bg }}>
         <div className="tc-shop">
           <div className="tc-av ph" style={{ '--ph-tone': preview.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: '#fff' }}>
@@ -68,7 +68,7 @@ function ThemeCard({ theme, index }) {
           <span className="tc-swatch" style={{ backgroundColor: preview.accent }} />
           {t(theme.nameKey)}
         </b>
-        <span className="tc-go">Preview &rarr;</span>
+        <span className="tc-go">{t('cta_explore')} &rarr;</span>
       </div>
     </div>
   );
@@ -182,11 +182,12 @@ export default function Landing() {
             <p className="hero-sub">{t('hero_sub')}</p>
             <div className="hero-cta">
               <button className="btn btn-accent btn-lg" onClick={() => navigate('/onboarding')}>
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 {t('cta_start')}
               </button>
               <button className="btn btn-explore btn-lg" onClick={() => navigate('/explore')}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                {t('cta_demo')}
+                {t('cta_explore')}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
               </button>
             </div>
@@ -204,7 +205,7 @@ export default function Landing() {
             <div className="float-badge fb-1">
               <div className="fbi" style={{ background: 'var(--saffron-tint)', color: '#b06f1e' }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                 </svg>
               </div>
               {t('s2')}
@@ -212,7 +213,7 @@ export default function Landing() {
             <div className="float-badge fb-2">
               <div className="fbi" style={{ background: 'var(--primary-tint)', color: 'var(--primary-700)' }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="7" y2="16"/><line x1="11" y1="8" x2="11" y2="16"/><line x1="15" y1="8" x2="15" y2="12"/>
                 </svg>
               </div>
               {t('f3_t')}
@@ -329,7 +330,7 @@ export default function Landing() {
             <div className="theme-row">
               {themes.map((theme, i) => (
                 <div key={theme.id} data-reveal style={{ '--ri': i }}>
-                  <ThemeCard theme={theme} index={i} />
+                  <ThemeCard theme={theme} index={i} onNavigate={() => navigate('/explore')} />
                 </div>
               ))}
             </div>
@@ -381,7 +382,7 @@ export default function Landing() {
       <section className="sect">
         <div className="wrap">
           <div className="sect-head" data-reveal>
-            <span className="kicker">{t('steps_title')}</span>
+            <span className="kicker">{t('steps_kicker')}</span>
             <h2>{t('steps_title')}</h2>
           </div>
           <div className="steps">
@@ -406,10 +407,10 @@ export default function Landing() {
           <div className="sect-head" data-reveal>
             <span className="kicker">{t('pricing_kicker')}</span>
             <h2>{t('pricing_title')}</h2>
-            <p>{t('themes_sub')}</p>
+            <p>{t('pricing_sub')}</p>
           </div>
           <div className="ob-plans lp-plans">
-            <div className="ob-plan" onClick={() => navigate('/onboarding')}>
+            <div className="ob-plan" data-reveal style={{ '--ri': 0 }} onClick={() => navigate('/onboarding')}>
               <div className="ob-plan-h"><b>{t('price_starter')}</b></div>
               <div className="ob-plan-d">{t('price_free_trial')}</div>
               <div className="ob-plan-price">
@@ -426,7 +427,7 @@ export default function Landing() {
                 {t('cta_start_free')}
               </button>
             </div>
-            <div className="ob-plan on" onClick={() => navigate('/onboarding')}>
+            <div className="ob-plan on" data-reveal style={{ '--ri': 1 }} onClick={() => navigate('/onboarding')}>
               <div className="ob-plan-pop">Popular</div>
               <div className="ob-plan-h"><b>{t('price_pro')}</b></div>
               <div className="ob-plan-d">{t('price_free_trial')}</div>
@@ -477,24 +478,22 @@ export default function Landing() {
           </div>
           <div className="foot-cols">
             <div className="foot-col">
-              <h4>Product</h4>
-              <a href="#features">{t('nav_features')}</a>
+              <h4>{t('foot_features')}</h4>
+              <a href="#features">{t('f1_t')}</a>
+              <a href="#features">{t('f2_t')}</a>
+              <a href="#features">{t('f3_t')}</a>
+              <a href="#features">{t('f4_t')}</a>
+            </div>
+            <div className="foot-col">
+              <h4>{t('foot_brand')}</h4>
               <a href="#themes">{t('nav_themes')}</a>
               <a href="#pricing">{t('nav_pricing')}</a>
-              <a href="/explore" onClick={(e) => { e.preventDefault(); navigate('/explore'); }}>Explore</a>
+              <a href="/login" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>{t('nav_login')}</a>
             </div>
             <div className="foot-col">
-              <h4>Company</h4>
-              <a href="#">About</a>
-              <a href="#">Blog</a>
-              <a href="#">Careers</a>
-            </div>
-            <div className="foot-col">
-              <h4>Support</h4>
-              <a href="#">Help center</a>
-              <a href="#">Contact</a>
-              <a href="#">Terms</a>
-              <a href="#">Privacy</a>
+              <h4>{t('foot_built')}</h4>
+              <a>{t('foot_cities')}</a>
+              <a>{t('foot_phone')}</a>
             </div>
           </div>
         </div>

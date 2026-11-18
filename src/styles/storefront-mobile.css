@@ -29,12 +29,16 @@
 
 /* marketplace mobile */
 @media(max-width:680px){
-  .marketplace__content{padding-top:74px;}
-  .marketplace__title{font-size:1.4rem; margin-bottom:16px;}
-  .marketplace__search{max-width:100%;}
-  .marketplace__types{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:4px;}
-  .marketplace__types::-webkit-scrollbar{display:none;}
-  .type-pill{flex:none;}
-  .marketplace__grid{grid-template-columns:1fr !important; gap:14px;}
-  .shop-card__cover{height:140px;}
+  .mkt-hero{padding-top:80px; padding-bottom:32px;}
+  .mkt-hero-title{font-size:1.5rem;}
+  .mkt-hero-sub{font-size:0.875rem; margin-bottom:20px;}
+  .mkt-search{padding:10px 16px;}
+  .mkt-filters .container{gap:10px;}
+  .mkt-chips{padding-bottom:4px;}
+  .mkt-chip{padding:6px 13px; font-size:0.75rem;}
+  .mkt-selects{flex-wrap:wrap; gap:8px;}
+  .mkt-select{font-size:0.75rem; padding:6px 10px;}
+  .mkt-grid{grid-template-columns:1fr !important; gap:16px;}
+  .mkt-cover{height:140px;}
+  .mkt-cover-wm{font-size:2.5rem;}
 }

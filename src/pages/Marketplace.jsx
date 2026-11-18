@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import { t, fill, onLangChange, getLang } from '../i18n';
 import { useShopStore } from '../store/shopStore';
 import { shopTypes as fallbackShopTypes, fetchShopTypes, getCategoryName, getShopType, cities } from '../data/types';
+import { I } from '../components/ui/Icons';
 import '../styles/marketplace.css';
 
 const SORT_OPTIONS = [
@@ -11,6 +12,90 @@ const SORT_OPTIONS = [
   { value: 'products', label: 'mp_sort_products' },
   { value: 'rating', label: 'mp_sort_rating' },
 ];
+
+/* ===== Shop Card (prototype MktCard) ===== */
+
+function ShopCard({ shop }) {
+  const lang = getLang();
+
+  function getTagline() {
+    if (!shop.tagline) return '';
+    return shop.tagline[lang] || shop.tagline.en || shop.tagline.uz || '';
+  }
+
+  function getTypeBadge() {
+    if (!shop.type) return null;
+    const st = getShopType(shop.type);
+    return st ? getCategoryName(st) : null;
+  }
+
+  const tagline = getTagline();
+  const typeBadge = getTypeBadge();
+  const rating = shop.rating ? Number(shop.rating).toFixed(1) : '5.0';
+  const productCount = typeof shop.productCount === 'number'
+    ? shop.productCount
+    : (shop.products?.length ?? 0);
+
+  return (
+    <Link to={`/${shop.handle}`} className="mkt-card">
+      {/* Cover image with watermark */}
+      <div
+        className="mkt-cover"
+        style={{
+          backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
+          backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || '#e8e8e4'),
+        }}
+      >
+        <div className="mkt-cover-wm">{shop.name}</div>
+        {typeBadge && (
+          <span className="mkt-type">{typeBadge}</span>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="mkt-body">
+        {/* Logo overlapping the cover bottom */}
+        <div className="mkt-logo">
+          {shop.logoUrl ? (
+            <img src={shop.logoUrl} alt={shop.name} />
+          ) : (
+            <span className="mkt-logo-init">{shop.initials || shop.name?.charAt(0) || ''}</span>
+          )}
+        </div>
+
+        {/* Name + handle + rating */}
+        <div className="mkt-head">
+          <div className="mkt-head-id">
+            <div className="mkt-name">{shop.name}</div>
+            <div className="mkt-handle">@{shop.handle}</div>
+          </div>
+          <span className="mkt-rating">
+            <span className="mkt-star">&#9733;</span>{rating}
+          </span>
+        </div>
+
+        {/* Tagline */}
+        {tagline && <div className="mkt-tag">{tagline}</div>}
+
+        {/* Footer: location + product count + open link */}
+        <div className="mkt-foot">
+          <span className="mkt-meta">
+            {I.store({ width: 14, height: 14 })}
+            <span>
+              {shop.location && <>{shop.location} &middot; </>}
+              {productCount} {t('mp_products_count')}
+            </span>
+          </span>
+          <span className="mkt-open">
+            {t('mp_open')} {I.arrow({ width: 14, height: 14 })}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/* ===== Marketplace ===== */
 
 export default function Marketplace() {
   const [, setTick] = useState(0);
@@ -22,6 +107,7 @@ export default function Marketplace() {
   const [loading, setLoading] = useState(true);
   const [shopTypes, setShopTypes] = useState(fallbackShopTypes);
   const fetchAllShops = useShopStore((s) => s.fetchAllShops);
+  const chipsRef = useRef(null);
 
   useEffect(() => {
     return onLangChange(() => setTick((t) => t + 1));
@@ -64,38 +150,62 @@ export default function Marketplace() {
     setSortBy('');
   }
 
-  function getTagline(shop) {
-    if (!shop.tagline) return '';
-    const lang = getLang();
-    return shop.tagline[lang] || shop.tagline.en || shop.tagline.uz || '';
-  }
-
-  function getTypeBadge(shop) {
-    if (!shop.type) return null;
-    const st = getShopType(shop.type);
-    return st ? getCategoryName(st) : null;
+  // Count shops per type
+  function typeCount(typeId) {
+    return shops.filter((s) => s.type === typeId).length;
   }
 
   return (
-    <div className="marketplace">
+    <div className="mkt">
       <Navbar />
-      <div className="marketplace__content container">
-        <h1 className="marketplace__title">{t('mp_title')}</h1>
 
-        <div className="marketplace__filters">
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* ===== Hero section ===== */}
+      <div className="mkt-hero">
+        <div className="container">
+          <span className="mkt-kicker">{t('mp_kicker')}</span>
+          <h1 className="mkt-hero-title">{t('mp_hero_title')}</h1>
+          <p className="mkt-hero-sub">{t('mp_hero_sub')}</p>
+          <div className="mkt-search">
+            {I.search({ width: 18, height: 18 })}
             <input
-              type="text"
-              className="form-input marketplace__search"
-              placeholder={t('mp_search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('mp_search')}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* ===== Filter bar ===== */}
+      <div className="mkt-filters">
+        <div className="container">
+          {/* Type chip strip (horizontal scrollable) */}
+          <div className="mkt-chips" ref={chipsRef}>
+            <button
+              className={`mkt-chip${!typeFilter ? ' on' : ''}`}
+              onClick={() => setTypeFilter('')}
+              type="button"
+            >
+              {t('mp_all')} <span className="mkt-chip-ct">{shops.length}</span>
+            </button>
+            {shopTypes.map((st) => (
+              <button
+                key={st.id}
+                className={`mkt-chip${typeFilter === st.id ? ' on' : ''}`}
+                onClick={() => setTypeFilter(st.id === typeFilter ? '' : st.id)}
+                type="button"
+              >
+                {getCategoryName(st)} <span className="mkt-chip-ct">{typeCount(st.id)}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* City + Sort selects + Clear */}
+          <div className="mkt-selects">
             <select
-              className="form-input"
+              className="mkt-select"
               value={cityFilter}
               onChange={(e) => setCityFilter(e.target.value)}
-              style={{ maxWidth: 180 }}
             >
               <option value="">{t('mp_all_cities')}</option>
               {cities.map((c) => (
@@ -103,54 +213,34 @@ export default function Marketplace() {
               ))}
             </select>
             <select
-              className="form-input"
+              className="mkt-select"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ maxWidth: 180 }}
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{t(o.label)}</option>
               ))}
             </select>
             {dirty && (
-              <button className="btn btn-ghost btn-sm mp-clear-btn" onClick={clearAll} type="button">
-                &#10005; {t('mp_clear')}
+              <button className="mkt-clear-link" onClick={clearAll} type="button">
+                {I.x({ width: 14, height: 14 })} {t('mp_clear')}
               </button>
             )}
           </div>
-          <div className="marketplace__types">
-            <button
-              className={`type-pill ${!typeFilter ? 'type-pill--active' : ''}`}
-              onClick={() => setTypeFilter('')}
-              type="button"
-            >
-              {t('mp_all')}
-            </button>
-            {shopTypes.map((st) => (
-              <button
-                key={st.id}
-                className={`type-pill ${typeFilter === st.id ? 'type-pill--active' : ''}`}
-                onClick={() => setTypeFilter(st.id === typeFilter ? '' : st.id)}
-                type="button"
-              >
-                {getCategoryName(st)}
-              </button>
-            ))}
-          </div>
         </div>
+      </div>
 
+      {/* ===== Results ===== */}
+      <div className="mkt-results container">
         {loading ? (
-          <div className="marketplace__loading">{t('loading')}</div>
+          <div className="mkt-loading">{t('loading')}</div>
         ) : filtered.length === 0 ? (
-          <div className="marketplace__empty-state">
-            <div className="marketplace__empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+          <div className="mkt-empty">
+            <div className="mkt-empty-icon">
+              {I.search({ width: 24, height: 24 })}
             </div>
-            <h3 className="marketplace__empty-title">{t('mp_no_results')}</h3>
-            <p className="marketplace__empty-desc">{t('mp_no_results_d')}</p>
+            <b>{t('mp_no_results')}</b>
+            <p>{t('mp_no_results_d')}</p>
             {dirty && (
               <button className="btn btn-ghost btn-sm" onClick={clearAll} type="button">
                 {t('mp_clear')}
@@ -159,63 +249,13 @@ export default function Marketplace() {
           </div>
         ) : (
           <>
-            <div className="marketplace__result-count">
+            <div className="mkt-count">
               {fill(t('mp_showing'), { n: filtered.length })}
             </div>
-            <div className="marketplace__grid">
-              {filtered.map((shop) => {
-                const tagline = getTagline(shop);
-                const typeBadge = getTypeBadge(shop);
-                return (
-                  <Link key={shop.id || shop.handle} to={`/${shop.handle}`} className="shop-card">
-                    <div
-                      className="shop-card__cover"
-                      style={{
-                        backgroundImage: shop.coverUrl ? `url(${shop.coverUrl})` : 'none',
-                        backgroundColor: shop.coverUrl ? undefined : (shop.coverColor || '#e8e8e4'),
-                      }}
-                    >
-                      {typeBadge && (
-                        <span className="shop-card__type-badge">{typeBadge}</span>
-                      )}
-                      {shop.logoUrl ? (
-                        <img src={shop.logoUrl} alt={shop.name} className="shop-card__avatar" />
-                      ) : (
-                        <div className="shop-card__avatar-initials">
-                          {shop.initials || shop.name?.charAt(0) || ''}
-                        </div>
-                      )}
-                    </div>
-                    <div className="shop-card__body">
-                      <h3 className="shop-card__name">{shop.name}</h3>
-                      {tagline && <p className="shop-card__tagline">{tagline}</p>}
-                      <p className="shop-card__handle">labaratory.rastashops.com/{shop.handle}</p>
-                      <div className="shop-card__meta">
-                        {shop.location && (
-                          <span className="shop-card__location">{shop.location}</span>
-                        )}
-                        {shop.rating > 0 && (
-                          <span className="shop-card__rating">
-                            <span className="shop-card__star">&#9733;</span> {Number(shop.rating).toFixed(1)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="shop-card__footer">
-                        {typeof shop.productCount === 'number' ? (
-                          <span className="shop-card__count">
-                            {shop.productCount} {t('mp_products_count')}
-                          </span>
-                        ) : shop.products?.length != null ? (
-                          <span className="shop-card__count">
-                            {shop.products.length} {t('mp_products_count')}
-                          </span>
-                        ) : null}
-                        <span className="shop-card__open-label">{t('mp_open')} &rarr;</span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+            <div className="mkt-grid">
+              {filtered.map((shop) => (
+                <ShopCard key={shop.id || shop.handle} shop={shop} />
+              ))}
             </div>
           </>
         )}
