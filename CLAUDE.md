@@ -1,8 +1,9 @@
 # rastashops.com — frontend
 
 The Claude Design prototype ported to Vite + React 18 ES modules (`src/proto/*`, one file per prototype script,
-same names), with every screen fed by the backend (`/api/v1`). Product spec: root `../CLAUDE.md` (§0 current state,
-§6 basket flow, §9 decisions). API and data rules: `../back/docs/BACKEND-PLAN.md` (§14 switch-over, §21 status, §22 deploy).
+same names), with every screen fed by the backend (`/api/v1`). Product spec: `docs/PRODUCT-SPEC.md` (§0 current state,
+§6 basket flow, §9 decisions). API and data rules: `docs/BACKEND-PLAN.md` (§14 switch-over, §21 status, §22 deploy).
+Next plans and seller analytics ideas: `docs/NEXT-PLANS-AND-IDEAS.md`.
 
 ## Run
 
