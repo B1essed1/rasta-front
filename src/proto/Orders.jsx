@@ -305,17 +305,24 @@ function RequestSellModal({ store, shop, req, t, lang, onClose }){
   );
 }
 
+// Requests in pages from the server, with the count of each status (BACKEND-PLAN §23). Rows shown are the store's own
+// copies (dashGet puts every page into the store), so Agreed / Sold / Cancel update them at once.
 function RequestsView({ store, shop, t, lang, focusCode }){
-  const list = store.requests(shop.id);
   const idx = store.variantIndex(shop.id);
   const [filter, setFilter] = React.useState(focusCode? "all" : "open");
   const [q, setQ] = React.useState(focusCode||"");
   const [open, setOpen] = React.useState(null);
   const [sell, setSell] = React.useState(null);
   const qn = q.replace(/[^A-Za-z0-9]/g,"").toUpperCase();
-  const shown = list.filter(r=> (filter==="all" || (filter==="open"? ["new","agreed"].includes(r.status) : r.status===filter)) && (!qn || r.code.includes(qn)));
+  const pages = useDashPages((page, size)=> store.dashGet(shop.id, "/requests/page?"+dashQS({ status:filter, q:qn, page, size })),
+    JSON.stringify([filter, qn]), store.histRev(shop.id));
+  const mem = store.requests(shop.id);
+  const shown = pages.items.map(r=> mem.find(x=>x.id===r.id) || r)
+    .filter(r=> filter==="all" || (filter==="open"? ["new","agreed"].includes(r.status) : r.status===filter));
   React.useEffect(()=>{ if(qn.length>=4 && shown.length===1) setOpen(shown[0].id); }, [qn, shown.length]);
-  const cnt = (k)=> k==="all"? list.length : k==="open"? list.filter(r=>["new","agreed"].includes(r.status)).length : list.filter(r=>r.status===k).length;
+  const counts = (pages.res && pages.res.counts) || {};
+  const cnt = (k)=> counts[k] || 0;
+  const list = { length: counts.all || 0 };
   const COLS = "96px minmax(180px,1.6fr) 70px 130px 130px 140px 36px";
   return (
     <div>
@@ -325,7 +332,7 @@ function RequestsView({ store, shop, t, lang, focusCode }){
         {[["open",t.rq_open],["new",t.rq_s_new],["agreed",t.rq_s_agreed],["sold",t.rq_s_sold],["cancelled",t.rq_s_cancelled],["all",t.rq_all]].map(([k,l])=>
           <button key={k} className={"pick-chip"+(filter===k?" on":"")} onClick={()=>setFilter(k)}>{l} <i>{cnt(k)}</i></button>)}
       </div>
-      {!list.length ? <EmptyState icon={I.bag} title={t.rq_empty_t} body={t.rq_empty_d}/> : !shown.length ? <div className="stk-empty card">{t.rq_none}</div> : (
+      {!pages.res && pages.loading ? <div className="stk-empty card"><span className="tg-spin"></span></div> : !list.length ? <EmptyState icon={I.bag} title={t.rq_empty_t} body={t.rq_empty_d}/> : !shown.length ? <div className="stk-empty card">{t.rq_none}</div> : (
         <div className="stock-table" style={{overflowX:"auto"}}><div style={{minWidth:780}}>
           <div className="stk-head" style={{display:"grid", gridTemplateColumns:COLS, alignItems:"center"}}>
             {[t.rq_code, t.rq_buyer, t.hc_qty, t.hc_sum, t.rq_status, t.hc_date, ""].map((h,i)=><span key={i} style={{textAlign: i===2||i===3? "right":"left", whiteSpace:"nowrap"}}>{h}</span>)}
@@ -373,6 +380,7 @@ function RequestsView({ store, shop, t, lang, focusCode }){
             </React.Fragment>); })}
         </div></div>
       )}
+      {pages.hasMore && <button className="btn btn-soft hist-more" disabled={pages.loading} onClick={pages.more}>{t.h_more} · {pages.total-pages.items.length}</button>}
       {sell && <RequestSellModal store={store} shop={shop} req={sell} t={t} lang={lang} onClose={()=>setSell(null)}/>}
     </div>
   );

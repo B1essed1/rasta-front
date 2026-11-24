@@ -108,55 +108,42 @@ function Marketplace({ store, lang, setLang, onOpenShop, onStart, onHome, chatSt
   const [suggest, setSuggest] = React.useState(false);
   const [mobile, setMobile] = React.useState(()=>window.innerWidth<760);
   const inputRef = React.useRef(null);
-  const [F, setF] = React.useState(SFX_EMPTY);          // product filters (same engine as the storefront)
-  const [plimit, setPlimit] = React.useState(24);
+  const [F, setF] = React.useState(SFX_EMPTY);          // product filters (same engine as the storefront, on the server)
   React.useEffect(()=>{ const f=()=>setMobile(window.innerWidth<760); addEventListener("resize",f); return ()=>removeEventListener("resize",f); },[]);
   React.useEffect(()=>{ const f=(e)=>{ if(e.key==="/" && document.activeElement.tagName!=="INPUT" && document.activeElement.tagName!=="TEXTAREA"){ e.preventDefault(); inputRef.current && inputRef.current.focus(); } }; addEventListener("keydown",f); return ()=>removeEventListener("keydown",f); },[]);
 
-  const shops = SHOP_ORDER.map(id=>({ ...store.shopMeta(id), products: publicProducts(store, id) })).filter(s=>s.status!=="paused");
-  const counts = exCatCounts(shops);
-  const typesPresent = [...new Set(shops.map(s=>s.type))];
-  const cities = [...new Set(shops.map(s=>s.location))];
+  // ---- the server searches (BACKEND-PLAN §23): shops in pages, and products in pages with the same filters ----
   const ql = q.trim().toLowerCase();
-  const prodHits = [];
-  shops.forEach(s=>(s.products||[]).forEach(p=>{
-    if(!exInCat(p,pcat)) return;
-    if(type!=="all" && s.type!==type) return;
-    if(city!=="all" && s.location!==city) return;
-    const hay = (textFB(p.name,lang)+" "+catBreadcrumb(p.catId,lang)+" "+s.name).toLowerCase();
-    if(ql && !hay.includes(ql)) return;
-    prodHits.push({ s, p });
-  }));
-  const shopHits = shops.filter(s=>{
-    if(pcat!=="all" && !(s.products||[]).some(p=>exInCat(p,pcat))) return false;
-    if(type!=="all" && s.type!==type) return false;
-    if(city!=="all" && s.location!==city) return false;
-    if(ql && !(s.name+" "+s.handle+" "+textFB(s.tagline,lang)+" "+TYPES[s.type][lang]).toLowerCase().includes(ql) && !prodHits.some(h=>h.s.id===s.id)) return false;
-    return true;
-  }).sort((a,b)=> sort==="products"? b.products.length-a.products.length : sort==="rating"? (b.rating||0)-(a.rating||0) : SHOP_ORDER.indexOf(b.id)-SHOP_ORDER.indexOf(a.id));
-  // ---- product filters across all shops: size, colour, details, price, rating, in stock ----
+  const showProducts = ql || pcat!=="all";
+  const scope = { q, cat:pcat, type, city, lang };
+  const shopsP = useSfxPages((page)=> store.browse("/shops?"+sfxQuery(SFX_EMPTY, { ...scope, sort, preview:4, page, size:SFX_PAGE })),
+    JSON.stringify([q, pcat, type, city, sort, lang]), true, q? 250 : 0);
+  const prodP = useSfxPages((page)=> store.browse("/explore/products?"+sfxQuery(F, { ...scope, page, size:SFX_PAGE })),
+    JSON.stringify([q, pcat, type, city, F, lang]), !!showProducts, q? 250 : 0);
+  const sr = shopsP.res || {}, pr = (showProducts && prodP.res) || {};
+  const counts = sr.counts || {};
+  const typesPresent = (sr.types || []).filter(ty=>TYPES[ty]);
+  const cities = sr.cities || [];
+  const meta = (id)=> ({ ...store.shopMeta(id), products: publicProducts(store, id) });
+  const withShop = (p)=> ({ ...p, _s: meta(p.shopId) });
+  const prodHits = (pr.suggest || []).map(p=>({ s: meta(p.shopId), p }));   // the search box's first text hits
+  const nHits = pr.hits || 0;
+  const shopHits = shopsP.items.map(it=> meta(it.shop.id));
+  const nShops = shopsP.total;
+  // ---- product filters across all shops: size, colour, details, price, in stock ----
   const xkey = (s,p)=> s.id+"|"+p.id;
-  const rvAll = {}, popAll = {};
-  shops.forEach(s=>{
-    const m = {}; (store.reviews(s.id)||[]).forEach(r=>{ (m[r.productId] = m[r.productId] || []).push(r); });
-    Object.keys(m).forEach(pid=>{ const st = ratingStats(m[pid]); if(st && st.n) rvAll[s.id+"|"+pid] = { avg:Number(st.avg), n:st.n }; });
-    try{ const idx = store.variantIndex(s.id);
-      (store.sales(s.id)||[]).forEach(x=>(x.lines||[]).forEach(l=>{ const pid = l.productId || (idx[l.variantId] && idx[l.variantId].p.id); if(pid) popAll[s.id+"|"+pid] = (popAll[s.id+"|"+pid]||0) + (l.qty-(l.returned||0)); }));
-    }catch(e){}
-  });
-  const xpool = prodHits.map(h=>({ ...h.p, _s:h.s, _rv: reviewsOn()? (rvAll[xkey(h.s,h.p)]||null) : null }));
-  const xctx = { rating:(p)=>p._rv, sold:(p)=>p.stock==="sold", pop:(p)=>popAll[xkey(p._s,p)]||0 };
-  const xfacets = sfxFacets(xpool);
-  const xlist = sfxSort(xpool.filter(p=>sfxMatch(p, F, xctx)), F.sort, xctx);
+  const xserver = prodP.res ? sfxServerFacets(prodP.res) : null;
+  const xfacets = xserver ? xserver.facets : [];
+  const xlist = prodP.items.map(withShop);
+  const xtotal = prodP.total;
+  const xctx = { rating:()=>null, sold:(p)=>p.stock==="sold", pop:(p)=>p.sold||0 };
   const xpills = sfxPills(F, setF, xfacets, lang, t);
   const acct = chatStore && chatStore.account ? chatStore.account() : null;
   const mySize = acct && acct.mySize || null;
   const saveSize = (aid, v)=>{ if(!acct || !chatStore.setAccountMeta) return; const cur = acct.mySize; if(cur && cur.aid===aid && cur.v===v) return;
     chatStore.setAccountMeta({ mySize:{ aid, v } }); if(!cur) toast(t.sfx_mysize_ok); };
-  React.useEffect(()=>{ setPlimit(24); }, [pcat, ql, F]);
 
   const catHits = ql.length>=2 ? catRoots().flatMap(r=>[r.id, ...catGroups(r.id).flatMap(g=>[g.id, ...catLeaves(g.id).map(x=>x.id)])]).filter(id=>catLabel(id,lang).toLowerCase().includes(ql)).slice(0,4) : [];
-  const showProducts = ql || pcat!=="all";
   const dirty = type!=="all" || city!=="all" || q!=="" || pcat!=="all";
   function clear(){ setType("all"); setCity("all"); setQ(""); setPcat("all"); setF(SFX_EMPTY); }
   const pickCat = (id)=>{ setPcat(id); setF(f=>({ ...f, sel:{} })); setMega(false); setSuggest(false); try{ window.scrollTo(0,0); }catch(e){} };
@@ -183,7 +170,7 @@ function Marketplace({ store, lang, setLang, onOpenShop, onStart, onHome, chatSt
                 {shopHits.length>0 && <div className="ex-sug-g"><span>{t.ex_shops}</span>{shopHits.slice(0,3).map(s=>(
                   <button key={s.id} onClick={()=>onOpenShop(s.id)}><span className="ex-sug-av" style={{backgroundImage:"url("+byShopAv(store,s.id)+")"}}></span><b>{s.name}</b><em>{s.location}</em></button>))}</div>}
                 {!catHits.length && !prodHits.length && !shopHits.length && <div className="ex-sug-none">{fill(t.ex_none_q,{q})}</div>}
-                {(prodHits.length+shopHits.length)>0 && <button className="ex-sug-all" onClick={()=>{ setSuggest(false); inputRef.current && inputRef.current.blur(); }}>{fill(t.ex_see,{n:prodHits.length+shopHits.length})} {I.arrow({width:15,height:15})}</button>}
+                {(nHits+nShops)>0 && <button className="ex-sug-all" onClick={()=>{ setSuggest(false); inputRef.current && inputRef.current.blur(); }}>{fill(t.ex_see,{n:nHits+nShops})} {I.arrow({width:15,height:15})}</button>}
               </div>
             )}
           </div>
@@ -239,11 +226,11 @@ function Marketplace({ store, lang, setLang, onOpenShop, onStart, onHome, chatSt
       </div>
 
       <div className="wrap">
-        {showProducts && prodHits.length>0 && (
+        {showProducts && nHits>0 && (
           <section className="ex-sec">
-            <div className="ex-sec-h"><h2>{t.ex_products}</h2><span>{fill(t.ex_n_items,{n:xlist.length})}</span></div>
+            <div className="ex-sec-h"><h2>{t.ex_products}</h2><span>{fill(t.ex_n_items,{n:xtotal})}</span></div>
             <div style={{margin:"2px 0 12px"}}>
-              <SfxBar t={t} lang={lang} pool={xpool} facets={xfacets} F={F} setF={setF} ctx={xctx} total={xlist.length} mySize={mySize} onPickSize={saveSize}/>
+              <SfxBar t={t} lang={lang} pool={[]} facets={xfacets} F={F} setF={setF} ctx={xctx} total={xtotal} mySize={mySize} onPickSize={saveSize} sv={xserver && xserver.sv}/>
             </div>
             {xpills.length>0 && (
               <div className="sfx-pills">
@@ -252,18 +239,23 @@ function Marketplace({ store, lang, setLang, onOpenShop, onStart, onHome, chatSt
               </div>
             )}
             {xlist.length>0 ? (
-              <div className="ex-prods">{xlist.slice(0,plimit).map(p=><ExProduct key={xkey(p._s,p)} s={p._s} p={p} lang={lang} t={t} onOpen={openProduct}/>)}</div>
+              <div className="ex-prods">{xlist.map(p=><ExProduct key={xkey(p._s,p)} s={p._s} p={p} lang={lang} t={t} onOpen={openProduct}/>)}</div>
+            ) : prodP.loading ? (
+              <div className="mkt-empty"><span className="tg-spin"></span></div>
             ) : (
               <div className="mkt-empty"><b>{t.sfx_none}</b><p>{t.ex_try}</p><button className="btn btn-ghost btn-sm" onClick={()=>setF(f=>({ ...SFX_EMPTY, sort:f.sort }))}>{t.sfx_reset_all}</button></div>
             )}
-            {xlist.length>plimit && <button className="btn btn-soft btn-sm" style={{marginTop:16}} onClick={()=>setPlimit(n=>n+24)}>{t.h_more} · {xlist.length-plimit}</button>}
+            {prodP.hasMore && <button className="btn btn-soft btn-sm" style={{marginTop:16}} disabled={prodP.loading} onClick={prodP.more}>{t.h_more} · {xtotal-xlist.length}</button>}
           </section>
         )}
         <section className="ex-sec">
-          {showProducts && <div className="ex-sec-h"><h2>{t.ex_shops}</h2><span>{fill(t.mkt_count_n,{n:shopHits.length})}</span></div>}
-          {!showProducts && <div className="mkt-count">{fill(t.mkt_count_n,{n:shopHits.length})}</div>}
-          {shopHits.length>0 ? (
+          {showProducts && <div className="ex-sec-h"><h2>{t.ex_shops}</h2><span>{fill(t.mkt_count_n,{n:nShops})}</span></div>}
+          {!showProducts && <div className="mkt-count">{fill(t.mkt_count_n,{n:nShops})}</div>}
+          {shopHits.length>0 ? (<>
             <div className="mkt-grid">{shopHits.map(s=>(<MktCard key={s.id} store={store} shop={s} lang={lang} t={t} onOpen={onOpenShop} chatStore={chatStore}/>))}</div>
+            {shopsP.hasMore && <button className="btn btn-soft btn-sm" style={{marginTop:16}} disabled={shopsP.loading} onClick={shopsP.more}>{t.h_more} · {nShops-shopHits.length}</button>}
+          </>) : shopsP.loading ? (
+            <div className="mkt-empty"><span className="tg-spin"></span></div>
           ) : (
             <div className="mkt-empty">
               <div className="es-ic">{I.search({width:24,height:24})}</div>

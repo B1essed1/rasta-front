@@ -80,7 +80,9 @@ function ProductPage({ p, i, shop, lang, t, chatStore, store, reviews, onAddRevi
   const [copied, setCopied] = React.useState(false);
   const tX = React.useRef(null);
   // seeded demo products have a full photo set; seller-created ones only show slots that exist
-  const seeded = !!(SHOPS[shop.id] && (SHOPS[shop.id].products||[]).some(x=>x.id===p.id));
+  // (products load in pages now: a product of the shop known to this page counts as before)
+  const seeded = !!(SHOPS[shop.id] && ((SHOPS[shop.id].products||[]).some(x=>x.id===p.id)
+    || (window.__shopStore && window.__shopStore.productById(p.id)) || (shop.products||[]).some(x=>x.id===p.id) || p.i!=null));
   // every photo the seller uploaded (up to 6), not only the first one; colour photos when the picked colour has them
   const NSLOT = 6;
   const genIds = React.useMemo(()=>Array.from({length:NSLOT}).map((_,k)=>pslot(shop.id,p,k)), [shop.id, p.id]);

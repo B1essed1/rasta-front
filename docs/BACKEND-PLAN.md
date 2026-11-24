@@ -64,8 +64,11 @@ swipe, keyboard shortcut and every value shown on screen) and each was classifie
 
 ## 2. Stack and project layout
 
-- **Java 21**, **Spring Boot 4.x** (D1a): Web MVC, Validation, Security (JWT), **Spring Data JPA** (Hibernate 7, jsonb via
-  `@JdbcTypeCode(SqlTypes.JSON)`) for plain CRUD; **`JdbcClient` + native SQL** for search, reports and stock writes.
+- **Java 21**, **Spring Boot 4.x** (D1a): Web MVC, Validation, Security (JWT), **jOOQ** (Open Source Edition, free for
+  PostgreSQL) for all database access: no JPA / Hibernate and no SQL strings. The `uz.rasta.db` classes are generated on
+  every build from the Flyway schema (Testcontainers Postgres in Docker); `jsonb` columns are Jackson `JsonNode`s. Only
+  `*Repository` classes use the `DSLContext`; services hold the rules (see `back/CLAUDE.md`, "Persistence"). Changed from
+  `JdbcTemplate` + SQL strings on 24.11.2026; the API and every table row were compared before/after and are identical.
   Virtual threads on (`spring.threads.virtual.enabled=true`): the long-poll login wait and Telegram calls block cheaply.
 - PostgreSQL 16 with extensions `pg_trgm`, `citext`, `unaccent`. Flyway.
 - MinIO (S3 API, `io.minio:minio`). Images: **TwelveMonkeys** (read JPEG/PNG/WebP) + **Thumbnailator** (resize) +
@@ -1352,6 +1355,9 @@ Built and checked locally (backend `dev` on a fresh `rasta` database + Vite, in 
 | Area | State | Checked |
 |---|---|---|
 | Java 21 + Spring Boot 4.0 + Jackson 3, fresh `V1__init.sql` (incl. branches, stock levels, batches) | done | migration applies; demo seed: `qty = Σ movements` for every variant |
+| Dashboard history in pages (24.11.2026, §23): Sales, History, Reports, Team, Home, Requests from the server; 2-day window | done | 18 672 checks of the original screen code (git HEAD) against the endpoints as owner / manager / cashier: 0 mismatches; all tabs, paging, a return and a basket sale checked in Chrome |
+| Paged public catalog (24.11.2026, §23): shops / shop products / product endpoints, server-side filters, cache | done | 32 742 filter checks against the frontend's own engine (demo + 400 generated products): 0 mismatches; seller changes visible at once; storefront, Explore, product link, basket, basket link, bio, saved shops, dashboard checked in Chrome |
+| Persistence on jOOQ (24.11.2026): generated classes, one repository per area, no SQL strings | done | 159 API calls + bot flows + all 27 tables identical to the `JdbcTemplate` build; prod profile in schema `app` |
 | Auth: Telegram start / long-poll wait, dev confirm, JWT 15 min + rotating refresh cookie, `/me`, saved shops, addresses, my size | done | login in the browser (simulated bot), session survives reload, refresh rotation, logout |
 | Public: `/catalog`, `/shops/{handle}` (+ old-handle 301), `/handles/check`, `/b/{code}` (no buyer), `/stats/view` | done | Explore / storefront / product page / basket link from the API |
 | Basket requests: create (server code + names + prices), agree, cancel, sell (agreed total spread, remainder on a line), bot hooks | done | basket → code → seller login → Requests → Sold → sale #, stock −1, movement with seller |
@@ -1393,7 +1399,7 @@ public site). The pending basket code is kept only until a page reload.
 |---|---|
 | Site | https://labaratory.rastashops.com (frontend + `/api/` proxied to the backend); `dev-api.rastashops.com` also proxies the API and MinIO (`/rasta-media`) |
 | Server | `178.105.45.4` (Ubuntu, root SSH), Cloudflare in front |
-| CI/CD | GitHub Actions in each repo: **push to `main` → build → rsync to `/opt/rasta/backend/incoming` or `/srv/rasta/frontend/incoming` → `sudo rasta-deploy` / `rasta-deploy-frontend`** (atomic symlink swap). Tests are skipped in CI. |
+| CI/CD | GitHub Actions in each repo: **push to `main` → build → rsync to `/opt/rasta/backend/incoming` or `/srv/rasta/frontend/incoming` → `sudo rasta-deploy` / `rasta-deploy-frontend`** (atomic symlink swap). Tests are skipped in CI. The backend build needs Docker (jOOQ code generation). |
 | Backend service | systemd `rasta-backend`, `/opt/rasta/backend/current.jar`, Java 21, profile `prod`, listens on 127.0.0.1:8080 |
 | Settings | `/etc/rasta/backend.env` (never touched by CI). Added for v1: `APP_PUBLIC_URL=https://labaratory.rastashops.com`, `APP_SEED_DEMO=true`. Still to add: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`. Template: `back/deploy/backend.env.example`. |
 | Database | Postgres `rasta_db` (owner `rasta`): **v1 tables in schema `app`** (Flyway history `app.flyway_schema_history`); the old app's 19 tables + history (V9) remain in `public`, untouched (D14) |
@@ -1406,3 +1412,61 @@ Turning the bot on: set the three `TELEGRAM_*` values in `backend.env`, `systemc
 `curl "https://api.telegram.org/bot<TOKEN>/setWebhook" -d url=https://labaratory.rastashops.com/api/telegram/webhook -d secret_token=<SECRET>`.
 For production (rastashops.com) later: its own database or schema, `APP_SEED_DEMO` off, the real domain in
 `APP_PUBLIC_URL` and `APP_CORS_ALLOWED_ORIGINS`, tests on in CI.
+
+---
+
+## 23. Paged public catalog (24.11.2026)
+
+**Why.** `GET /catalog` returned every live shop with every product, variant and photo, and the frontend loaded it
+before the first render on every page. Measured: ~2.3 KB per product. 100 shops × 500 products ≈ 115 MB per first
+visit; one 500-product storefront ≈ 1.15 MB. Buyers are on phones with weak internet, so public pages now load only
+what is on screen.
+
+**Shape: list → shop → product.**
+
+| Endpoint | Returns |
+|---|---|
+| `GET /shops?q=&type=&city=&cat=&sort=new\|products\|rating&ids=&preview=&page=&size=` | Explore's shop cards (shop, public settings, cfg, `productCount`, `soldTotal`, `preview` = first N products), `total`, the marketplace's category `counts`, `types`, `cities`, `shopCount` |
+| `GET /shops/{handle}` | One shop's header (shop, settings, cfg, `productCount`, `soldTotal`, avatar/cover photos). **No products.** Old handle → 301 as before |
+| `GET /shops/{handle}/products?cat=&q=&lang=&sort=&pmin=&pmax=&instock=&f_<attr>=a,b&page=&size=` | One page of products + `total` + the filters: `facets` (attribute, values, a count per value), price `presets` with counts, `stockCount`, `catCounts` (whole shop) |
+| `GET /explore/products?q=&cat=&type=&city=&lang=&…same filters…&page=&size=` | The same across all live shops (each product carries its `shopId`), + `suggest` (first 4 text hits) and `hits` |
+| `GET /products/{id}` | One public product (all variants, specs, photos) + its shop's header: a product link from Telegram opens alone |
+| `GET /products?ids=a,b` | Several products (the basket, the basket link page); unknown or hidden ids are listed in `gone` |
+
+Pages of 24 (`size` ≤ 100). Every product carries `stock` (in / low / sold, as `stockState()` over the public,
+capped quantities) and `i` (its position in the shop's own order, which picks the demo photos). Photo slots are sent
+only for the products in the answer.
+
+**Filters on the server, same rules as `StoreFilters.jsx`.** `uz.rasta.browse.Filters` is a line-by-line port of
+`sfxNorm / sfxVals / sfxFacets / sfxMatch / sfxSort / sfxPresets` and the storefront's pool rules (category, hidden
+sold items, search text). Its taxonomy (attribute kinds, swatches, value order, category paths and names, colour
+synonyms, shop types) is exported from the **frontend's** own `Taxonomy.jsx` / `StoreFilters.jsx` / `data.jsx` by
+`back/seed/export-filters.mjs` → `seed/filters.json`, so both sides use one source. Explore's "Popular" sort uses the
+products' units sold (before, it counted only sales loaded in the seller's own dashboard, so for buyers it did nothing).
+
+**Cache.** `PublicCatalog` keeps the public view of each live shop in memory, built from the database on first use.
+Every write that changes it (stock journal refresh, product save / hide / order / delete, photos, shop settings,
+design, create, delete) publishes `CatalogChanged(shopId)`; after the commit that shop is rebuilt on its next read.
+A 60 s time limit covers anything missed.
+
+**Frontend.** No `/catalog` at boot: each screen loads its own data. The storefront and Explore use the server's
+pages and filters (`SfxBar` takes the server's counts); the embedded previews (landing hero, design studio,
+onboarding) keep the in-browser engine over their small lists. Products live in a cache by id; the basket treats an
+unknown product as "not loaded yet", never as "gone" (only the server's `gone` list removes a line).
+
+**Also.** Writes in the dashboard return only the products they changed (`ShopView.products(shop, ids)`), not the
+whole catalog. `GET /catalog` stays for the deploy health check only (nothing in the app calls it).
+
+**Dashboard history (24.11.2026).** The dashboard keeps only the **last 2 days** of sales and movements in the browser
+(`bootstrap`, plus open requests): enough for the till's "today", optimistic receipts, the offline queue and polling.
+Every screen over a period loads its own data in pages with the period's totals, computed on the server by
+`HistoryService` as a port of the screen's own code: `GET /dash/{id}/sales/page` (Sales: list, KPIs, payment split,
+losses, revenue per local day), `/movements/page` (Inventory → History: list, counts by reason, in / sold / lost / net,
+stock left after each movement, the sale's price and seller; also the per-variant drawer), `/reports` (per-product
+figures and the in/out chart), `/team/stats` (per member, best products, recent sales, the chart), `/summary` (Home's
+30 days, the shop's sale span), `/requests/page` (Requests with per-status counts), `/stock/last-moves` (Inventory's
+"last change"). The browser sends its local time boundaries (midnight, chart buckets, `tz`) as epoch ms; the server
+only adds up, and without the costs permission it counts every cost as unknown, as the screens did. Writes and the
+30-second polling bump `histRev`, and the open screen reloads the rows it shows in place. The **catalog stays whole**
+in the bootstrap (decision 24.11.2026): the till's scanner, restock, manual sale and the offline queue need every
+product at once, also without internet.

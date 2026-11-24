@@ -372,7 +372,7 @@ function SfTrust({ shop, t, soldTotal }){
   const items = [
     c.telegram && [I.check, t.sfh_tg_ok],
     soldTotal>0 && [I.bag, fill(t.sfh_sold,{n:sfhSoldLabel(soldTotal)})],
-    [I.grid, fill(t.sfh_items,{n:shop.products.length})],
+    [I.grid, fill(t.sfh_items,{n: shop.productCount!=null? shop.productCount : shop.products.length})],
     shop.location && [I.store, shop.location],
     since && [I.clock, fill(t.sfh_since,{y:new Date(since).getFullYear()})],
     c.instagram && [null, "Instagram @"+c.instagram, "https://instagram.com/"+c.instagram],
@@ -438,7 +438,9 @@ const SFH_CSS = `
 }
 `;
 
-function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=null, onTrackProduct, chatStore, reviews, onAddReview, reviewerName, pop }){
+// server = the shop store: the buyer's storefront loads its products in pages with the server's filters
+// (BACKEND-PLAN §23). Without it (previews in the landing page and the design studio) shop.products is the list.
+function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=null, onTrackProduct, chatStore, reviews, onAddReview, reviewerName, pop, server }){
   const t = I18N[lang];
   // filters live in one object and in the link (?f_size=M&pmax=300000&sort=pop), so a shared link keeps them
   const syncUrl = !(embedded || compact);
@@ -451,13 +453,19 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
   const layout = cfg.layout || (THEMES[cfg.theme]||THEMES.minimal).layout;
   const vars = useMemo(()=>themeVars(cfg), [cfg.theme, cfg.palette, cfg.customPalette, cfg.font]);
   const paused = shop.status==="paused";
+  const srv = !!server;
+  const pages = useSfxPages((page)=> server.browse("/shops/"+encodeURIComponent(shop.handle)+"/products?"+sfxQuery(F, { cat, q, lang, page, size:SFX_PAGE }), shop.id),
+    JSON.stringify([shop.handle, cat, q, F, lang]), srv && !paused, q? 250 : 0);
+  const sres = srv && pages.res ? sfxServerFacets(pages.res) : null;
+  const nProducts = srv? (shop.productCount||0) : shop.products.length;
 
   // chips are the leaf categories this shop actually sells in
   const inCat = (p)=> cat==="all" || catPathIds(p.catId).includes(cat);
   // category tree: level-by-level drill-down, only branches that hold products
   const catNav = useMemo(()=>{
     const used = {};
-    shop.products.forEach(p=> catPathIds(p.catId).forEach(id=>{ used[id]=(used[id]||0)+1; }));
+    if(srv) Object.assign(used, (pages.res && pages.res.catCounts) || {});
+    else shop.products.forEach(p=> catPathIds(p.catId).forEach(id=>{ used[id]=(used[id]||0)+1; }));
     const count = (id)=> used[id]||0;
     const e = cat==="all"? null : catEntry(cat);
     const trail = e? e.path : [];
@@ -468,7 +476,7 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
     level = level.filter(count);
     const parentOfLevel = !e? "all" : (e.leaf? e.parent : cat);
     return { trail, level:level.map(id=>({ id, name:catLabel(id,lang), n:count(id) })), parentOfLevel, count };
-  }, [shop.products, lang, cat]);
+  }, [shop.products, lang, cat, srv && pages.res]);
   const rvMap = useMemo(()=>{
     const m = {}; (reviews||[]).forEach(r=>{ (m[r.productId] = m[r.productId] || []).push(r); });
     const out = {}; Object.keys(m).forEach(pid=>{ const s = ratingStats(m[pid]); if(s && s.n) out[pid] = { avg:Number(s.avg), n:s.n }; });
@@ -482,8 +490,9 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
     if(q && !(textFB(p.name,lang)+" "+textFB(p.name,"en")+" "+textFB(p.desc,lang)).toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   }), [shop.products, cat, q, lang, shop.showSold]);
-  const facets = useMemo(()=>sfxFacets(pool), [pool]);
-  const list = sfxSort(pool.filter(p=>sfxMatch(p, F, ctx)), F.sort, ctx);
+  const facets = useMemo(()=> srv? (sres? sres.facets : []) : sfxFacets(pool), [pool, srv && pages.res]);
+  const list = srv? pages.items : sfxSort(pool.filter(p=>sfxMatch(p, F, ctx)), F.sort, ctx);
+  const total = srv? pages.total : list.length;
   const pickCat = (id)=>{ setCat(id); setF(f=>({ ...f, sel:{} })); };
   const clearFilters = ()=> setF(f=>({ ...SFX_EMPTY, sort:f.sort }));
   const pills = sfxPills(F, setF, facets, lang, t);
@@ -513,14 +522,15 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
 
   // a different shop starts clean (but not on first load, so a shared link keeps its filters)
   const aboutRef = useRef(null);
-  const soldTotal = Object.keys(pop||{}).reduce((n,k)=> n + (shop.products.some(p=>p.id===k)? Math.max(0, pop[k]) : 0), 0);
+  const soldTotal = srv? (shop.soldTotal||0) : Object.keys(pop||{}).reduce((n,k)=> n + (shop.products.some(p=>p.id===k)? Math.max(0, pop[k]) : 0), 0);
   const firstShop = useRef(true);
   useEffect(()=>{ if(firstShop.current){ firstShop.current = false; return; } setOpen(null); setCat("all"); setQ(""); setF(SFX_EMPTY); }, [shop.id]);
   useEffect(()=>{ if(syncUrl) sfxWrite(F, cat); }, [F, cat]);
   useEffect(()=>{
     if(!openId){ if(syncUrl && prodUrl.current) setOpen(null); return; }   // port: Back from /:handle/p/:id closes the product
-    const p = shop.products.find(x=>x.id===openId);
+    const p = (srv? pages.items : shop.products).find(x=>x.id===openId) || (srv? server.productById(openId) : null);
     if(p) setOpen(p);
+    else if(srv) server.browse("/products/"+encodeURIComponent(openId)).then(r=>{ if(r && r.product) setOpen(r.product); }).catch(()=>{});
   },[openId, shop.id]);
   // port: the open product is in the URL (/:handle/p/:id); closing goes back to /:handle
   const prodUrl = useRef(false);
@@ -550,9 +560,9 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
     return out;
   }, [reviews]);
   const Card = layout==="list" ? ListCard : ProductCard;
-  const idxOf = (p)=> shop.products.findIndex(x=>x.id===p.id);
+  const idxOf = (p)=> srv? (p.i!=null? p.i : 0) : shop.products.findIndex(x=>x.id===p.id);
   // re-resolve so stock/edits reflect live state
-  const openLive = open? shop.products.find(x=>x.id===open.id) : null;
+  const openLive = !open? null : srv? (pages.items.find(x=>x.id===open.id) || server.productById(open.id) || open) : shop.products.find(x=>x.id===open.id);
   return (
     <div className={"storefront "+cfg.theme+(compact?" compact":"")} style={{...vars, position:"relative"}}>
       <style>{SFH_CSS}</style>
@@ -572,7 +582,7 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
               <div className="sf-handle">
                 <span>@{shop.handle}</span>
                 <span className="pin">{I.store({width:14,height:14})} {shop.location}</span>
-                <span>{shop.products.length} {t.sf_products}</span>
+                <span>{nProducts} {t.sf_products}</span>
               </div>
             </div>
           </div>
@@ -588,7 +598,7 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
         </div>
       </div>
 
-      {!paused && shop.products.length>0 && openLive ? (
+      {!paused && nProducts>0 && openLive ? (
         <ProductPage p={openLive} i={idxOf(openLive)} shop={shop} lang={lang} t={t}
           chatStore={chatStore} store={storePayload(shop,cfg)}
           reviews={(reviews||[]).filter(r=>r.productId===openLive.id)}
@@ -600,7 +610,7 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
           <b className="sf-display">{t.sf_closed_t}</b>
           <p>{t.sf_closed_d}</p>
         </div></div>
-      ) : shop.products.length===0 ? (
+      ) : nProducts===0 ? (
         <div className="sf-wrap"><div className="sf-empty big">{t.sf_setting_up}</div></div>
       ) : (
         <>
@@ -614,17 +624,22 @@ function Storefront({ shop, cfg, lang, compact=false, embedded=false, openId=nul
                 </div>
               </div>
               <SfCatBar nav={catNav} cat={cat} setCat={pickCat} t={t} lang={lang}/>
-              <SfxBar t={t} lang={lang} pool={pool} facets={facets} F={F} setF={setF} ctx={ctx} total={list.length} mySize={mySize} onPickSize={saveSize}/>
+              <SfxBar t={t} lang={lang} pool={srv? [] : pool} facets={facets} F={F} setF={setF} ctx={ctx} total={total} mySize={mySize} onPickSize={saveSize} sv={sres && sres.sv}/>
             </div>
           </div>
-          <div className="sf-wrap"><SfResultBar t={t} lang={lang} cat={cat} count={list.length} pills={pills} onClear={clearFilters}/></div>
+          <div className="sf-wrap"><SfResultBar t={t} lang={lang} cat={cat} count={total} pills={pills} onClear={clearFilters}/></div>
 
           <div className="sf-products">
             <div className="sf-wrap">
-              {list.length>0 ? (
+              {list.length>0 ? (<>
                 <div className={"lay-"+layout}>
                   {list.map(p=> <Card key={p.id} p={{ ...p, _rv: rvByProduct[p.id] }} i={idxOf(p)} shop={shop} lang={lang} t={t} onOpen={setOpen} list={layout} chatStore={chatStore} store={storePayload(shop,cfg)}/>)}
                 </div>
+                {srv && pages.hasMore && <div style={{textAlign:"center", marginTop:22}}>
+                  <button className="sf-btn sf-btn-line" disabled={pages.loading} onClick={pages.more}>{pages.loading? <span className="tg-spin"></span> : <>{t.h_more} · {total - list.length}</>}</button>
+                </div>}
+              </>) : srv && pages.loading ? (
+                <div className="sf-empty"><span className="tg-spin"></span></div>
               ) : (
                 <div className="sf-empty">{pills.length? <>{t.sfx_none}<br/><button className="sf-btn sf-btn-line" style={{marginTop:12}} onClick={clearFilters}>{t.sfx_reset_all}</button></> : t.sf_empty}</div>
               )}

@@ -124,6 +124,7 @@ function Landing({ store, lang, setLang, onStart, onDemo, onPickTheme, onLogin, 
     }
     return ()=>{ window.removeEventListener('scroll', onScroll); if(io) io.disconnect(); };
   }, []);
+  React.useEffect(()=>{ store.loadLanding && store.loadLanding(); }, []);
   const hero = { ...store.shopMeta("lola"), products: publicProducts(store, "lola") };
   const heroCfg = { theme:"boutique", palette:"clay", layout:"grid", font:"serif" };
   const feats = [

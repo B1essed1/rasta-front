@@ -138,6 +138,8 @@ function BuyerHub({ orderStore, shopStore, lang, setLang, onClose, onOpenOrder, 
   const [big, setBig] = useBigText();
   React.useEffect(()=>{ setName((orderStore.account()||{}).name || ""); }, [acct && acct.phone]);
   React.useEffect(()=>{ try{ window.scrollTo(0,0); }catch(e){} }, [tab]);
+  // saved shops load when the profile opens (public shops come in pages, not all at once)
+  React.useEffect(()=>{ shopStore.loadShops && shopStore.loadShops(orderStore.favShops(), 3); }, [orderStore.favShops().join(",")]);
   React.useEffect(()=>{ const k=(e)=>{ if(e.key==="Escape"){ if(ask) setAsk(null); else onClose(); } }; addEventListener("keydown",k); return ()=>removeEventListener("keydown",k); });
   const bcount = orderStore.basketCount();
 

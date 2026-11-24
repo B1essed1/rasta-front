@@ -30,12 +30,16 @@ function HomeView({ store, shop, t, lang, setTab, onAdd, onVisit, onVisitBio, on
   const [share, setShare] = React.useState(false);
   const st = store.settings(shop.id);
   const products = store.products(shop.id);
-  const sales = store.sales(shop.id);
+  const sales = store.sales(shop.id);   // today's sales only (the browser keeps the last 2 days)
   const stats = store.stats(shop.id);
-  const monthAgo = Date.now() - 30*86400000;
-  const monthSales = sales.filter(s=>s.at>=monthAgo);
-  const sold = monthSales.reduce((n,s)=>n+s.lines.reduce((m,l)=>m+(l.qty-l.returned),0),0);
-  const rev = monthSales.reduce((n,s)=>n+s.total,0);
+  // the last 30 days' units and revenue, added up on the server (the browser keeps only 2 days of sales)
+  const [month, setMonth] = React.useState({ units:0, revenue:0 });
+  const hrev = store.histRev(shop.id);
+  React.useEffect(()=>{ let on = true;
+    store.dashGet(shop.id, "/summary?from="+(Date.now() - 30*86400000)).then(r=>{ if(on && r) setMonth({ units:r.units, revenue:r.revenue }); }).catch(()=>{});
+    return ()=>{ on = false; }; }, [shop.id, hrev]);
+  const sold = month.units;
+  const rev = month.revenue;
   const pViews = Object.values(stats.productViews||{}).reduce((n,x)=>n+x,0);
   const out = products.filter(p=>stockState(p,st.threshold)==="sold");
   const low = products.filter(p=>stockState(p,st.threshold)==="low");

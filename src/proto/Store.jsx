@@ -1,6 +1,7 @@
 // ===== rastashops.com — app store: a cache of the server (BACKEND-PLAN §14) =====
 // Every method keeps the prototype's name and shape, so screens are unchanged. Reads are synchronous from the
-// cache; the cache is filled from GET /catalog (public), /dash/{id}/bootstrap (seller) and /b/{code}.
+// cache. Public pages load in pages (BACKEND-PLAN §23): shop headers and products that have been seen are kept by id
+// (state.pub, state.pubShop); the seller's own shop comes whole from /dash/{id}/bootstrap; requests from /b/{code}.
 // Writes apply the prototype's own reducer first (instant on weak internet), call the API, then merge the
 // server's answer (real ids, sale numbers, barcodes, costs). On an error: a toast and a fresh bootstrap.
 const RASTA_KEY = "rasta.v3.ui";            // device-only UI state: language and the shop last opened
@@ -22,36 +23,55 @@ function emptyState(){
   const ui = readUi();
   return { v: 16, lang: ui.lang || "uz", session: null, currentId: ui.currentId || null,
     catalog: {}, movements: {}, sales: {}, orders: {}, reviews: {}, requests: {}, settings: {}, cfgs: {}, stats: {},
-    team: {}, extraShops: {}, order: [], operator: {}, lastRestock: {}, dash: {}, viewer: {}, pop: {} };
+    team: {}, extraShops: {}, order: [], operator: {}, lastRestock: {}, dash: {}, viewer: {}, pop: {},
+    pub: {}, pubShop: {}, gone: {} };
 }
 function sessionFromMe(me){
   if(!me || !me.account) return null;
   return { phone: me.account.phone, name: me.account.name, at: Date.now(),
     staff: (me.shops || []).map(s => ({ shopId: s.shopId, staffId: s.staffId, role: s.role })) };
 }
-// public catalog payload → globals + state slices
-function absorbCatalog(state, res){
-  const s = { ...state, catalog: { ...state.catalog }, settings: { ...state.settings }, cfgs: { ...state.cfgs }, pop: { ...state.pop, ...(res.pop || {}) } };
-  (res.shops || []).forEach(e => {
-    const id = e.shop.id;
-    const products = (res.products || {})[id] || [];
-    registerShop(e.shop, products);
-    if(!s.dash[id]){ s.catalog[id] = products; s.settings[id] = e.settings; s.cfgs[id] = e.cfg; }
-  });
-  if(res.photos) PhotoStore.load(res.photos);
-  window.__shopCount = res.shopCount;
-  s.order = [...SHOP_ORDER];
+// ---- public pages (BACKEND-PLAN §23) → cache ----
+// a shop's header: {shop, settings, cfg, productCount, soldTotal}; the seller's own shop keeps its dashboard data
+function absorbHeader(state, h){
+  if(!h || !h.shop) return state;
+  const id = h.shop.id;
+  registerShop(h.shop);
+  const s = { ...state, order: [...SHOP_ORDER], pubShop: { ...state.pubShop, [id]: { productCount: h.productCount, soldTotal: h.soldTotal } } };
+  if(!state.dash[id]){ s.settings = { ...state.settings, [id]: h.settings }; s.cfgs = { ...state.cfgs, [id]: h.cfg }; }
   return s;
 }
-// one shop by handle (paused shops, shops of the logged-in person)
-function absorbShop(state, e){
-  const id = e.shop.id;
-  registerShop(e.shop, e.products || []);
-  if(e.photos) PhotoStore.load(e.photos);
-  if(state.dash[id]) return { ...state, order: [...SHOP_ORDER] };
-  return { ...state, order: [...SHOP_ORDER], catalog: { ...state.catalog, [id]: e.products || [] },
-    settings: { ...state.settings, [id]: e.settings }, cfgs: { ...state.cfgs, [id]: e.cfg }, pop: { ...state.pop, ...(e.pop || {}) } };
+// public products (each knows its shop); they are kept by id, so a product seen once is not fetched again
+function absorbProducts(state, list, shopId){
+  if(!list || !list.length) return state;
+  const pub = { ...state.pub }, gone = { ...state.gone };
+  list.forEach(p => { pub[p.id] = { ...p, shopId: p.shopId || shopId }; delete gone[p.id]; });
+  return { ...state, pub, gone };
 }
+// any public answer: shop headers (items / shops / shop), products (items / preview / suggest / product), photos
+function absorbPublic(state, res, shopId){
+  if(!res) return state;
+  if(res.photos) PhotoStore.load(res.photos);
+  let s = state;
+  if(res.shop && res.shop.shop) s = absorbHeader(s, res.shop);                 // /products/{id}
+  else if(res.shop) s = absorbHeader(s, res);                                   // /shops/{handle}
+  Object.values(res.shops || {}).forEach(h => { s = absorbHeader(s, h); });    // explore, /products?ids
+  (res.items || []).forEach(it => {
+    if(it.shop && it.shop.id){ s = absorbHeader(s, it); s = absorbProducts(s, it.preview, it.shop.id); }
+  });
+  const prods = [].concat(res.items && res.items.length && !res.items[0].shop ? res.items : [], res.suggest || [], res.product ? [res.product] : []);
+  s = absorbProducts(s, prods, shopId || res.shopId);
+  if(res.gone && res.gone.length){ const gone = { ...s.gone }; res.gone.forEach(id => { gone[id] = true; }); s = { ...s, gone }; }
+  if(res.shopCount != null) window.__shopCount = res.shopCount;
+  return s;
+}
+// the products of the buyer's baskets (kept on this device) are loaded so the basket can check them
+function basketProductIds(){
+  try{ const st = JSON.parse(localStorage.getItem("rasta_chat_state") || "{}") || {};
+    const ids = []; Object.values(st.baskets || {}).forEach(b => (b.items || []).forEach(it => { if(it.productId && !ids.includes(it.productId)) ids.push(it.productId); }));
+    return ids; }catch(e){ return []; }
+}
+const DEMO_SHOP = "lola";   // the landing page's hero shop (the prototype's demo shop)
 function absorbBootstrap(state, b){
   const id = b.shopId;
   registerShop(b.shop, b.catalog);
@@ -66,27 +86,47 @@ function absorbBootstrap(state, b){
     team: { ...state.team, [id]: b.team }, stats: { ...state.stats, [id]: b.stats },
     lastRestock: { ...state.lastRestock, [id]: b.lastRestock || null },
     viewer: { ...state.viewer, [id]: b.viewer },
-    dash: { ...state.dash, [id]: { at: Date.now(), rangeFrom: b.rangeFrom, branches: b.branches } } };
+    dash: { ...state.dash, [id]: { at: Date.now(), rangeFrom: b.rangeFrom, branches: b.branches, saleSpan: b.saleSpan || {} } },
+    histRev: { ...(state.histRev || {}), [id]: ((state.histRev || {})[id] || 0) + 1 } };
 }
-// Loaded before the first render (App.jsx boot), so the screens' synchronous reads see real data.
+// Loaded before the first render (App.jsx boot), so the screens' synchronous reads see real data. Only what the
+// first screen needs: never the whole marketplace (BACKEND-PLAN §23).
 async function bootData(route){
   clearDemoGlobals();
   let s = emptyState();
-  const [cat] = await Promise.all([Api.get("/catalog").catch(() => null), Api.restore()]);
-  if(cat) s = absorbCatalog(s, cat);
+  const v = route && route.view;
+  const get = (p) => Api.get(p).catch(() => null);
+  const jobs = [Api.restore()];
+  if(!v || v === "landing" || v === "onboarding"){
+    window.__landingLoaded = true;
+    jobs.push(get("/shops?size=6&sort=old&preview=4"), get("/shops?ids=" + DEMO_SHOP + "&preview=12"));
+  }
+  if(route && route.handle){
+    jobs.push(get("/shops/" + encodeURIComponent(route.handle)).then(e => {
+      if(e && e.shop && e.shop.handle !== route.handle) window.__movedTo = e.shop.handle;   // an old handle (301)
+      return e; }));
+    if(route.productId) jobs.push(get("/products/" + encodeURIComponent(route.productId)));
+    if(v === "bio") jobs.push(get("/shops/" + encodeURIComponent(route.handle) + "/products?instock=1&sort=shop&size=4").then(r => {
+      if(r && r.shopId) (window.__bioLoaded || (window.__bioLoaded = {}))[r.shopId] = true;
+      return r; }));
+  }
+  const ids = basketProductIds();
+  if(ids.length) jobs.push(get("/products?ids=" + ids.slice(0, 100).map(encodeURIComponent).join(",")));
+  const [, ...res] = await Promise.all(jobs);
+  res.forEach(r => { s = absorbPublic(s, r); });
   s.session = sessionFromMe(Api.me);
-  if(route && route.handle && !SHOP_ORDER.some(id => SHOPS[id].handle === route.handle)){
-    try{ const e = await Api.get("/shops/" + encodeURIComponent(route.handle)); if(e && e.shop) s = absorbShop(s, e);
-      else if(e && e.movedTo) window.__movedTo = e.movedTo; }catch(e){}
+  if(v === "profile" && Api.me && Api.me.account && (Api.me.account.favShops || []).length){
+    s = absorbPublic(s, await get("/shops?preview=3&ids=" + Api.me.account.favShops.map(encodeURIComponent).join(",")));
   }
   if(route && route.view === "request" && route.code){
     try{ const r = await Api.get("/b/" + encodeURIComponent(route.code));
       s = { ...s, requests: { ...s.requests, [r.shopId]: [r.req, ...((s.requests[r.shopId]) || [])] } };
-      if(!SHOPS[r.shopId]){ const e = await Api.get("/shops/" + encodeURIComponent(r.shop.handle)); if(e && e.shop) s = absorbShop(s, e); }
+      if(!SHOPS[r.shopId]){ const e = await get("/shops/" + encodeURIComponent(r.shop.handle)); if(e && e.shop) s = absorbPublic(s, e); }
     }catch(e){}
   }
   const mine = (s.session && s.session.staff || []).map(x => x.shopId);
   if(mine.length && (!s.currentId || (!SHOPS[s.currentId] && !mine.includes(s.currentId)))) s.currentId = mine[0];
+  if(route && route.handle){ const hit = SHOP_ORDER.find(id => SHOPS[id].handle === (window.__movedTo || route.handle)); if(hit) s.currentId = hit; }
   if(!s.currentId && SHOP_ORDER.length) s.currentId = SHOP_ORDER[0];
   // the dashboard opens with the shop's data already loaded
   if(route && route.view === "dashboard" && s.currentId && mine.includes(s.currentId)){
@@ -145,6 +185,11 @@ function useShopStore(){
       if(res.settings) out.settings = { ...s.settings, [shopId]: res.settings };
       if(res.cfg) out.cfgs = { ...s.cfgs, [shopId]: res.cfg };
       if(SHOPS[shopId] && res.catalog) SHOPS[shopId].products = catalog;
+      if(res.sale || res.request || (res.movements && res.movements.length) || res.removedMovementIds)
+        out.histRev = { ...(s.histRev || {}), [shopId]: ((s.histRev || {})[shopId] || 0) + 1 };
+      if(res.sale && s.dash[shopId]){ const sp = s.dash[shopId].saleSpan || {};
+        out.dash = { ...s.dash, [shopId]: { ...s.dash[shopId], saleSpan: { first: sp.first || res.sale.at, last: Math.max(sp.last || 0, res.sale.at),
+          lastNo: Math.max(sp.lastNo || 0, res.sale.no || 0) } } }; }
       return out;
     });
   }
@@ -197,7 +242,11 @@ function useShopStore(){
   function mergeHistory(id, h){
     up(s => {
       const merge = (old, add) => { const ids = new Set(add.map(x => x.id)); return [...add, ...(old || []).filter(x => !ids.has(x.id))].sort((a, b) => b.at - a.at); };
-      return { ...s, movements: { ...s.movements, [id]: merge(s.movements[id], h.movements) },
+      // anything new or changed (another device's sale, a new basket request) → the history screens reload
+      const differs = (old, add) => add.some(x => { const o = (old || []).find(y => y.id === x.id); return !o || JSON.stringify(o) !== JSON.stringify(x); });
+      const changed = differs(s.movements[id], h.movements) || differs(s.sales[id], h.sales) || differs((s.requests || {})[id], h.requests);
+      return { ...s, histRev: changed ? { ...(s.histRev || {}), [id]: ((s.histRev || {})[id] || 0) + 1 } : s.histRev,
+        movements: { ...s.movements, [id]: merge(s.movements[id], h.movements) },
         sales: { ...s.sales, [id]: merge(s.sales[id], h.sales) },
         requests: { ...s.requests, [id]: merge((s.requests || {})[id], h.requests) },
         dash: h.from < ((s.dash[id] || {}).rangeFrom || Infinity) ? { ...s.dash, [id]: { ...s.dash[id], rangeFrom: h.from } } : s.dash };
@@ -209,7 +258,48 @@ function useShopStore(){
   const api = {
     state,
     get shopId(){ return state.currentId; },
-    products(shopId){ return state.catalog[shopId] || []; },
+    // the seller's own shop: its whole catalog (dashboard); any other shop: the public products seen so far,
+    // in the shop's own order
+    products(shopId){
+      if(state.catalog[shopId]) return state.catalog[shopId];
+      return Object.values(state.pub).filter(p => p.shopId === shopId).sort((a, b) => (a.i ?? 0) - (b.i ?? 0));
+    },
+    // a product by id: the seller's catalogs first, then public products seen so far (null when not loaded)
+    productById(id){
+      for(const sid of Object.keys(state.catalog)){ const p = (state.catalog[sid] || []).find(x => x.id === id); if(p) return p; }
+      return state.pub[id] || null;
+    },
+    // the server said this product is not for sale any more (a basket line may be dropped)
+    isGone(id){ return !!state.gone[id]; },
+    shopInfo(shopId){ return state.pubShop[shopId] || null; },
+    // public pages: GET, then everything in the answer goes into the cache
+    async browse(path, shopId){
+      const res = await Api.get(path);
+      if(!res) return res;
+      // photos first and outside the state update: PhotoStore notifies the image slots (never during a render)
+      if(res.photos) PhotoStore.load(res.photos);
+      const rest = { ...res, photos: null };
+      up(s => absorbPublic(s, rest, shopId));
+      return res;
+    },
+    // products not seen yet (a basket, a basket link): one request
+    async loadProducts(ids){
+      const want = (ids || []).filter(id => id && !ref.current.pub[id] && !ref.current.gone[id] && !api.productById(id));
+      if(!want.length) return;
+      try{ await api.browse("/products?ids=" + want.slice(0, 100).map(encodeURIComponent).join(",")); }catch(e){}
+    },
+    // the landing page: the first shops (oldest first) and the demo shop's products for its hero
+    async loadLanding(){
+      if(window.__landingLoaded) return;
+      window.__landingLoaded = true;
+      await Promise.all([api.browse("/shops?size=6&sort=old&preview=4").catch(()=>{}), api.browse("/shops?ids=" + DEMO_SHOP + "&preview=12").catch(()=>{})]);
+    },
+    // shop cards not loaded yet (saved shops), with their first products
+    async loadShops(ids, preview){
+      const want = (ids || []).filter(id => id && !ref.current.pubShop[id] && !ref.current.dash[id]);
+      if(!want.length) return;
+      try{ await api.browse("/shops?preview=" + (preview || 3) + "&ids=" + want.map(encodeURIComponent).join(",")); }catch(e){}
+    },
     settings(shopId){ return state.settings[shopId] || { name: (SHOPS[shopId] || {}).name || "", handle: (SHOPS[shopId] || {}).handle || "",
       city: "", type: "", tagline: { uz: "", ru: "", en: "" }, contacts: {}, delivery: { uz: "", ru: "", en: "" }, payments: ["cash"],
       threshold: DEFAULT_THRESHOLD, showSold: true, status: "live", plan: "starter", trialDays: 0, phone: "" }; },
@@ -227,6 +317,19 @@ function useShopStore(){
     team(shopId){ return state.team[shopId] || []; },
     dashReady(shopId){ return !!state.dash[shopId]; },
     rangeFrom(shopId){ return (state.dash[shopId] || {}).rangeFrom || 0; },
+    // the history screens' data (BACKEND-PLAN §23): pages + totals from the server; histRev changes when it should reload
+    histRev(shopId){ return (state.histRev || {})[shopId] || 0; },
+    saleSpan(shopId){ const sp = (state.dash[shopId] || {}).saleSpan || {};
+      const mem = (state.sales[shopId] || []).map(x => x.at);
+      return { first: sp.first != null ? sp.first : (mem.length ? Math.min(...mem) : null), last: Math.max(sp.last || 0, ...mem, 0) || null }; },
+    async dashGet(shopId, path){
+      const res = await Api.get(dash(shopId) + path);
+      if(res && /^\/requests\/page/.test(path) && res.items && res.items.length){
+        up(s => { const cur = (s.requests || {})[shopId] || []; const ids = new Set(res.items.map(r => r.id));
+          return { ...s, requests: { ...(s.requests || {}), [shopId]: [...res.items, ...cur.filter(r => !ids.has(r.id))].sort((a, b) => b.at - a.at) } }; });
+      }
+      return res;
+    },
     branches(shopId){ return (state.dash[shopId] || {}).branches || []; },
     canDash,
     async loadDash(shopId){
@@ -241,7 +344,7 @@ function useShopStore(){
       try{ mergeHistory(shopId, await Api.get(dash(shopId) + "/history?from=" + from + "&to=" + have)); }catch(e){ fail(null, e); }
     },
     async loadShopByHandle(handle){
-      try{ const e = await Api.get("/shops/" + encodeURIComponent(handle)); if(e && e.shop){ setState(s => absorbShop(s, e)); return e.shop.id; } }catch(e){}
+      try{ const e = await Api.get("/shops/" + encodeURIComponent(handle)); if(e && e.shop){ setState(s => absorbPublic(s, e)); return e.shop.id; } }catch(e){}
       return null;
     },
     operatorId(shopId){
@@ -280,7 +383,9 @@ function useShopStore(){
       const st = api.settings(shopId);
       return { ...base, name: st.name || base.name, handle: st.handle || base.handle, location: st.city || base.location, type: st.type || base.type,
         tagline: st.tagline || base.tagline, contacts: st.contacts, delivery: st.delivery, payments: st.payments, status: st.status, plan: st.plan,
-        threshold: st.threshold, showSold: st.showSold, place: shopPlace(st, shopId), products: api.products(shopId) };
+        threshold: st.threshold, showSold: st.showSold, place: shopPlace(st, shopId), products: api.products(shopId),
+        productCount: state.pubShop[shopId] && !state.catalog[shopId] ? state.pubShop[shopId].productCount : null,
+        soldTotal: state.pubShop[shopId] && !state.catalog[shopId] ? state.pubShop[shopId].soldTotal : null };
     },
     variantIndex(shopId){
       const out = {};
@@ -503,7 +608,8 @@ function useShopStore(){
       const idx = api.variantIndex(shopId);
       const op = uid("op");
       const prev = (state.sales[shopId] || [])[0];
-      const sale = { id: uid("s"), _op: op, no: (prev && prev.no ? prev.no : 200) + 1, at: Date.now(), pay: pay || "cash", status: "completed", sellerId: api.operatorId(shopId),
+      const lastNo = Math.max(prev && prev.no ? prev.no : 200, ((state.dash[shopId] || {}).saleSpan || {}).lastNo || 0);
+      const sale = { id: uid("s"), _op: op, no: lastNo + 1, at: Date.now(), pay: pay || "cash", status: "completed", sellerId: api.operatorId(shopId),
         lines: lines.map(l => ({ ...l, cost: idx[l.variantId] ? idx[l.variantId].v.avgCost : null,
           oversold: idx[l.variantId] ? idx[l.variantId].v.qty < l.qty : false, returned: 0 })),
         total: lines.reduce((n, l) => n + l.qty * l.unit, 0) };
@@ -659,4 +765,34 @@ function publicProducts(store, shopId){
     .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 }
 
-Object.assign(window, { useShopStore, publicProducts, RASTA_KEY, bootData, reconcile, loadState, saveState });
+// A paged list of the dashboard (BACKEND-PLAN §23): load(page, size) → {items, total, hasMore, …}. Page 0 again when key
+// changes (after a short pause, for typing); when rev changes the rows already shown are reloaded in place.
+function useDashPages(load, key, rev, PAGE){
+  PAGE = PAGE || 40;
+  const [st, setSt] = React.useState({ items:[], total:0, hasMore:false, loading:true, res:null });
+  const seq = React.useRef(0), cur = React.useRef(st); cur.current = st;
+  const fetchPage = (page, size, append) => {
+    const id = ++seq.current;
+    setSt(x => ({ ...x, loading:true }));
+    load(page, size).then(r => { if(id !== seq.current || !r) return;
+      setSt(x => ({ items: append ? [...x.items, ...(r.items||[])] : (r.items||[]), total: r.total||0,
+        hasMore: append ? !!r.hasMore : (r.items||[]).length < (r.total||0), loading:false, res:r })); })
+      .catch(() => { if(id === seq.current) setSt(x => ({ ...x, loading:false })); });
+  };
+  const first = React.useRef(true);
+  React.useEffect(() => { const tm = setTimeout(() => fetchPage(0, PAGE, false), first.current ? 0 : 200); first.current = false; return () => clearTimeout(tm); }, [key]);
+  const seen = React.useRef(rev);
+  React.useEffect(() => { if(seen.current === rev) return; seen.current = rev;
+    fetchPage(0, Math.min(200, Math.max(PAGE, cur.current.items.length)), false); }, [rev]);
+  return { ...st, more: () => { const n = cur.current.items.length;
+    if(n % PAGE === 0) fetchPage(n / PAGE, PAGE, true); else fetchPage(0, Math.min(200, n + PAGE), false); } };
+}
+// every page of a list (CSV export): the same query, 200 at a time
+async function dashAll(load){
+  const out = []; let first = null;
+  for(let page = 0; page < 500; page++){ const r = await load(page, 200); if(!first) first = r; out.push(...(r.items||[])); if(!r.hasMore) break; }
+  return { items: out, first };
+}
+const dashQS = (o) => new URLSearchParams(Object.entries(o).filter(([, v]) => v != null && v !== "" && v !== Infinity)).toString();
+
+Object.assign(window, { useShopStore, publicProducts, RASTA_KEY, bootData, reconcile, loadState, saveState, absorbPublic, useDashPages, dashAll, dashQS });

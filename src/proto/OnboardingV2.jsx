@@ -351,8 +351,10 @@ function O2Product({ t, d, set, lang, sizeAttr }){
   function doImport(){
     setBusy(true);
     setTimeout(()=>{
-      const src = SHOP_ORDER.map(id=>SHOPS[id]).find(s=>s && s.type===d.type && s.products && s.products.length) || SHOPS[SHOP_ORDER[0]];
-      const list = (src.products||[]).slice(0,4).map(x=>({ name:textFB(x.name,lang), price:x.price, qty:1 }));
+      const st = window.__shopStore;
+      const prods = (id)=> st? st.products(id) : ((SHOPS[id]||{}).products||[]);
+      const src = SHOP_ORDER.find(id=>SHOPS[id] && SHOPS[id].type===d.type && prods(id).length) || SHOP_ORDER[0];
+      const list = (src? prods(src) : []).slice(0,4).map(x=>({ name:textFB(x.name,lang), price:x.price, qty:1 }));
       set({ imported:list, impSel:list.map((_,i)=>i) }); setBusy(false);
     }, 1000);
   }

@@ -59,10 +59,22 @@ const slCalc = (s)=>{ let n=0, sum=0, cost=0, costKnown=true, retN=0, retSum=0;
     n += k; sum += k*l.unit; if(l.cost!=null) cost += k*l.cost; else costKnown = false; });
   return { n, sum, cost, profit: costKnown? sum-cost : null, retN, retSum, status: n===0? "ret" : retN>0? "part" : "done" }; };
 
+// the revenue chart's buckets from the server's per-day totals (BACKEND-PLAN §23): days / weeks as before
+function slBuckets(days, since, until, minAt, total){
+  const DAY = 86400000;
+  const day0 = (ts)=> new Date(hxISO(ts)+"T00:00:00").getTime();
+  const endTs = day0(Math.min(Date.now(), until));
+  const startTs = since? day0(since) : (total? day0(minAt) : endTs);
+  const nDays = Math.max(1, Math.round((endTs - startTs)/DAY) + 1);
+  const bSize = Math.ceil(nDays/31);
+  const buckets = Array.from({length:Math.ceil(nDays/bSize)}, (_,i)=>({ at: startTs + i*bSize*DAY, v:0, n:0 }));
+  (days||[]).forEach(d=>{ const i = Math.floor(Math.round((d.at - startTs)/DAY)/bSize); if(buckets[i]){ buckets[i].v += d.v; buckets[i].n += d.n; } });
+  return { buckets, bSize };
+}
+
+// Sales come from the server in pages with the period's totals (BACKEND-PLAN §23): the browser keeps only 2 days.
 function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
   const st = store.settings(shop.id);
-  const sales = store.sales(shop.id);
-  const movements = store.movements(shop.id);
   const idx = store.variantIndex(shop.id);
   const prods = store.products(shop.id);
   const vw = viewer || store.operator(shop.id);
@@ -76,8 +88,6 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
   const [open, setOpen] = React.useState(null);
   const [ret, setRet] = React.useState(null);
   const [manual, setManual] = React.useState(false);
-  const [limit, setLimit] = React.useState(40);
-  React.useEffect(()=>{ setLimit(40); }, [from, to, who, q]);
 
   const DAY = 86400000;
   const sellerOf = (s)=> store.saleSeller(shop.id, s);
@@ -88,47 +98,35 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
   const lineVar = (l)=>{ const x = idx[l.variantId];
     return (x && variantLabel(x.p.catId, x.v.options||{}, lang)) || (l.label && l.label!=="default"? l.label : "") || (x? catLabel(x.p.catId, lang) : ""); };
   const lineName = (l)=>{ const x = idx[l.variantId]; return x? textFB(x.p.name, lang) : l.name; };
-  const list = sales.filter(s=>{
-    if(!inRange(s.at)) return false;
-    if(mine? sellerOf(s)!==vw.id : (who!=="all" && sellerOf(s)!==who)) return false;
-    if(q){ const hay = ("#"+s.no+" "+s.no+" "+s.lines.map(l=>l.name+" "+lineName(l)+" "+(l.label||"")+" "+((idx[l.variantId]||{v:{}}).v.barcode||"")).join(" ")).toLowerCase();
-      if(!hay.includes(q.trim().toLowerCase())) return false; }
-    return true;
-  }).sort((a,b)=>b.at-a.at);
-
-  // totals for the period
-  let revenue=0, cost=0, counted=0, uncounted=0, units=0, retSum=0, receipts=0;
-  const payTot = {};
-  list.forEach(s=>{ const c = slCalc(s); retSum += c.retSum; if(c.n>0) receipts++;
-    payTot[s.pay] = (payTot[s.pay]||0) + c.sum;
-    s.lines.forEach(l=>{ const k = l.qty-(l.returned||0); if(k<=0) return; units += k; revenue += k*l.unit;
-      if(l.cost!=null){ cost += k*l.cost; counted += k; } else uncounted += k; }); });
+  // the period's sales (seller, search) in pages; the totals below are the whole period's, from the server
+  const query = (page, size)=> store.dashGet(shop.id, "/sales/page?"+dashQS({ from:since, to:until, seller: mine? vw.id : (who==="all"? "" : who),
+    q, lang, tz:new Date().getTimezoneOffset(), page, size }));
+  const pages = useDashPages(query, JSON.stringify([since, until, who, q, lang, mine && vw.id]), store.histRev(shop.id));
+  const list = pages.items;
+  const sm = (pages.res && pages.res.summary) || { revenue:0, cost:0, counted:0, uncounted:0, units:0, retSum:0, receipts:0, pay:{}, losses:0 };
+  const revenue = sm.revenue, cost = sm.cost||0, counted = sm.counted, uncounted = sm.uncounted, units = sm.units, retSum = sm.retSum, receipts = sm.receipts;
+  const payTot = sm.pay || {};
   const profit = revenue - cost;
   const profitPct = revenue? Math.round(profit/revenue*100) : 0;
   const avg = receipts? Math.round(revenue/receipts) : 0;
-  const losses = movements.filter(m=>m.reason==="loss" && inRange(m.at))
-    .reduce((n,m)=> n + (m.unitCost!=null? Math.abs(m.qty!=null? m.qty : m.delta)*m.unitCost : 0), 0);
+  const losses = sm.losses||0;
   const pending = ordersOn()? store.orders(shop.id).filter(o=>o.status==="new") : [];
   const payLabel = (id)=>{ const m=PAY_METHODS.find(x=>x.id===id); return m? m.label[lang] : id; };
   const payColor = (id)=>{ const i = PAY_METHODS.findIndex(m=>m.id===id); return i<0? SL_PAY[SL_PAY.length-1] : SL_PAY[i % (SL_PAY.length-1)]; };
   const payRows = Object.keys(payTot).map(k=>[k, payTot[k]]).filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
 
-  // revenue by day (by week-ish buckets when the range is long)
-  const day0 = (ts)=> new Date(hxISO(ts)+"T00:00:00").getTime();
-  const endTs = day0(Math.min(Date.now(), until));
-  const startTs = since? day0(since) : (list.length? day0(Math.min(...list.map(s=>s.at))) : endTs);
-  const nDays = Math.max(1, Math.round((endTs - startTs)/DAY) + 1);
-  const bSize = Math.ceil(nDays/31);
-  const buckets = Array.from({length:Math.ceil(nDays/bSize)}, (_,i)=>({ at: startTs + i*bSize*DAY, v:0, n:0 }));
-  list.forEach(s=>{ const i = Math.floor(Math.round((day0(s.at) - startTs)/DAY)/bSize); if(buckets[i]){ buckets[i].v += slCalc(s).sum; buckets[i].n++; } });
+  // revenue by day (by week-ish buckets when the range is long), from the server's per-day totals
+  const { buckets, bSize } = slBuckets(pages.res && pages.res.days, since, until, pages.res && pages.res.minAt, pages.total);
   const bMax = Math.max(1, ...buckets.map(b=>b.v));
 
   const photo = (x)=> <span className="stk-photo">{x? <ImageSlot id={pslot(shop.id,x.p,0)} src={photoURL(x.p.tone, pslot(shop.id,x.p,0), 90,90, IMG_KW[shop.type], prods.findIndex(y=>y.id===x.p.id))} placeholder="" style={FILL}/> : null}</span>;
 
-  function exportCSV(){
+  async function exportCSV(){
     if(st.plan!=="pro"){ toast(t.inv_pro_only, "warn"); return; }
+    let all;
+    try{ all = (await dashAll(query)).items; }catch(e){ toast(Api.errorText(e, lang), "err"); return; }
     const rows = [["id","date","time","product","variant","barcode","qty","price","amount","cost","profit","payment","seller","status"]];
-    list.forEach(s=>{ const c = slCalc(s); s.lines.forEach(l=>{
+    all.forEach(s=>{ const c = slCalc(s); s.lines.forEach(l=>{
       const k = l.qty-(l.returned||0); const x = idx[l.variantId];
       rows.push(["#"+s.no, hxDate(s.at), slHM(s.at), lineName(l), lineVar(l), x? (x.v.barcode||"") : "", k, l.unit, k*l.unit, l.cost==null?"":l.cost,
         l.cost==null?"":k*(l.unit-l.cost), payLabel(s.pay), sellerName(s), t["sl_st_"+c.status]]);
@@ -155,7 +153,7 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
 
       <div className="inv-bar hx-bar" style={{alignItems:"center"}}>
         <div className="inline-search grow">{I.search({width:17,height:17})}<input value={q} onChange={e=>setQ(e.target.value)} placeholder={t.sl_search}/></div>
-        <HxRange from={from} to={to} t={t} lang={lang} onChange={(f, tt)=>{ setFrom(f); setTo(tt); if(f) store.ensureRange(shop.id, new Date(f+"T00:00:00").getTime()); }}/>
+        <HxRange from={from} to={to} t={t} lang={lang} onChange={(f, tt)=>{ setFrom(f); setTo(tt); }}/>
       </div>
 
       {mine ? <div className="tm-mine">{I.team({width:15,height:15})} {t.tm_my_sales} · {staffName(vw,t)}</div> : team.length>1 && (
@@ -176,7 +174,7 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
         <div className="hx-card"><span>{t.sl_k_ret}</span><b className={retSum? "down" : ""}>{fmtNum(retSum)}</b>{vp.costs && <small>{t.sl_losses}: {fmtNum(losses)}</small>}</div>
       </div>
 
-      {list.length>0 && (
+      {pages.total>0 && (
         <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))", gap:14, margin:"14px 0"}}>
           <div className="hx-panel" style={{gridColumn:"span 2", minWidth:0}}>
             <div className="hx-ph"><b>{t.sl_k_daily}</b></div>
@@ -221,7 +219,7 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
         </div>
       )}
 
-      {sales.length===0 ? (
+      {!pages.res && pages.loading ? <div className="stk-empty card"><span className="tg-spin"></span></div> : pages.res && !pages.res.any ? (
         <EmptyState icon={I.wallet} title={t.db_sales} body={t.sl_empty}
           cta={<button className="btn btn-accent" onClick={()=>setManual(true)}>{I.plus({width:17,height:17})} {t.sl_manual}</button>}/>
       ) : list.length===0 ? <div className="stk-empty card">{t.sl_none}</div> : (
@@ -231,7 +229,7 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
               {[t.hc_id, t.sl_c_items, t.hc_qty, t.hc_sum, vp.costs? t.sl_profit : "", t.sl_c_pay, t.sl_c_seller, t.sl_c_status, t.hc_date, ""].map((h,i)=>(
                 <span key={i} style={{whiteSpace:"nowrap", textAlign: i>=2 && i<=4? "right" : "left"}}>{h}</span>))}
             </div>
-            {list.slice(0,limit).map(s=>{
+            {list.map(s=>{
               const c = slCalc(s), isOpen = open===s.id, l0 = s.lines[0], x0 = l0 && idx[l0.variantId];
               const v0 = l0? lineVar(l0) : "", more = s.lines.length-1;
               return (
@@ -281,7 +279,7 @@ function SalesView({ store, shop, t, lang, onOpenOrders, viewer }){
           </div>
         </div>
       )}
-      {list.length>limit && <button className="btn btn-soft hist-more" onClick={()=>setLimit(limit+40)}>{t.h_more} · {list.length-limit}</button>}
+      {pages.hasMore && <button className="btn btn-soft hist-more" disabled={pages.loading} onClick={pages.more}>{t.h_more} · {pages.total-list.length}</button>}
       {manual && <ManualSaleModal store={store} shop={shop} t={t} lang={lang} onClose={()=>setManual(false)}/>}
       {ret && <ReturnModal sale={ret.sale} line={ret.line} t={t} lang={lang} onClose={()=>setRet(null)}
         onConfirm={(qty,mode)=>{ store.returnLine(shop.id, ret.sale.id, ret.line.variantId, qty, mode); toast(t.inv_r_return); }}/>}

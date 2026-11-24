@@ -232,6 +232,8 @@ function BuyerProfile({ orderStore, shopStore, lang, setLang, onClose, onOpenOrd
   React.useEffect(()=>{ setName((orderStore.account()||{}).name || ""); }, [acct && acct.phone]);
   React.useEffect(()=>{ const k=(e)=>{ if(e.key==="Escape"){ if(ask) setAsk(null); else if(tab) setTab(null); else onClose(); } }; addEventListener("keydown",k); return ()=>removeEventListener("keydown",k); });
   React.useEffect(()=>{ window.scrollTo(0,0); }, [tab]);
+  // saved shops load when the profile opens (public shops come in pages, not all at once)
+  React.useEffect(()=>{ shopStore.loadShops && shopStore.loadShops(orderStore.favShops(), 3); }, [orderStore.favShops().join(",")]);
   const shell = (kids)=> <div className="bp-page ez">{kids}</div>;
   const top = (
     <div className="bp-top ez-top">

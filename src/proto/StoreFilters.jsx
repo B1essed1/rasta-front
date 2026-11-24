@@ -258,6 +258,40 @@ function sfxWrite(F, cat){
 }
 const sfxHost = (el)=> (el && el.closest && el.closest(".storefront")) || document.body;
 
+// ---- paged lists from the server (BACKEND-PLAN §23): same filters, computed there ----
+const SFX_PAGE = 24;
+function sfxQuery(F, extra){
+  const q = new URLSearchParams();
+  Object.keys(extra||{}).forEach(k=>{ const v = extra[k]; if(v!=null && v!=="" && v!=="all") q.set(k, v); });
+  Object.keys(F.sel).forEach(a=>{ if((F.sel[a]||[]).length) q.set("f_"+a, F.sel[a].join(",")); });
+  if(F.pmin) q.set("pmin", F.pmin); if(F.pmax) q.set("pmax", F.pmax);
+  if(F.rate) q.set("rate", String(F.rate)); if(F.stock) q.set("instock","1");
+  if(F.sort && F.sort!=="new") q.set("sort", F.sort);
+  return q.toString();
+}
+// the server's facets → SfxBar's shape ({attr, cover, values}) + its counts
+function sfxServerFacets(res){
+  const facets = (res.facets||[]).map(f=>({ attr: attrDef(f.id) || { id:f.id, name:{ en:f.id, ru:f.id, uz:f.id }, kind:"select", values:[] },
+    cover:f.cover, values:f.values.map(x=>x.v) }));
+  const counts = {}; (res.facets||[]).forEach(f=>{ counts[f.id] = {}; f.values.forEach(x=>{ counts[f.id][x.v] = x.n; }); });
+  return { facets, sv:{ cnt:(aid, v)=> (counts[aid]||{})[v] || 0, presets: res.presets||[], stock: res.stockCount||0 } };
+}
+// one paged list: page 0 again whenever the query changes (search text after a short pause), "more" appends.
+// The newest answer wins, so a slow old answer never overwrites a newer one.
+function useSfxPages(load, key, enabled, debounce){
+  const [st, setSt] = React.useState({ items:[], total:0, hasMore:false, page:0, loading:!!enabled, res:null });
+  const seq = React.useRef(0);
+  const run = (page)=>{
+    const id = ++seq.current;
+    setSt(x=>({ ...x, loading:true }));
+    load(page).then(r=>{ if(id!==seq.current || !r) return;
+      setSt(x=>({ items: page? [...x.items, ...(r.items||[])] : (r.items||[]), total:r.total||0, hasMore:!!r.hasMore, page, loading:false, res:r })); })
+      .catch(()=>{ if(id===seq.current) setSt(x=>({ ...x, loading:false })); });
+  };
+  React.useEffect(()=>{ if(!enabled) return; const tm = setTimeout(()=>run(0), debounce||0); return ()=>clearTimeout(tm); }, [key, enabled]);
+  return { ...st, more:()=>run(st.page+1), reload:()=>run(0) };
+}
+
 const SFX_CSS = `
 .sfx-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 0}
 .sfx-row::-webkit-scrollbar{display:none}
@@ -317,19 +351,22 @@ function SfxOpt({ on, radio, disabled, sw, label, n, onClick }){
   );
 }
 
-// the chip row under the categories (Sort · Size · Colour · Price · 4★ · In stock · All filters) + its popovers + the full sheet
-function SfxBar({ t, lang, pool, facets, F, setF, ctx, total, promote, mySize, onPickSize }){
+// the chip row under the categories (Sort · Size · Colour · Price · 4★ · In stock · All filters) + its popovers + the full sheet.
+// sv = the server's counts for a paged list (BACKEND-PLAN §23): { cnt(aid, v), presets:[{min,max,n}], stock };
+// without it the counts are computed here over pool (previews of a small list).
+function SfxBar({ t, lang, pool, facets, F, setF, ctx, total, promote, mySize, onPickSize, sv }){
   const [pop, setPop] = React.useState(null);
   const [sheet, setSheet] = React.useState(null);
   const [more, setMore] = React.useState({});
   React.useEffect(()=>{ if(!pop) return; const c = ()=>setPop(null); addEventListener("resize", c); return ()=>removeEventListener("resize", c); }, [pop]);
   React.useEffect(()=>{ if(!pop && !sheet) return; const k = (e)=>{ if(e.key==="Escape"){ setPop(null); setSheet(null); } }; addEventListener("keydown", k); return ()=>removeEventListener("keydown", k); }, [pop, sheet]);
-  const presets = React.useMemo(()=>sfxPresets(pool), [pool]);
+  const presets = React.useMemo(()=> sv? (sv.presets||[]).map(p=>[p.min, p.max]) : sfxPresets(pool), [pool, sv]);
   const fs = facets || [];
-  const cnt = (aid, v)=> pool.filter(p=>sfxMatch(p,F,ctx,aid) && sfxVals(p,aid).includes(v)).length;
-  const priceCnt = (a, b)=> pool.filter(p=>{ if(!sfxMatch(p,F,ctx,"price")) return false; const r = sfxPrice(p); return (!a || r[1]>=Number(a)) && (!b || r[0]<=Number(b)); }).length;
+  const cnt = sv? sv.cnt : (aid, v)=> pool.filter(p=>sfxMatch(p,F,ctx,aid) && sfxVals(p,aid).includes(v)).length;
+  const priceCnt = sv? (a, b)=>{ const x = (sv.presets||[]).find(p=>p.min===a && p.max===b); return x? x.n : 0; }
+    : (a, b)=> pool.filter(p=>{ if(!sfxMatch(p,F,ctx,"price")) return false; const r = sfxPrice(p); return (!a || r[1]>=Number(a)) && (!b || r[0]<=Number(b)); }).length;
   const rateCnt = (r)=> pool.filter(p=>sfxMatch(p,F,ctx,"rate") && ((ctx.rating(p)||{}).avg||0)>=r).length;
-  const stockCnt = pool.filter(p=>sfxMatch(p,F,ctx,"stock") && !ctx.sold(p)).length;
+  const stockCnt = sv? sv.stock : pool.filter(p=>sfxMatch(p,F,ctx,"stock") && !ctx.sold(p)).length;
   const sorts = [["new",t.sfx_sort_new],["pop",t.sfx_sort_pop],["rate",t.sfx_sort_rate],["low",t.sfx_sort_low],["high",t.sfx_sort_high]]
     .filter(s=> s[0]!=="rate" || (typeof reviewsOn!=="function" || reviewsOn()));
   const hasRatings = pool.some(p=>ctx.rating(p));
@@ -420,7 +457,7 @@ function SfxBar({ t, lang, pool, facets, F, setF, ctx, total, promote, mySize, o
   );
 }
 
-Object.assign(window, { SfCatBar, SfFilterSheet, SfResultBar, SFF_I, SfxBar, SfxOpt, SFX_EMPTY, sfxFacets, sfxVals, sfxMatch, sfxSort, sfxPills, sfxRead, sfxWrite, sfxPrice, sfxLabel });
+Object.assign(window, { SfCatBar, SfFilterSheet, SfResultBar, SFF_I, SfxBar, SfxOpt, SFX_EMPTY, sfxFacets, sfxVals, sfxMatch, sfxSort, sfxPills, sfxRead, sfxWrite, sfxPrice, sfxLabel, SFX_PAGE, sfxQuery, sfxServerFacets, useSfxPages });
 
 // ---- port: publish top-level names, as the classic <script> did ----
 Object.assign(window, { SFF_I, SfCatBar, SfFilterSheet, SfResultBar, SFX_EMPTY, sfxKey, SFX_COLOR_SYN, sfxNorm, sfxVals, sfxFacets, sfxLabel, sfxPrice, sfxMatch, sfxSort, sfxNice, sfxPresets, sfxPriceLabel, sfxToggle, sfxActive, sfxPills, SFX_URL_KEYS, sfxRead, sfxWrite, sfxHost, SFX_CSS, SfxOpt, SfxBar });

@@ -180,24 +180,50 @@ function seriesFor(store, shopId, range){
   return cols;
 }
 
+// The team's numbers from the server (BACKEND-PLAN §23): per member (revenue, cost, receipts, items, returns, best
+// products, recent sales) and the chart, for the chosen period. The browser keeps only 2 days of sales.
+function teamParams(range, firstSaleAt){
+  let [from] = teamBounds(range);
+  const statsFrom = from;
+  if(range === "all"){ from = firstSaleAt!=null ? firstSaleAt : Date.now(); const s = new Date(from); s.setHours(0,0,0,0); s.setDate(s.getDate()-s.getDay()); from = s.getTime(); }
+  const step = range === "today" ? 3600000 : (range === "quarter" || range === "all") ? 7*86400000 : 86400000;
+  const n = range === "today" ? 14 : range === "week" ? 7 : range === "quarter" ? 13 : range === "all" ? Math.max(1, Math.min(52, Math.ceil((Date.now()-from)/step))) : 30;
+  const start = range === "today" ? (()=>{ const s = new Date(); s.setHours(8,0,0,0); return s.getTime(); })() : from;
+  return { from: statsFrom, start, step, n };
+}
+function useTeamData(store, shopId, range){
+  const team = store.team(shopId);
+  const pr = teamParams(range, store.saleSpan(shopId).first);
+  const [res, setRes] = React.useState(null);
+  const rev = store.histRev(shopId);
+  React.useEffect(()=>{ let on = true;
+    store.dashGet(shopId, "/team/stats?"+dashQS(pr)).then(r=>{ if(on && r) setRes({ key:range+"|"+pr.start, r }); }).catch(()=>{});
+    return ()=>{ on = false; }; }, [shopId, range, rev, pr.start, pr.n]);
+  const r = res && res.key===range+"|"+pr.start ? res.r : null;
+  const stats = {};
+  team.forEach(m=>{ const x = (r && r.stats[m.id]) || {};
+    stats[m.id] = { revenue:0, costKnown:true, receipts:0, items:0, returns:0, online:0, salesCount:0, best:[], recent:[], ...x, cost: x.cost!=null? x.cost : 0 }; });
+  const cols = r ? r.cols : Array.from({ length:pr.n }, (_, i)=>({ at: pr.start + i*pr.step, by:{} }));
+  return { stats, cols, ready: !!r };
+}
+
 function TeamView({ store, shop, t, lang, viewer }){
   const team = store.team(shop.id);
   const isOwner = viewer.role === "owner";
   const seeCost = permsOf(viewer).costs;
   const [range, setRange] = React.useState(()=>{
-    const last = Math.max(0, ...store.sales(shop.id).map(s=>s.at));
+    const last = store.saleSpan(shop.id).last || 0;
     return ["month","quarter"].find(r=>last >= teamBounds(r)[0]) || "all";
   });
   const [edit, setEdit] = React.useState(null);
   const [open, setOpen] = React.useState(null);
-  const stats = staffStats(store, shop.id, range);
+  const { stats, cols } = useTeamData(store, shop.id, range);
   const total = Object.values(stats).reduce((n,r)=>n+r.revenue,0);
   const receipts = Object.values(stats).reduce((n,r)=>n+r.receipts,0);
   const rows = team.filter(m => m.status !== "inactive" || stats[m.id].receipts)
     .slice().sort((a,b)=> stats[b.id].revenue - stats[a.id].revenue);
   const top = rows.find(m=>stats[m.id].revenue>0);
   const max = Math.max(1, ...rows.map(m=>stats[m.id].revenue));
-  const cols = seriesFor(store, shop.id, range);
   const colMax = Math.max(1, ...cols.map(c=>Object.values(c.by).reduce((n,x)=>n+x,0)));
   const colLabel = (c, i) => {
     const d = new Date(c.at);
@@ -284,25 +310,23 @@ function TeamView({ store, shop, t, lang, viewer }){
         })}
       </div>
 
-      {open && <StaffDetail store={store} shop={shop} t={t} lang={lang} viewer={viewer} id={open} range={range}
+      {open && <StaffDetail store={store} shop={shop} t={t} lang={lang} viewer={viewer} id={open} range={range} stats={stats}
         onClose={()=>setOpen(null)} onEdit={(m)=>{ setOpen(null); setEdit({ m }); }}/>}
       {edit && <StaffEditor store={store} shop={shop} t={t} lang={lang} init={edit.m} onClose={()=>setEdit(null)}/>}
     </div>
   );
 }
 
-function StaffDetail({ store, shop, t, lang, viewer, id, range, onClose, onEdit }){
+function StaffDetail({ store, shop, t, lang, viewer, id, range, stats, onClose, onEdit }){
   const m = store.team(shop.id).find(x=>x.id===id);
   const [tab, setTab] = React.useState("stats");
   const [confirm, setConfirm] = React.useState(false);
   if(!m) return null;
   const isOwner = viewer.role === "owner";
-  const r = staffStats(store, shop.id, range)[m.id];
+  // the period's numbers, best sellers and 8 newest sales come from the server with the team's stats
+  const r = (stats && stats[m.id]) || { revenue:0, cost:0, costKnown:true, receipts:0, items:0, returns:0, salesCount:0, best:[], recent:[] };
   const p = permsOf(m);
-  const prods = {};
-  r.sales.forEach(s=>s.lines.forEach(l=>{ const q=l.qty-l.returned; if(q<=0) return;
-    const k=l.productId; prods[k]=prods[k]||{ name:l.name, qty:0, rev:0 }; prods[k].qty+=q; prods[k].rev+=q*l.unit; }));
-  const best = Object.values(prods).sort((a,b)=>b.qty-a.qty).slice(0,5);
+  const best = r.best || [];
   const payLabel = (pid)=>{ const x=PAY_METHODS.find(y=>y.id===pid); return x? x.label[lang] : pid; };
   const link = "t.me/rastashops_bot?start=join_"+shop.handle+"_"+m.id.slice(-5);
   return (
@@ -347,7 +371,7 @@ function StaffDetail({ store, shop, t, lang, viewer, id, range, onClose, onEdit 
               <div key={i} className="mini-stat"><div className="ms-val">{val}</div><div className="ms-lab">{lab}</div></div>
             ))}
           </div>
-          {r.sales.length===0 ? <div className="tm-empty">{t.tm_no_sales}</div> : (
+          {!r.salesCount ? <div className="tm-empty">{t.tm_no_sales}</div> : (
             <div className="tm-d-grid">
               <div>
                 <div className="tm-d-t">{t.tm_best}</div>
@@ -357,7 +381,7 @@ function StaffDetail({ store, shop, t, lang, viewer, id, range, onClose, onEdit 
               </div>
               <div>
                 <div className="tm-d-t">{t.tm_recent}</div>
-                {r.sales.slice(0,8).map(s=>{
+                {(r.recent||[]).map(s=>{
                   const n = s.lines.reduce((x,l)=>x+(l.qty-l.returned),0);
                   return (
                     <div key={s.id} className="tm-rc">
@@ -547,4 +571,5 @@ function TillChip({ store, shop, t, compact, onClick }){
 Object.assign(window, { TeamView, StaffDetail, StaffEditor, SwitchSeller, TillChip, StaffAv, seedTeam, seedSellerFor, rolePerms, permsOf, staffName, staffFirst, roleLabel, TEAM_TONES });
 
 // ---- port: publish top-level names, as the classic <script> did ----
+Object.assign(window, { teamParams, useTeamData });
 Object.assign(window, { TEAM_TONES, PERM_KEYS, rolePerms, seedTeam, hashStr, seedSellerFor, staffName, staffFirst, staffInit, roleLabel, permsOf, StaffAv, teamBounds, staffStats, seriesFor, TeamView, StaffDetail, genPin, StaffEditor, SwitchSeller, TillChip });

@@ -8,7 +8,9 @@ function StoreView({ store, shopId, lang, setLang, onExplore, onDash, chatStore 
   const t = I18N[lang];
   const cfg = store.cfg(shopId);
   const meta = store.shopMeta(shopId);
-  const shop = { ...meta, products: publicProducts(store, shopId) };
+  // the products come in pages from the server (Storefront server mode, BACKEND-PLAN §23)
+  const shop = { ...meta, products: publicProducts(store, shopId),
+    productCount: meta.productCount!=null? meta.productCount : publicProducts(store, shopId).length };
   // port: the open product comes from the URL (/:handle/p/:productId) instead of ?p=
   const route = useRoute();
   const openId = route.view==="store" && route.handle===meta.handle ? (route.productId || null) : null;
@@ -27,7 +29,7 @@ function StoreView({ store, shopId, lang, setLang, onExplore, onDash, chatStore 
           <BuyerButton orderStore={chatStore} lang={lang}/>
         </div>
       </div>
-      <Storefront shop={shop} cfg={cfg} lang={lang} openId={openId} pop={pop} onTrackProduct={(pid)=>store.trackProduct(shopId,pid)} chatStore={chatStore}
+      <Storefront shop={shop} cfg={cfg} lang={lang} openId={openId} pop={pop} server={store} onTrackProduct={(pid)=>store.trackProduct(shopId,pid)} chatStore={chatStore}
         reviews={store.reviews(shopId)} onAddReview={(rev)=>store.addReview(shopId, rev)}
         reviewerName={(chatStore.account()||{}).name || null}/>
     </div>
@@ -55,6 +57,10 @@ function BioView({ store, shopId, lang, setLang, onExplore, onDash, onShop }){
 
 function BioViewTrack({ store, shopId }){
   React.useEffect(()=>{ store.trackBio(shopId); }, [shopId]);
+  // the bio page shows the shop's first in-stock products: load them unless the shop's catalog is here already
+  React.useEffect(()=>{ const h = store.shopMeta(shopId).handle, done = window.__bioLoaded || (window.__bioLoaded = {});
+    if(h && !store.dashReady(shopId) && !done[shopId]){ done[shopId] = true;
+      store.browse("/shops/"+encodeURIComponent(h)+"/products?instock=1&sort=shop&size=4", shopId).catch(()=>{ done[shopId] = false; }); } }, [shopId]);
   return null;
 }
 
@@ -102,24 +108,19 @@ function LoginView({ store, lang, setLang, onDone, onCancel }){
 function App(){
   const store = useShopStore();
   const lang = store.state.lang;
-  // catalog lookup injected into the order store: intent is validated against real stock
+  // catalog lookup injected into the order store: intent is validated against real stock. Products load in pages
+  // now, so a product not loaded yet is "unknown" (kept, no limit): only the server's "gone" drops a basket line.
   const stockOf = React.useCallback((productId, variantId)=>{
-    for(const sid of SHOP_ORDER){
-      const p = (store.products(sid)||[]).find(x=>x.id===productId);
-      if(!p) continue;
-      if(!variantId) return { qty: totalQty(p), exists:true };
-      const v = p.variants.find(x=>x.id===variantId);
-      return v? { qty:v.qty, exists:true } : { qty:0, exists:false };
-    }
-    return { qty:0, exists:false };
-  }, [store.state.catalog]);
+    const p = store.productById(productId);
+    if(!p) return store.isGone(productId)? { qty:0, exists:false } : { qty:Infinity, exists:true, unknown:true };
+    if(!variantId) return { qty: totalQty(p), exists:true };
+    const v = p.variants.find(x=>x.id===variantId);
+    return v? { qty:v.qty, exists:true } : { qty:0, exists:false };
+  }, [store.state.catalog, store.state.pub, store.state.gone]);
   const soleVariantOf = React.useCallback((productId)=>{
-    for(const sid of SHOP_ORDER){
-      const p = (store.products(sid)||[]).find(x=>x.id===productId);
-      if(p) return p.variants && p.variants.length===1? p.variants[0].id : null;
-    }
-    return null;
-  }, [store.state.catalog]);
+    const p = store.productById(productId);
+    return p && p.variants && p.variants.length===1? p.variants[0].id : null;
+  }, [store.state.catalog, store.state.pub]);
   const chatStore = useOrderStore(lang, stockOf, soleVariantOf);
   window.__lang = lang;
   // port: `view` mirrors the URL (src/route.js). The prototype's ?view=/?p=/?b=/?tab= links are rewritten first.
@@ -141,7 +142,7 @@ function App(){
   const [view, setView] = React.useState(()=>{
     try{
       const legacy = legacyPath({ currentHandle: store.shopMeta(store.state.currentId || SHOP_ORDER[0]).handle,
-        handleOfProduct:(pid)=>{ const sid = SHOP_ORDER.find(id=>(store.products(id)||[]).some(p=>p.id===pid)); return sid? store.shopMeta(sid).handle : null; },
+        handleOfProduct:(pid)=>{ const p = store.productById(pid); const sid = p && p.shopId || SHOP_ORDER.find(id=>(store.products(id)||[]).some(x=>x.id===pid)); return sid? store.shopMeta(sid).handle : null; },
         anyCode:(()=>{ for(const sid of SHOP_ORDER){ const r = store.requests(sid)[0]; if(r) return r.code; } return null; })() });
       if(legacy) history.replaceState(history.state, "", legacy);
       return viewFromUrl(true);
@@ -374,6 +375,7 @@ function App(){
           </div>
         </div>
       )}
+      {basketOpen && !checkout && <BasketLoad store={store} chatStore={chatStore}/>}
       {basketOpen && !checkout && (
         <BasketPage orderStore={chatStore} shopStore={store} t={I18N[lang]} lang={lang}
           onClose={()=>setBasketOpen(false)}
@@ -417,6 +419,13 @@ function App(){
 
 // PageNav, Switcher and the screenshot tour moved to DevTour.jsx (development only).
 
+// the basket's products are loaded when it opens (they may come from pages never opened on this device)
+function BasketLoad({ store, chatStore }){
+  const ids = chatStore.baskets().flatMap(b=>b.items.map(it=>it.productId)).filter(Boolean);
+  React.useEffect(()=>{ store.loadProducts(ids); }, [ids.join(",")]);
+  return null;
+}
+
 // Boot: the public catalog, the session (refresh cookie) and the data the first screen needs are loaded before
 // the first render, so the screens' synchronous reads see real data from the start.
 const rootEl = document.getElementById("root");
@@ -433,4 +442,4 @@ bootData(currentRoute()).then(s => {
 });
 
 // ---- port: publish top-level names, as the classic <script> did ----
-Object.assign(window, { StoreView, BioView, LoginView, App });
+Object.assign(window, { StoreView, BioView, LoginView, App, BasketLoad });

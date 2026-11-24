@@ -40,7 +40,7 @@ function MktCard({ store, shop, lang, t, onOpen, chatStore }){
           {thumbs.map((p,i)=>(<div key={p.id} className="mkt-thumb" style={{"--t":p.tone, backgroundImage:`url(${photoURL(p.tone, pslot(shop.id,p,0), 150,150, IMG_KW[shop.type], i)})`, backgroundSize:"cover", backgroundPosition:"center"}}></div>))}
         </div>
         <div className="mkt-foot">
-          <span className="meta">{I.store({width:15,height:15})} <span>{shop.location} · {shop.products.length} {t.sf_products}</span></span>
+          <span className="meta">{I.store({width:15,height:15})} <span>{shop.location} · {shop.productCount!=null? shop.productCount : shop.products.length} {t.sf_products}</span></span>
           <span className="open">{t.mkt_open} {I.arrow()}</span>
         </div>
       </div>

@@ -435,10 +435,13 @@ function RestockDrawer({ store, shop, t, lang, onClose }){
   );
 }
 
-function HistoryDrawer({ row, movements, sales, t, lang, onClose }){
-  const list = movements.filter(m=>m.variantId===row.v.id);
+// one variant's whole journal, from the server in pages (BACKEND-PLAN §23)
+function HistoryDrawer({ store, shop, row, t, lang, onClose }){
+  const pages = useDashPages((page, size)=> store.dashGet(shop.id, "/movements/page?"+dashQS({ variantId:row.v.id, page, size })),
+    row.v.id, store.histRev(shop.id), 100);
+  const list = pages.items;
   useEscape(onClose);
-  const saleNo = (id)=>{ const s = sales.find(x=>x.id===id); return s? "#"+s.no : ""; };
+  const saleNo = (id)=>{ const m = list.find(x=>x.saleId===id && x.saleNo!=null); return m? "#"+m.saleNo : ""; };
   return (
     <div className="drawer-scrim" onClick={onClose}>
       <aside className="drawer" onClick={e=>e.stopPropagation()}>
@@ -453,7 +456,7 @@ function HistoryDrawer({ row, movements, sales, t, lang, onClose }){
             <div><span>{t.inv_barcode}</span><b className="mono">{row.v.barcode}</b></div>
           </div>
           <div className="timeline">
-            {list.length===0 && <div className="hint">{t.inv_no_match}</div>}
+            {list.length===0 && (pages.loading? <div className="hint"><span className="tg-spin"></span></div> : <div className="hint">{t.inv_no_match}</div>)}
             {list.map(m=>(
               <div key={m.id} className="tl-row">
                 <span className="tl-date">{fmtDate(m.at,lang)}</span>
@@ -467,6 +470,7 @@ function HistoryDrawer({ row, movements, sales, t, lang, onClose }){
                 </div>
               </div>
             ))}
+            {pages.hasMore && <button className="btn btn-soft btn-sm" style={{marginTop:10}} disabled={pages.loading} onClick={pages.more}>{t.h_more} · {pages.total-list.length}</button>}
           </div>
         </div>
       </aside>
@@ -477,7 +481,11 @@ function HistoryDrawer({ row, movements, sales, t, lang, onClose }){
 function InventoryView({ store, shop, t, lang, onScan }){
   const st = store.settings(shop.id);
   const products = store.products(shop.id);
-  const movements = store.movements(shop.id);
+  // the newest movement of each variant ("last change"), from the server: the browser keeps only 2 days of history
+  const [lastMoves, setLastMoves] = React.useState({});
+  const hrev = store.histRev(shop.id);
+  React.useEffect(()=>{ let on = true; store.dashGet(shop.id, "/stock/last-moves").then(r=>{ if(on && r) setLastMoves(r); }).catch(()=>{});
+    return ()=>{ on = false; }; }, [shop.id, hrev]);
   const [q, setQ] = React.useState("");
   const [filter, setFilter] = React.useState("all");
   const [cat, setCat] = React.useState("all");
@@ -490,7 +498,7 @@ function InventoryView({ store, shop, t, lang, onScan }){
 
   const rows = [];
   products.forEach(p => p.variants.forEach(v => rows.push({ p, v, state: variantState(v, st.threshold) })));
-  const lastOf = (vid)=>{ const m = movements.find(x=>x.variantId===vid); return m? m.at : null; };
+  const lastOf = (vid)=> lastMoves[vid] || null;
   const shown = rows.filter(r=>{
     if(filter==="low" && r.state!=="low") return false;
     if(filter==="out" && r.state!=="out") return false;
@@ -641,7 +649,7 @@ function InventoryView({ store, shop, t, lang, onScan }){
           onApply={(v)=>{ store.setVariantThreshold(shop.id, modal.rows.map(r=>r.v.id), v); setSel([]); toast(t.st_saved); }}/>
       )}
       {modal && modal.k==="labels" && <LabelsModal rows={modal.rows} t={t} lang={lang} pro={st.plan==="pro"} onClose={()=>setModal(null)}/>}
-      {modal && modal.k==="hist" && <HistoryDrawer row={modal.row} movements={movements} sales={store.sales(shop.id)} t={t} lang={lang} onClose={()=>setModal(null)}/>}
+      {modal && modal.k==="hist" && <HistoryDrawer store={store} shop={shop} row={modal.row} t={t} lang={lang} onClose={()=>setModal(null)}/>}
       {modal && modal.k==="bc" && <BarcodeModal store={store} shop={shop} row={modal.row} t={t} lang={lang} onClose={()=>setModal(null)}/>}
       {modal && modal.k==="restock" && <RestockPicker store={store} shop={shop} t={t} lang={lang} onPick={(p)=>setModal({k:"restock1", p})} onClose={()=>setModal(null)}/>}
       {modal && modal.k==="adjpick" && <RestockPicker store={store} shop={shop} t={t} lang={lang} title={t.adj_choose} onPick={(p)=>setModal({k:"adj", p})} onClose={()=>setModal(null)}/>}

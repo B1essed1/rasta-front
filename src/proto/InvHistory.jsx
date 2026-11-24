@@ -164,77 +164,64 @@ const HX_R = {
 };
 const hxR = (r)=> HX_R[r] || HX_R.correction;
 
+// The stock journal in pages with the period's counts and totals from the server (BACKEND-PLAN §23).
 function StockHistory({ store, shop, t, lang, focus, clearFocus }){
-  const movements = store.movements(shop.id);
   const idx = store.variantIndex(shop.id);
-  const sales = store.sales(shop.id);
   const [view, setView] = React.useState("timeline");
   const [q, setQ] = React.useState("");
   const [reason, setReason] = React.useState("all");
   const [period, setPeriod] = React.useState("30");
   const [from, setFrom] = React.useState(()=>hxISO(Date.now()-29*86400000));
   const [to, setTo] = React.useState(()=>hxISO(Date.now()));
-  const [limit, setLimit] = React.useState(40);
   const [pFocus, setPFocus] = React.useState(null);
-  React.useEffect(()=>{ setLimit(40); }, [q, reason, period, from, to, focus, pFocus]);
   React.useEffect(()=>{ if(focus) setPFocus(null); }, [focus]);
 
   const now = Date.now(), DAY = 86400000;
   const since = from? new Date(from+"T00:00:00").getTime() : 0;
   const until = to? new Date(to+"T23:59:59").getTime() : Infinity;
   const repPeriod = from? String(Math.max(1, Math.round(((until===Infinity? now : Math.min(now, until)) - since)/DAY))) : "all";
-  const whoOf = (m)=>{ if(m.reason!=="sale" || !m.saleId) return "—"; const s = sales.find(x=>x.id===m.saleId); if(!s) return "—";
-    const id = store.saleSeller(shop.id, s); const mm = store.team(shop.id).find(x=>x.id===id); if(!mm) return "—";
+  // the sale's seller comes with each movement (sellerId, already mapped like store.saleSeller)
+  const whoOf = (m)=>{ if(m.reason!=="sale" || !m.saleId || !m.sellerId) return "—";
+    const mm = store.team(shop.id).find(x=>x.id===m.sellerId); if(!mm) return "—";
     // always a real first + last name, never "You"
     if(mm.name) return mm.name;
     const ses = store.state.session; return (ses && ses.name) || ""; };
   const fx = focus && idx[focus];
 
-  // running stock: walk newest → oldest from current qty
-  const after = React.useMemo(()=>{
-    const cur = {}; Object.keys(idx).forEach(k=>{ cur[k] = idx[k].v.qty; });
-    const out = {};
-    movements.forEach(m=>{ if(cur[m.variantId]==null) return; out[m.id] = cur[m.variantId]; cur[m.variantId] -= m.delta; });
-    return out;
-  }, [movements, idx]);
-
-  const scoped = movements.filter(m=>{
-    const x = idx[m.variantId]; if(!x) return false;
-    if(m.at < since || m.at > until) return false;
-    if(focus && m.variantId!==focus) return false;
-    if(pFocus && x.p.id!==pFocus) return false;
-    if(q){
-      const hay = (textFB(x.p.name,lang)+" "+textFB(x.p.name,"en")+" "+(vLabel(x.p,x.v,lang)||"")+" "+(x.v.barcode||"")+" "+(m.note||"")).toLowerCase();
-      if(!hay.includes(q.toLowerCase())) return false;
-    }
-    return true;
-  });
-  const list = reason==="all"? scoped : scoped.filter(m=>m.reason===reason);
-  const cnt = (k)=> k==="all"? scoped.length : scoped.filter(m=>m.reason===k).length;
-  const sumBy = (arr, f)=> arr.reduce((n,m)=>n+f(m),0);
-  const inN = sumBy(scoped.filter(m=>m.delta>0), m=>m.delta);
-  const soldN = sumBy(scoped.filter(m=>m.reason==="sale"), m=>-m.delta);
-  const lostN = sumBy(scoped.filter(m=>m.reason==="loss"), m=>Math.abs(m.delta||m.qty||0));
-  const netN = sumBy(scoped, m=>m.delta);
-  const saleNo = (id)=>{ const s = sales.find(x=>x.id===id); return s? "#"+s.no : ""; };
+  // the period's movements (product / variant, search, reason) in pages; counts, totals, the stock left after each
+  // movement, the sale's price and seller come from the server
+  const query = (page, size)=> store.dashGet(shop.id, "/movements/page?"+dashQS({ from:since, to:until, variantId:focus||"", productId:pFocus||"",
+    q, reason, lang, page, size }));
+  const pages = useDashPages(query, JSON.stringify([since, until, focus, pFocus, q, reason, lang]), store.histRev(shop.id));
+  const list = pages.items.filter(m=>idx[m.variantId]);
+  const res = pages.res || {};
+  const counts = res.counts || {}, sums = res.sums || {};
+  const cnt = (k)=> counts[k] || 0;
+  const inN = sums.in||0, soldN = sums.sold||0, lostN = sums.lost||0, netN = sums.net||0;
+  const after = {}; list.forEach(m=>{ if(m.after!=null) after[m.id] = m.after; });
+  const saleNos = {}; list.forEach(m=>{ if(m.saleId && m.saleNo!=null) saleNos[m.saleId] = m.saleNo; });
+  const saleNo = (id)=> saleNos[id]!=null? "#"+saleNos[id] : "";
 
   const dayKey = (ts)=>{ const d=new Date(ts); return d.getFullYear()+"-"+d.getMonth()+"-"+d.getDate(); };
   const today = dayKey(now), yday = dayKey(now-DAY);
   const dayLabel = (ts)=>{ const k=dayKey(ts); if(k===today) return t.h_today; if(k===yday) return t.h_yday;
     const d=new Date(ts); return fmtDate(ts,lang)+(d.getFullYear()!==new Date().getFullYear()? " "+d.getFullYear() : ""); };
   const groups = [];
-  list.slice(0,limit).forEach(m=>{
+  list.forEach(m=>{
     const k = dayKey(m.at);
     let g = groups[groups.length-1];
     if(!g || g.k!==k){ g = { k, label:dayLabel(m.at), items:[], inn:0, out:0 }; groups.push(g); }
     g.items.push(m); if(m.delta>0) g.inn += m.delta; else g.out -= m.delta;
   });
   const hhmm = (ts)=>{ const d=new Date(ts); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); };
-  const unitOf = (m)=> m.reason==="sale" && m.saleId ? ((sales.find(s=>s.id===m.saleId)||{lines:[]}).lines.find(l=>l.variantId===m.variantId)||{}).unit : m.unitCost;
+  const unitOf = (m)=> m.unit!=null? m.unit : undefined;
 
-  function exportCSV(){
+  async function exportCSV(){
+    let all;
+    try{ all = (await dashAll(query)).items.filter(m=>idx[m.variantId]); }catch(e){ toast(Api.errorText(e, lang), "err"); return; }
+    all.forEach(m=>{ if(m.saleId && m.saleNo!=null) saleNos[m.saleId] = m.saleNo; });
     const rows = [["date","time","product","variant","barcode","what","qty","price","amount","stock_before","stock_after","who","note"]];
-    list.forEach(m=>{ const x=idx[m.variantId]; const unit = unitOf(m); const a = after[m.id];
+    all.forEach(m=>{ const x=idx[m.variantId]; const unit = unitOf(m); const a = m.after;
       rows.push([hxDate(m.at), hhmm(m.at), textFB(x.p.name,lang), vLabel(x.p,x.v,lang)||"", x.v.barcode||"", reasonLabel(m.reason,t)+(m.saleId? " "+saleNo(m.saleId) : ""), m.delta, unit!=null? unit : "", unit!=null? Math.abs(m.delta||m.qty||0)*unit : "", a!=null? a-m.delta : "", a!=null? a : "", whoOf(m), m.note&&m.note!=="initial"? m.note : ""]); });
     const csv = rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n");
     const a = document.createElement("a");
@@ -252,10 +239,10 @@ function StockHistory({ store, shop, t, lang, focus, clearFocus }){
           <button className={view==="timeline"?"on":""} onClick={()=>setView("timeline")}>{t.hx_timeline}</button>
           <button className={view==="reports"?"on":""} onClick={()=>setView("reports")}>{t.hx_reports}</button>
         </div>
-        <HxRange from={from} to={to} t={t} lang={lang} onChange={(f, tt)=>{ setFrom(f); setTo(tt); setPeriod(f? "custom" : "all"); store.ensureRange(shop.id, f ? new Date(f+"T00:00:00").getTime() : 0); }}/>
+        <HxRange from={from} to={to} t={t} lang={lang} onChange={(f, tt)=>{ setFrom(f); setTo(tt); setPeriod(f? "custom" : "all"); }}/>
       </div>
 
-      {view==="reports" ? <HxReports store={store} shop={shop} t={t} lang={lang} since={since} period={repPeriod} movements={movements} sales={sales} idx={idx}/> : (
+      {view==="reports" ? <HxReports store={store} shop={shop} t={t} lang={lang} since={since} period={repPeriod} idx={idx}/> : (
       <React.Fragment>
         <div className="hx-story">
           <div className="hx-kpi in"><span>{t.h_in}</span><b>+{inN}</b></div>
@@ -266,7 +253,7 @@ function StockHistory({ store, shop, t, lang, focus, clearFocus }){
 
         <div className="inv-bar hx-bar">
           <div className="inline-search grow">{I.search({width:17,height:17})}<input value={q} onChange={e=>setQ(e.target.value)} placeholder={t.h_search}/></div>
-          <button className="btn btn-ghost btn-sm" disabled={!list.length} onClick={exportCSV}>{I.download? I.download({width:15,height:15}) : null} {t.h_export}</button>
+          <button className="btn btn-ghost btn-sm" disabled={!pages.total} onClick={exportCSV}>{I.download? I.download({width:15,height:15}) : null} {t.h_export}</button>
         </div>
         <div className="chip-row hist-chips hx-chips">
           {fx && <button className="pick-chip on focus" onClick={clearFocus}>{textFB(fx.p.name,lang)}{vLabel(fx.p,fx.v,lang)? " · "+vLabel(fx.p,fx.v,lang) : ""} {I.x({width:12,height:12})}</button>}
@@ -274,7 +261,7 @@ function StockHistory({ store, shop, t, lang, focus, clearFocus }){
           {reasons.map(([k,l])=>{ const n=cnt(k); return <button key={k} className={"pick-chip"+(reason===k?" on":"")+(!n && reason!==k?" zero":"")} onClick={()=>setReason(k)}>{k!=="all" && <span className={"hx-dot "+hxR(k).c}></span>}{l} <i>{n}</i></button>; })}
         </div>
 
-        {list.length===0 && <div className="stk-empty card">{t.h_empty}</div>}
+        {list.length===0 && (pages.loading? <div className="stk-empty card"><span className="tg-spin"></span></div> : <div className="stk-empty card">{t.h_empty}</div>)}
         {list.length>0 && (
           <div className="stock-table hx-stock" style={{overflowX:"auto"}}>
             <div style={{minWidth:1120}}>
@@ -283,7 +270,7 @@ function StockHistory({ store, shop, t, lang, focus, clearFocus }){
                 {[t.hc_id, t.db_products, t.hc_qty, t.hc_price, t.hc_sum, t.hc_stock, t.hc_what, t.hc_date, t.hc_who, t.hc_barcode].map((h,i)=>(
                   <span key={i} style={{whiteSpace:"nowrap", textAlign: i>=2 && i<=5? "right" : "left"}}>{h}</span>))}
               </div>
-                {list.slice(0,limit).map(m=>{ const x = idx[m.variantId], R = hxR(m.reason), a = after[m.id], b = a!=null? a - m.delta : null;
+                {list.map(m=>{ const x = idx[m.variantId], R = hxR(m.reason), a = after[m.id], b = a!=null? a - m.delta : null;
                   const unit = unitOf(m), qty = Math.abs(m.delta||m.qty||0), val = unit!=null? qty*unit : null;
                   const td = {};
                   return (
@@ -315,7 +302,7 @@ function StockHistory({ store, shop, t, lang, focus, clearFocus }){
             <div key={g.k} className="hist-day card">
               <div className="hist-day-h hx-day-h"><b>{g.label}</b><span>{g.inn>0 && <em className="up">{"+"+g.inn}</em>}{g.out>0 && <em className="down">{"−"+g.out}</em>}</span></div>
               {g.items.map(m=>{ const x = idx[m.variantId], R = hxR(m.reason), a = after[m.id], b = a!=null? a - m.delta : null;
-                const unit = m.reason==="sale" && m.saleId ? ((sales.find(s=>s.id===m.saleId)||{lines:[]}).lines.find(l=>l.variantId===m.variantId)||{}).unit : m.unitCost;
+                const unit = unitOf(m);
                 const val = unit!=null ? Math.abs(m.delta||m.qty||0)*unit : null;
                 return (
                   <div key={m.id} className="hx-row">
@@ -334,16 +321,23 @@ function StockHistory({ store, shop, t, lang, focus, clearFocus }){
             </div>
           ))}
         </div>
-        {list.length>limit && <button className="btn btn-soft hist-more" onClick={()=>setLimit(limit+40)}>{t.h_more} · {list.length-limit}</button>}
+        {pages.hasMore && <button className="btn btn-soft hist-more" disabled={pages.loading} onClick={pages.more}>{t.h_more} · {pages.total-pages.items.length}</button>}
       </React.Fragment>
       )}
     </div>
   );
 }
 
-function HxReports({ store, shop, t, lang, since, period, movements, sales, idx }){
-  const DAY = 86400000, now = Date.now();
-  const days = period==="all"? Math.max(1, Math.ceil((now - Math.min(now, ...movements.map(m=>m.at)))/DAY)) : Number(period);
+function HxReports({ store, shop, t, lang, since, period, idx }){
+  const DAY = 86400000;
+  // per product since the period start (sold, revenue, cost, losses, restocks) and the flow chart, from the server
+  const [rep, setRep] = React.useState(null);
+  const rev0 = store.histRev(shop.id);
+  React.useEffect(()=>{ let on = true; const now = Date.now();
+    store.dashGet(shop.id, "/reports?"+dashQS({ from:since, period, now })).then(r=>{ if(on) setRep({ ...r, now }); }).catch(()=>{});
+    return ()=>{ on = false; }; }, [since, period, rev0]);
+  const now = rep? rep.now : Date.now();
+  const days = rep? rep.days : (period==="all"? 1 : Number(period));
   const prods = store.products(shop.id);
   const price = (p,v)=> v.price!=null? v.price : p.price;
   const nm = (p)=> textFB(p.name, lang);
@@ -352,14 +346,7 @@ function HxReports({ store, shop, t, lang, since, period, movements, sales, idx 
   const stockRetail = prods.reduce((n,p)=>n+p.variants.reduce((m,v)=>m+Math.max(0,v.qty)*(price(p,v)||0),0),0);
   const costUnknown = prods.some(p=>p.variants.some(v=>v.qty>0 && v.avgCost==null));
 
-  const ps = sales.filter(s=>s.at>=since && s.status!=="returned");
-  const per = {};
-  const P = (id)=> per[id] || (per[id] = { sold:0, rev:0, cost:0, costKnown:true, lost:0, lostVal:0, inQty:0, inCost:0 });
-  ps.forEach(s=> s.lines.forEach(l=>{ const x = idx[l.variantId]; if(!x) return; const q = l.qty - (l.returned||0); if(q<=0) return;
-    const r = P(x.p.id); r.sold += q; r.rev += q*l.unit; if(l.cost!=null) r.cost += q*l.cost; else r.costKnown = false; }));
-  movements.filter(m=>m.at>=since).forEach(m=>{ const x = idx[m.variantId]; if(!x) return; const r = P(x.p.id);
-    if(m.reason==="loss"){ const q = Math.abs(m.delta||m.qty||0); r.lost += q; r.lostVal += q*(m.unitCost||0); }
-    if(m.reason==="restock" && m.delta>0){ r.inQty += m.delta; if(m.unitCost!=null) r.inCost += m.delta*m.unitCost; } });
+  const per = (rep && rep.per) || {};
   const rev = Object.values(per).reduce((n,r)=>n+r.rev,0);
   const profit = Object.values(per).reduce((n,r)=>n+(r.rev-r.cost),0);
   const lostVal = Object.values(per).reduce((n,r)=>n+r.lostVal,0);
@@ -374,11 +361,8 @@ function HxReports({ store, shop, t, lang, since, period, movements, sales, idx 
   const losses = prods.filter(p=>per[p.id] && per[p.id].lost).sort((a,b)=>per[b.id].lost-per[a.id].lost).slice(0,5);
   const spend = prods.filter(p=>per[p.id] && per[p.id].inQty).sort((a,b)=>per[b.id].inCost-per[a.id].inCost).slice(0,5);
 
-  // flow chart: buckets (days for ≤30, weeks beyond)
-  const nB = Math.min(days, 30), bSize = Math.ceil(days/nB);
-  const buckets = Array.from({length:Math.ceil(days/bSize)}, (_,i)=>({ inn:0, out:0, at: now - (Math.ceil(days/bSize)-1-i)*bSize*DAY }));
-  movements.forEach(m=>{ if(m.at<since && period!=="all") return; const i = buckets.length-1-Math.floor((now-m.at)/(bSize*DAY)); if(i<0||i>=buckets.length) return;
-    if(m.delta>0) buckets[i].inn += m.delta; else buckets[i].out -= m.delta; });
+  // flow chart: buckets (days for ≤30, weeks beyond), added up on the server
+  const buckets = (rep && rep.buckets && rep.buckets.length)? rep.buckets : [{ inn:0, out:0, at:now }];
   const bMax = Math.max(1, ...buckets.map(b=>Math.max(b.inn,b.out)));
 
   const Th = ({p})=> <span className="hx-th" style={{background:p.tone||"#ddd"}}><ImageSlot id={pslot(shop.id,p,0)} src={photoURL(p.tone, pslot(shop.id,p,0), 80,80, (window.IMG_KW||{})[shop.type], 0)} placeholder="" style={FILL}/></span>;
